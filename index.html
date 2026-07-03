@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<!-- ARTIFACT-START -->
+<title>Code Story — Signal Lost</title>
+<style>
+  :root{
+    --bg:#070b12; --panel:#0e1520; --panel2:#0a101a; --line:#1c2939; --line2:#243549;
+    --text:#c9d5e0; --muted:#71818f; --accent:#53d6c6; --accent-dim:#2b6e66;
+    --amber:#e0a458; --good:#66d188; --bad:#e5545e;
+    --mono:ui-monospace,"SFMono-Regular","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;min-height:100vh}
+  button{font-family:var(--mono);cursor:pointer}
+  button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .brand{font-weight:700;letter-spacing:.18em;font-size:15px;white-space:nowrap}
+  .brand .sub{color:var(--amber);font-weight:400;letter-spacing:.12em}
+  .brand .dot{color:var(--accent)}
+  #chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{background:var(--panel);border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.06em;border-radius:2px}
+  .chip:not(:disabled):hover{border-color:var(--accent-dim);color:var(--text)}
+  .chip.cur{border-color:var(--accent);color:var(--accent)}
+  .chip.done::after{content:" ✓";color:var(--good)}
+  .chip:disabled{opacity:.35;cursor:not-allowed}
+  #speed{margin-left:auto;background:none;border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.08em;border-radius:2px}
+  #speed:hover{color:var(--text);border-color:var(--accent-dim)}
+
+  /* ---------- layout ---------- */
+  main{display:grid;grid-template-columns:310px minmax(0,1fr) 430px;gap:0;min-height:calc(100vh - 49px)}
+  main>*{min-width:0}
+  @media (max-width:1150px){
+    main{grid-template-columns:1fr;min-height:0}
+    #mission{border-right:none;border-bottom:1px solid var(--line)}
+    #right{border-left:none;border-top:1px solid var(--line)}
+    #editor{min-height:220px}
+  }
+
+  /* ---------- mission panel ---------- */
+  #mission{border-right:1px solid var(--line);padding:18px;overflow-y:auto;background:var(--panel2)}
+  .kicker{font-size:11px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+  #lv-title{font-size:19px;font-weight:700;letter-spacing:.04em;margin:2px 0 2px;text-wrap:balance}
+  #lv-concept{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent-dim);padding:2px 8px;border-radius:2px;margin-bottom:14px}
+  .comms{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  .comms .who{font-size:11px;letter-spacing:.16em;margin-bottom:1px}
+  .comms .halcyon .who{color:var(--amber)}
+  .comms .byte .who{color:var(--accent)}
+  .comms .you .who{color:var(--muted)}
+  .comms .say{font-family:var(--sans);font-size:13.5px;color:var(--text);max-width:62ch}
+  .comms .halcyon .say{color:var(--amber);opacity:.9}
+  .box{border:1px solid var(--line2);border-radius:2px;padding:10px 12px;margin-bottom:14px;background:var(--panel)}
+  .box .bt{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  #lv-objective{font-family:var(--sans);font-size:13.5px}
+  #lv-budget{color:var(--amber);font-size:12.5px;margin-top:6px}
+  #lv-api{display:flex;flex-direction:column;gap:8px}
+  #lv-api .fn{font-size:12.5px}
+  #lv-api .sig{color:var(--accent)}
+  #lv-api .doc{color:var(--muted);font-family:var(--sans);font-size:12.5px}
+
+  /* ---------- viewport ---------- */
+  #viewport{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:
+    radial-gradient(ellipse 90% 70% at 50% 30%, #0b1322 0%, var(--bg) 70%);position:relative;overflow:auto}
+  #hud{font-size:11px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:16px}
+  #hud b{color:var(--text);font-weight:400}
+  #gridwrap{position:relative}
+  #grid{position:relative;display:grid;gap:2px}
+  .tile{width:40px;height:40px;border-radius:2px;position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column}
+  .t-wall{background:#1a2740;border:1px solid #2a3a58;box-shadow:inset 0 2px 0 rgba(255,255,255,.05)}
+  .t-floor{background:#090f1a;border:1px solid #101a29}
+  .t-console{background:#0a1a1c;border:1px solid var(--accent-dim);animation:pulse 1.6s ease-in-out infinite}
+  .t-console::before{content:"▣";color:var(--accent);font-size:18px}
+  .t-airlock{background:#0a1a1c;border:1px solid var(--accent-dim);animation:pulse 1.6s ease-in-out infinite}
+  .t-airlock::before{content:"◎";color:var(--accent);font-size:18px}
+  .t-debris{background:#0a111d;border:1px solid #3a2a1c}
+  .t-debris::before{content:"◆";color:var(--amber);font-size:15px}
+  .t-cell,.t-cabinet,.t-crate{background:#0d1626;border:1px solid #22304a}
+  .t-cell::before{content:"▮";color:#41546e;font-size:13px}
+  .t-cell.revealed.dead{border-color:var(--bad)}
+  .t-cell.revealed.dead::before{color:var(--bad)}
+  .t-cell.revealed.live::before{color:var(--good)}
+  .t-cell.fixed{border-color:var(--good);background:#0c1f16}
+  .t-cell.fixed::before{content:"▮";color:var(--good)}
+  .t-cabinet::before{content:"▤";color:#41546e;font-size:14px}
+  .t-cabinet.revealed::before{color:var(--accent)}
+  .t-cabinet.open-ok{border-color:var(--good);background:#0c1f16}
+  .t-cabinet.open-bad{border-color:var(--bad);background:#241014}
+  .t-crate::before{content:"▦";color:#5b6d85;font-size:15px}
+  .t-crate.revealed::before{color:var(--accent)}
+  .t-crate.sorted{border-color:var(--good)}
+  .t-crate.sorted::before{color:var(--good)}
+  .tlabel{font-size:9px;line-height:1;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+  .tidx{position:absolute;top:1px;left:3px;font-size:8px;line-height:1;color:#42546d;font-variant-numeric:tabular-nums}
+  .revealed .tlabel{color:var(--text)}
+  .tile.ping{box-shadow:0 0 0 2px var(--accent)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(83,214,198,.15)}50%{box-shadow:0 0 14px rgba(83,214,198,.5)}}
+  #robot{position:absolute;width:40px;height:40px;transition:transform .13s linear;z-index:5;pointer-events:none}
+  #robot .body{position:absolute;inset:6px;background:var(--accent);border-radius:4px;transition:transform .13s linear;
+    box-shadow:0 0 12px rgba(83,214,198,.55)}
+  #robot .body::before{content:"";position:absolute;top:3px;left:50%;transform:translateX(-50%);width:8px;height:5px;background:#062521;border-radius:1px}
+  #robot.bump .body{background:var(--bad);box-shadow:0 0 12px rgba(229,84,94,.6)}
+  #robot.win .body{background:var(--good);box-shadow:0 0 18px rgba(102,209,136,.8)}
+  @media (prefers-reduced-motion:reduce){
+    #robot,#robot .body{transition:none}
+    .t-console,.t-airlock{animation:none}
+  }
+
+  /* ---------- right: editor + console ---------- */
+  #right{border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel2)}
+  #edhead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+  #edhead .fname{font-size:12px;letter-spacing:.12em;color:var(--muted)}
+  #edhead .fname b{color:var(--text);font-weight:400}
+  #edhead .spacer{flex:1}
+  .btn{border:1px solid var(--line2);background:var(--panel);color:var(--text);padding:5px 14px;font-size:12px;letter-spacing:.1em;border-radius:2px;text-transform:uppercase}
+  .btn:hover{border-color:var(--accent-dim)}
+  .btn.primary{border-color:var(--accent);color:var(--accent)}
+  .btn.primary:hover{background:rgba(83,214,198,.08)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  #editor{flex:1;min-height:260px;resize:none;border:none;background:var(--panel2);color:var(--text);
+    font-family:var(--mono);font-size:13.5px;line-height:1.6;padding:12px 14px;tab-size:2}
+  #console{height:210px;overflow-y:auto;border-top:1px solid var(--line);padding:10px 14px;background:#060a10;font-size:12.5px;line-height:1.7}
+  #console div{white-space:pre-wrap;word-break:break-word}
+  .c-info{color:var(--muted)} .c-err{color:var(--bad)} .c-ok{color:var(--good)}
+  .c-report{color:var(--accent)} .c-warn{color:var(--amber)}
+
+  /* ---------- modal ---------- */
+  #overlay{position:fixed;inset:0;background:rgba(4,7,12,.78);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  #overlay.show{display:flex}
+  #modal{background:var(--panel);border:1px solid var(--line2);border-top:2px solid var(--accent);max-width:560px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 30px;border-radius:2px}
+  #modal .kicker{color:var(--accent)}
+  #modal h2{margin:4px 0 14px;font-size:20px;letter-spacing:.03em;text-wrap:balance}
+  #modal .mbody{font-family:var(--sans);font-size:14px;color:var(--text)}
+  #modal .mbody p{margin:0 0 12px;max-width:60ch}
+  #modal .mbody ul{margin:0 0 12px;padding-left:20px}
+  #modal .mbody li{margin-bottom:6px;max-width:56ch}
+  #modal .mbody code{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:#0a141c;padding:1px 5px;border-radius:2px}
+  #modal .real{border-left:2px solid var(--amber);padding:8px 12px;margin:14px 0;background:rgba(224,164,88,.06)}
+  #modal .real .bt{font-size:11px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:4px;font-family:var(--mono)}
+  #modal .actions{display:flex;justify-content:flex-end;margin-top:18px}
+</style>
+
+<header>
+  <div class="brand">CODE STORY <span class="dot">//</span> <span class="sub">SIGNAL LOST</span></div>
+  <nav id="chips" aria-label="Chapters"></nav>
+  <button id="speed" title="Replay speed">SPEED 1×</button>
+</header>
+
+<main>
+  <aside id="mission">
+    <div class="kicker" id="lv-kicker">Chapter 1 of 7</div>
+    <h1 id="lv-title"></h1>
+    <div id="lv-concept"></div>
+    <div class="comms" id="lv-comms"></div>
+    <div class="box"><div class="bt">Objective</div><div id="lv-objective"></div><div id="lv-budget"></div></div>
+    <div class="box"><div class="bt">Byte's command set</div><div id="lv-api"></div></div>
+  </aside>
+
+  <section id="viewport">
+    <div id="hud"></div>
+    <div id="gridwrap"><div id="grid"></div></div>
+  </section>
+
+  <section id="right">
+    <div id="edhead">
+      <span class="fname">▸ <b id="fname">chapter_1.js</b></span>
+      <span class="spacer"></span>
+      <button class="btn" id="resetBtn" title="Restore this chapter's starter code">Reset</button>
+      <button class="btn primary" id="runBtn" title="Ctrl/Cmd + Enter">▶ Run</button>
+    </div>
+    <textarea id="editor" spellcheck="false" aria-label="Code editor"></textarea>
+    <div id="console" aria-live="polite"></div>
+  </section>
+</main>
+
+<div id="overlay" role="dialog" aria-modal="true">
+  <div id="modal">
+    <div class="kicker" id="m-kicker"></div>
+    <h2 id="m-title"></h2>
+    <div class="mbody" id="m-body"></div>
+    <div class="actions"><button class="btn primary" id="m-btn">Continue</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   CODE STORY — SIGNAL LOST
+   A playable prototype that teaches algorithms through a
+   robot-programming story. Everything is self-contained.
+   ============================================================ */
+
+const TILE = 40, GAP = 2, PITCH = TILE + GAP;
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]]; // N E S W
+const OPS_MAX = 20000, GUARD_MAX = 100000;
+
+/* ---------- seeded rng ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const ri=(rng,min,max)=>min+Math.floor(rng()*(max-min+1));
+
+/* ---------- world helpers ---------- */
+function emptyWorld(w,h){
+  const tiles=[];
+  for(let y=0;y<h;y++){tiles.push([]);for(let x=0;x<w;x++)tiles[y].push({type:'wall'});}
+  return {w,h,tiles,robot:null,meta:{}};
+}
+function worldFromRows(rows){
+  const h=rows.length,w=rows[0].length,world=emptyWorld(w,h);
+  const rchars={'>':1,'<':3,'^':0,'v':2};
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const c=rows[y][x],t=world.tiles[y][x];
+    if(c==='#'){t.type='wall';continue;}
+    t.type='floor';
+    if(c==='C')t.type='console';
+    if(c in rchars)world.robot={x,y,dir:rchars[c]};
+  }
+  return world;
+}
+const tileAt=(world,x,y)=>(x<0||y<0||x>=world.w||y>=world.h)?{type:'wall'}:world.tiles[y][x];
+function classify(world,x,y){
+  const t=tileAt(world,x,y);
+  if(t.type==='wall')return'wall';
+  if(t.type==='console')return'console';
+  if(t.type==='debris')return'debris';
+  if(t.type==='airlock')return'airlock';
+  return'clear';
+}
+const onType=(sim,ty)=>sim.world.robot&&tileAt(sim.world,sim.world.robot.x,sim.world.robot.y).type===ty;
+
+/* ---------- execution machinery ---------- */
+class StopRun extends Error{}
+function maybeWin(sim){
+  if(!sim.level.winAtEnd&&sim.level.win(sim)){
+    sim.won=true;sim.actions.push({t:'win'});throw new StopRun();
+  }
+}
+function opTick(sim){
+  if(++sim.ops>OPS_MAX)throw new Error(`Byte executed ${OPS_MAX.toLocaleString()} operations without completing the objective, then powered down to save the battery.`);
+}
+const bump=(sim,k)=>{sim.counts[k]=(sim.counts[k]||0)+1;};
+
+/* Inject __guard() into every loop body so infinite loops halt
+   with a friendly error instead of freezing the tab. */
+function injectGuards(src){
+  let out='',i=0;
+  while(i<src.length){
+    const ch=src[i];
+    if(ch==='"'||ch==="'"||ch==='`'){const q=ch;out+=ch;i++;
+      while(i<src.length){if(src[i]==='\\'){out+=src[i]+(src[i+1]??'');i+=2;continue;}out+=src[i];if(src[i]===q){i++;break;}i++;}continue;}
+    if(ch==='/'&&src[i+1]==='/'){while(i<src.length&&src[i]!=='\n')out+=src[i++];continue;}
+    if(ch==='/'&&src[i+1]==='*'){while(i<src.length&&!(src[i]==='*'&&src[i+1]==='/'))out+=src[i++];out+='*/';i+=2;continue;}
+    if(/[A-Za-z_$]/.test(ch)){
+      let j=i;while(j<src.length&&/[A-Za-z0-9_$]/.test(src[j]))j++;
+      const word=src.slice(i,j);
+      const prev=out.length?out[out.length-1]:'';
+      out+=word;i=j;
+      if(/[A-Za-z0-9_$.]/.test(prev))continue; // part of a longer identifier / property
+      if(word==='for'||word==='while'){
+        while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
+        if(src[i]!=='(')continue;
+        let depth=0;
+        do{if(src[i]==='(')depth++;else if(src[i]===')')depth--;out+=src[i++];}while(i<src.length&&depth>0);
+        while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
+        if(src[i]==='{'){out+='{__guard();';i++;}
+        else if(src[i]===';'){out+=src[i++];} // do{}while(x); or empty body
+        else{ // single-statement body
+          out+='{__guard();';
+          let d2=0;
+          while(i<src.length){const c=src[i];out+=c;
+            if(c==='('||c==='['||c==='{')d2++;
+            if(c===')'||c===']'||c==='}')d2--;
+            i++;if(c===';'&&d2<=0)break;}
+          out+='}';
+        }
+      }else if(word==='do'){
+        while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
+        if(src[i]==='{'){out+='{__guard();';i++;}
+      }
+      continue;
+    }
+    out+=ch;i++;
+  }
+  return out;
+}
+
+function runTrial(level,seed,code){
+  const world=level.build(mulberry32(seed));
+  const sim={world,level,actions:[],ops:0,won:false,failed:null,compileError:false,counts:{}};
+  const api=level.makeApi(sim);
+  api.report=(msg)=>{opTick(sim);sim.actions.push({t:'report',msg:String(msg)});};
+  let fn;
+  try{
+    fn=new Function(...Object.keys(api),'__guard','"use strict";\n'+injectGuards(code)+'\n');
+  }catch(e){sim.failed='Syntax error — '+e.message;sim.compileError=true;return sim;}
+  let g=0;
+  const guard=()=>{if(++g>GUARD_MAX)throw new Error(`The program looped ${GUARD_MAX.toLocaleString()} times without finishing — that's almost certainly an infinite loop. Check your loop's exit condition.`);};
+  try{fn(...Object.values(api),guard);}
+  catch(e){if(!(e instanceof StopRun))sim.failed=e.message||String(e);}
+  if(!sim.won&&level.winAtEnd&&level.win(sim)){sim.won=true;sim.actions.push({t:'win'});}
+  return sim;
+}
+
+/* ---------- shared robot command set ---------- */
+function movementApi(sim,opts={}){
+  const ahead=(turn=0)=>{
+    const r=sim.world.robot,d=(r.dir+turn+4)%4;
+    return {x:r.x+DIRS[d][0],y:r.y+DIRS[d][1]};
+  };
+  const api={
+    move(){opTick(sim);const p=ahead(),c=classify(sim.world,p.x,p.y);
+      if(c==='debris')throw new Error('CRUNCH. Byte drove straight into debris. Chassis integrity warning — trial failed. (Byte can scan() before moving.)');
+      if(c==='wall'){sim.actions.push({t:'bump'});return;}
+      sim.world.robot.x=p.x;sim.world.robot.y=p.y;
+      sim.actions.push({t:'move',x:p.x,y:p.y});bump(sim,'moves');maybeWin(sim);},
+    turnLeft(){opTick(sim);sim.world.robot.dir=(sim.world.robot.dir+3)%4;sim.actions.push({t:'turn',dir:sim.world.robot.dir});},
+    turnRight(){opTick(sim);sim.world.robot.dir=(sim.world.robot.dir+1)%4;sim.actions.push({t:'turn',dir:sim.world.robot.dir});},
+  };
+  if(opts.scan)api.scan=()=>{opTick(sim);const p=ahead(),c=classify(sim.world,p.x,p.y);sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'scans');return c;};
+  if(opts.sideScan){
+    api.scanLeft=()=>{opTick(sim);const p=ahead(-1),c=classify(sim.world,p.x,p.y);sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'scans');return c;};
+    api.scanRight=()=>{opTick(sim);const p=ahead(1),c=classify(sim.world,p.x,p.y);sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'scans');return c;};
+  }
+  return api;
+}
+function checkIndex(i,n,fname){
+  if(!Number.isInteger(i)||i<0||i>=n)
+    throw new Error(`${fname}(${i}) — there is no slot ${i}. Valid indices run from 0 to ${n-1}. (Programmers count from zero.)`);
+}
+
+/* ============================================================
+   LEVELS
+   ============================================================ */
+const LEVELS=[
+
+/* ---- 1 · sequences ---- */
+{
+  id:'seq',title:'Wake-Up Call',concept:'Sequences',
+  seeds:[1],
+  brief:[
+    ['HALCYON','…emergency power only… crew safe in cryo… maintenance unit B-YT3 will accept programs at any deck console…'],
+    ['BYTE','Boot complete. Hello, new engineer. Fair warning: I execute exactly what you write. No more, no less, no guessing.'],
+    ['YOU','Six weeks into my first engineering job, and the ship\'s AI is down. Okay. Deep breath. One instruction at a time.'],
+  ],
+  objective:'Walk Byte to the flashing deck console (▣) by giving it an exact sequence of commands.',
+  api:[
+    ['move()','Drive one tile in the direction Byte is facing.'],
+    ['turnLeft() / turnRight()','Rotate 90° in place.'],
+    ['report(msg)','Print a message to the output console below.'],
+  ],
+  starter:`// Byte starts facing east (right).
+// It only does EXACTLY what you write, in order.
+// Get it to the flashing console.
+
+move();
+move();
+// ...keep going
+`,
+  build(){return worldFromRows([
+    '#########',
+    '#>....###',
+    '#####.###',
+    '#####C###',
+    '#########',
+  ]);},
+  makeApi(sim){return movementApi(sim,{});},
+  win(sim){return onType(sim,'console');},
+  success:'The console flickers to life. Somewhere below deck, a relay closes.',
+  card:{title:'You wrote an algorithm',body:`
+    <p>An algorithm is just this: <b>a precise sequence of steps that gets a job done.</b> No intuition, no "you know what I mean" — the machine executes exactly what you wrote.</p>
+    <p>Every bug you will ever fix lives in the gap between what you <em>meant</em> and what you <em>wrote</em>. You just experienced the whole discipline in miniature.</p>
+    <div class="real"><div class="bt">In the wild</div>Deployment scripts, cooking-recipe-style data pipelines, spreadsheet macros — the "do these steps in order" shape is everywhere in real software.</div>`},
+},
+
+/* ---- 2 · loops ---- */
+{
+  id:'loop',title:'The Long Walk',concept:'Loops',
+  seeds:[1],
+  lineBudget:10,
+  brief:[
+    ['HALCYON','…stairwell to engineering… repeating structure… my fragments keep saying: do not write the same thing twice…'],
+    ['BYTE','This stairwell has four identical flights. My uplink buffer only holds 10 lines of code — you cannot fit 22 commands in it.'],
+    ['YOU','Four identical flights. Writing the same five commands four times feels wrong anyway.'],
+  ],
+  objective:'Descend the stairwell to the console. The uplink buffer holds only 10 lines — a copy-pasted solution will not fit. Wrap the repeating pattern in a loop.',
+  api:[
+    ['move() / turnLeft() / turnRight()','Same as before.'],
+    ['for (let i = 0; i < 4; i++) { … }','JavaScript: repeat a block 4 times.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// One flight of stairs is:
+//   move, move, turnRight, move, turnLeft
+// There are 4 identical flights, then 2 tiles to the console.
+// The buffer holds 10 lines — use a loop.
+
+for (let i = 0; i < 4; i++) {
+  // ...one flight goes here
+}
+`,
+  build(){return worldFromRows([
+    '#############',
+    '#>..#########',
+    '###...#######',
+    '#####...#####',
+    '#######...###',
+    '#########..C#',
+    '#############',
+  ]);},
+  makeApi(sim){return movementApi(sim,{});},
+  win(sim){return onType(sim,'console');},
+  success:'Byte rolls off the last stair. Engineering deck: reached.',
+  card:{title:'Loops: write it once, run it n times',body:`
+    <p>Twenty-two commands became a handful of lines. That's the point of a loop: <b>describe the pattern once and let the machine repeat it.</b></p>
+    <p>It also <em>scales</em>. Your program handles 4 flights — the same program handles 4,000. Repetition is the computer's job, not yours.</p>
+    <div class="real"><div class="bt">In the wild</div>"For each row in the spreadsheet…", "for each user in the database…", "retry 3 times…" — loops over data are most of what production code does all day.</div>`},
+},
+
+/* ---- 3 · conditionals ---- */
+{
+  id:'cond',title:'The Shifting Deck',concept:'Conditionals',
+  seeds:[11,42,77],
+  brief:[
+    ['HALCYON','…decompression warped the service corridors… bulkheads shifted… no two decks bent the same way…'],
+    ['BYTE','I will run your program on 3 different corridors. A memorized route will fail — I need a program that looks where it is going.'],
+    ['YOU','So I can\'t hardcode the path. The program has to sense the corridor and decide.'],
+  ],
+  objective:'Reach the console — on all 3 randomized corridors with the same program. Use scan() and if/else so Byte reacts to what is actually in front of it.',
+  api:[
+    ['scan()','Look one tile ahead. Returns "clear", "wall", or "console".'],
+    ['if (scan() === "wall") { … } else { … }','Branch on what the sensor sees.'],
+    ['while (condition) { … }','Loop while a condition holds.'],
+    ['move() / turnLeft() / turnRight()','Same as before.'],
+  ],
+  starter:`// The corridor bends differently every trial.
+// Strategy: while the console isn't ahead —
+//   if the way is clear, move;
+//   if it's a wall, try turning left; if that's
+//   also a wall, turn to face right instead.
+
+while (scan() !== "console") {
+  if (scan() === "clear") {
+    move();
+  } else {
+    turnLeft();
+    if (scan() !== "clear") {
+      turnRight();
+      turnRight();
+    }
+  }
+}
+move(); // step onto the console
+`,
+  build(rng){
+    const world=emptyWorld(13,9);
+    const open=(x,y)=>{world.tiles[y][x].type='floor';};
+    let cy=4;
+    for(let x=1;x<=3;x++)open(x,cy);
+    for(const c of [3,6,9]){
+      const opts=[];
+      if(cy-2>=2)opts.push(cy-2);
+      if(cy+2<=6)opts.push(cy+2);
+      const ny=opts[Math.floor(rng()*opts.length)];
+      for(let y=Math.min(cy,ny);y<=Math.max(cy,ny);y++)open(c,y);
+      cy=ny;
+      for(let x=c;x<=Math.min(c+3,11);x++)open(x,cy);
+    }
+    world.tiles[cy][11].type='console';
+    world.robot={x:1,y:4,dir:1};
+    return world;
+  },
+  makeApi(sim){return movementApi(sim,{scan:true});},
+  win(sim){return onType(sim,'console');},
+  success:'Three corridors, three arrivals, one program. HALCYON\'s voice is a little clearer now.',
+  card:{title:'Conditionals: programs that react',body:`
+    <p>Your first two programs were fixed routes. This one is different — it <b>senses its input and branches</b>. That's what makes it an algorithm rather than a recording.</p>
+    <p>Notice what the 3 trials proved: your code works on inputs you never saw while writing it. That is the actual bar for real software — it must handle <em>all</em> valid inputs, not just the demo.</p>
+    <div class="real"><div class="bt">In the wild</div>Form validation, retry-on-error, feature flags, "if the payment fails, roll back" — branching on live conditions is the second half of all code (loops are the first).</div>`},
+},
+
+/* ---- 4 · linear search ---- */
+{
+  id:'lsearch',title:'The Dead Cell',concept:'Linear search — O(n)',
+  seeds:[3,19,55],
+  brief:[
+    ['HALCYON','…main power failing… one cell in the battery row is dead… my logs do not say which…'],
+    ['BYTE','Ten power cells. One reads 0 volts. I can inspect the cell I\'m parked on. Find it, replace it.'],
+    ['YOU','No shortcut — I check them one by one until I find it. There must be a better way than this… someday.'],
+  ],
+  objective:'Byte starts on cell 1. Roll down the row, inspect() each cell, and replaceCell() when you find the dead one (0 volts). Works on all 3 trials — the dead cell moves.',
+  api:[
+    ['inspect()','Read the voltage of the cell Byte is parked on. Healthy ≈ 240, dead = 0.'],
+    ['replaceCell()','Swap out the cell Byte is parked on. Only works on the dead one.'],
+    ['move()','Roll to the next cell.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// Check cells one at a time until the reading is 0.
+// Then replace that cell.
+
+while (inspect() > 0) {
+  move();
+}
+report("Found it!");
+// ...now replace it
+`,
+  build(rng){
+    const world=emptyWorld(12,3);
+    const dead=ri(rng,1,10);
+    for(let x=1;x<=10;x++){
+      const t=world.tiles[1][x];
+      t.type='cell';t.voltage=(x===dead)?0:ri(rng,236,244);
+    }
+    world.robot={x:1,y:1,dir:1};
+    return world;
+  },
+  makeApi(sim){
+    const api=movementApi(sim,{});
+    api.inspect=()=>{opTick(sim);
+      const r=sim.world.robot,t=tileAt(sim.world,r.x,r.y);
+      if(t.type!=='cell')return -1;
+      sim.actions.push({t:'reveal',x:r.x,y:r.y,label:t.voltage+'V',cls:t.voltage===0?'dead':'live'});
+      bump(sim,'inspections');return t.voltage;};
+    api.replaceCell=()=>{opTick(sim);
+      const r=sim.world.robot,t=tileAt(sim.world,r.x,r.y);
+      if(t.type==='cell'&&t.voltage===0){t.fixed=true;sim.world.meta.fixed=true;
+        sim.actions.push({t:'fix',x:r.x,y:r.y});maybeWin(sim);}
+      else throw new Error('Byte pulled a healthy cell and the deck lights browned out. It has to be the DEAD one (0 volts). Trial failed.');};
+    return api;
+  },
+  win(sim){return sim.world.meta.fixed===true;},
+  success:'The dead cell clatters to the deck. Main power: restored. Lights everywhere.',
+  card:{title:'Linear search: check everything, one by one',body:`
+    <p>You just implemented <b>linear search</b> — walk the data front to back until you hit the target. Simple, always works, needs no preparation.</p>
+    <p>Its cost: with <code>n</code> items, the worst case is <code>n</code> checks. Ten cells, up to ten checks. A million records? Up to a million checks. Engineers write that as <b>O(n)</b> — "cost grows in step with the data."</p>
+    <div class="real"><div class="bt">In the wild</div>This is <code>Array.find()</code> / a plain <code>for</code> loop — and it's fine for small data. Knowing <em>when</em> it stops being fine is the next chapter.</div>`},
+},
+
+/* ---- 5 · binary search ---- */
+{
+  id:'bsearch',title:'The Archive',concept:'Binary search — O(log n)',
+  seeds:[7,23,61],
+  brief:[
+    ['HALCYON','…replacement nav module… parts archive… cabinets are sorted by part ID… scanner battery is nearly gone…'],
+    ['BYTE','15 cabinets, sorted by ID. The scanner has FOUR charges. Checking one-by-one needs up to 15. The sorting must be worth something.'],
+    ['YOU','Sorted… so if a cabinet\'s ID is too small, everything left of it is too small too. I can throw away half the row per scan.'],
+  ],
+  objective:'Find the cabinet whose ID matches target() and open() it — with at most 4 idAt() scans per trial. Halve the search range each scan. Cabinets are indexed 0–14, sorted ascending.',
+  api:[
+    ['count()','Number of cabinets (15).'],
+    ['target()','The part ID you must find.'],
+    ['idAt(i)','Scan cabinet i (0-indexed) and return its ID. Costs 1 of your 4 charges.'],
+    ['open(i)','Open cabinet i. Wrong cabinet trips the security alarm.'],
+    ['Math.floor(x)','Round down — handy for finding the middle index.'],
+  ],
+  starter:`// The cabinets are SORTED. Use it:
+// keep a lo..hi range, scan the middle,
+// and discard the half that can't contain the target.
+
+let lo = 0;
+let hi = count() - 1;
+
+while (lo <= hi) {
+  let mid = Math.floor((lo + hi) / 2);
+  let id = idAt(mid);
+  if (id === target()) {
+    // found it — open it!
+  } else if (id < target()) {
+    // target is somewhere to the right
+  } else {
+    // target is somewhere to the left
+  }
+}
+`,
+  build(rng){
+    const world=emptyWorld(17,3);
+    const ids=[];let v=ri(rng,100,140);
+    for(let i=0;i<15;i++){ids.push(v);v+=ri(rng,7,55);}
+    const ti=ri(rng,5,14);
+    for(let x=1;x<=15;x++){const t=world.tiles[1][x];t.type='cabinet';t.pid=ids[x-1];}
+    world.meta={ids,target:ids[ti],scans:0,opened:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return 15;},
+      target:()=>{opTick(sim);return m.target;},
+      idAt:(i)=>{opTick(sim);checkIndex(i,15,'idAt');
+        if(++m.scans>4)throw new Error('Scanner battery drained — that was scan #5 of a 4-charge battery. Linear habits die here: each scan must eliminate HALF the cabinets. Trial failed.');
+        sim.actions.push({t:'reveal',x:i+1,y:1,label:String(m.ids[i])});
+        bump(sim,'scans');return m.ids[i];},
+      open:(i)=>{opTick(sim);checkIndex(i,15,'open');
+        if(m.ids[i]===m.target){m.opened=true;sim.actions.push({t:'open',x:i+1,y:1,ok:true});maybeWin(sim);}
+        else{sim.actions.push({t:'open',x:i+1,y:1,ok:false});
+          throw new Error(`Cabinet ${i} holds part ${m.ids[i]}, not ${m.target}. Security alarm tripped — trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.opened===true;},
+  success:'Fourth scan. Right cabinet. The nav module is heavier than it looks. HALCYON almost sounds impressed.',
+  card:{title:'Binary search: halve it until it\'s found',body:`
+    <p>You found 1 cabinet in 15 with only 4 scans, because sorted data lets each scan <b>discard half of everything remaining</b>. 15 → 7 → 3 → 1.</p>
+    <p>The payoff explodes with scale: a <em>million</em> sorted items need at most <b>20</b> checks; a billion, 30. That's <b>O(log n)</b> — and it's why databases index their data and why "keep it sorted" is worth paying for.</p>
+    <div class="real"><div class="bt">In the wild</div>Database indexes, autocomplete, <code>git bisect</code> hunting the commit that broke the build — and the single most-asked whiteboard interview question in existence. You just wrote it.</div>`},
+},
+
+/* ---- 6 · sorting ---- */
+{
+  id:'sort',title:'Cargo Shuffle',concept:'Sorting — O(n²)',
+  seeds:[13,47],
+  brief:[
+    ['HALCYON','…thruster asymmetry… cargo bay must be rebalanced… crates ordered lightest to heaviest, port to starboard…'],
+    ['BYTE','8 crates, unknown weights. I have a scale and a crane: weigh(i) and swap(i, j). Arrange them ascending and we can burn for home.'],
+    ['YOU','Last chapter sorted data saved me 11 scans. Now I see why someone bothers to sort it in the first place.'],
+  ],
+  objective:'Rearrange the 8 crates (indices 0–7) into ascending weight order using weigh(i) and swap(i, j). The program must work on both randomized trials. Order is checked when your program ends.',
+  api:[
+    ['count()','Number of crates (8).'],
+    ['weigh(i)','Return the weight of the crate currently in slot i.'],
+    ['swap(i, j)','Crane-swap the crates in slots i and j.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// Selection sort: for each slot from left to right,
+// find the lightest crate in the unsorted remainder
+// and swap it into place.
+
+let n = count();
+for (let i = 0; i < n; i++) {
+  let lightest = i;
+  for (let j = i + 1; j < n; j++) {
+    // if crate j is lighter than crate 'lightest',
+    // remember j
+  }
+  // swap slot i with slot 'lightest'
+}
+`,
+  build(rng){
+    const world=emptyWorld(10,3);
+    const ws=new Set();
+    while(ws.size<8)ws.add(ri(rng,10,99));
+    const weights=[...ws];
+    // shuffle
+    for(let i=weights.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[weights[i],weights[j]]=[weights[j],weights[i]];}
+    for(let x=1;x<=8;x++){const t=world.tiles[1][x];t.type='crate';t.weight=weights[x-1];}
+    return world;
+  },
+  makeApi(sim){
+    return {
+      count:()=>{opTick(sim);return 8;},
+      weigh:(i)=>{opTick(sim);checkIndex(i,8,'weigh');
+        const t=sim.world.tiles[1][i+1];
+        sim.actions.push({t:'reveal',x:i+1,y:1,label:t.weight+'kg'});
+        bump(sim,'weighs');return t.weight;},
+      swap:(i,j)=>{opTick(sim);checkIndex(i,8,'swap');checkIndex(j,8,'swap');
+        const a=sim.world.tiles[1][i+1],b=sim.world.tiles[1][j+1];
+        [a.weight,b.weight]=[b.weight,a.weight];
+        sim.actions.push({t:'swap',i,j});bump(sim,'swaps');},
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    for(let x=1;x<8;x++)if(sim.world.tiles[1][x].weight>sim.world.tiles[1][x+1].weight)return false;
+    return true;
+  },
+  success:'The crates lock into their cradles, lightest to heaviest. The deck stops vibrating. Thrust: balanced.',
+  card:{title:'Sorting: paying the cost up front',body:`
+    <p>That was <b>selection sort</b>: for each position, hunt down the smallest remaining item. Two nested loops over <code>n</code> items ≈ <code>n²</code> comparisons — <b>O(n²)</b>. Fine for 8 crates; painful for 8 million.</p>
+    <p>Real systems use cleverer sorts (merge sort, quicksort — <b>O(n log n)</b>), but the deal is always the same: <b>pay once to sort, then every binary search afterwards is nearly free.</b> Chapter 5 was the payoff; this was the price.</p>
+    <div class="real"><div class="bt">In the wild</div><code>array.sort()</code> exists in every language — you'll rarely hand-write one at work, but interviews love them, and knowing the O(n²) vs O(n log n) difference is table stakes.</div>`},
+},
+
+/* ---- 7 · pathfinding ---- */
+{
+  id:'maze',title:'Escape Route',concept:'Pathfinding',
+  seeds:[29,83],
+  brief:[
+    ['HALCYON','…nav module installed… I am 94% restored… but the route to the bridge airlock collapsed into a maintenance maze… I cannot map it from here…'],
+    ['BYTE','No map. Local sensors only: I can peek ahead, left, and right. There is a classic trick for mazes like this, engineer.'],
+    ['YOU','Keep one hand on the right-hand wall and never let go. If the maze is fully connected, the wall leads you through every corridor — including the exit.'],
+  ],
+  objective:'Reach the airlock (◎) through an unmapped maze — on both randomized layouts. Hint: the right-hand rule. If the space to your right is open, turn right and step; else if ahead is open, step; else turn left.',
+  api:[
+    ['scan()','Look one tile ahead: "clear", "wall", or "airlock".'],
+    ['scanLeft() / scanRight()','Peek sideways without turning.'],
+    ['move() / turnLeft() / turnRight()','Same as always.'],
+    ['while (true) { … }','Loop forever — Byte stops automatically at the airlock.'],
+  ],
+  starter:`// Right-hand rule: hug the wall on your right.
+// 1. If the right side is open -> turn right, move.
+// 2. Else if ahead is open    -> move.
+// 3. Else                     -> turn left.
+// Byte stops by itself when it reaches the airlock.
+
+while (true) {
+  // your rule here
+}
+`,
+  build(rng){
+    const world=emptyWorld(13,9);
+    const open=(x,y)=>{world.tiles[y][x].type='floor';};
+    // recursive backtracker over cells at odd coordinates
+    const stack=[[1,7]],seen=new Set(['1,7']);
+    open(1,7);
+    while(stack.length){
+      const [cx,cy]=stack[stack.length-1];
+      const nbrs=[[cx+2,cy],[cx-2,cy],[cx,cy+2],[cx,cy-2]]
+        .filter(([x,y])=>x>0&&x<12&&y>0&&y<8&&!seen.has(x+','+y));
+      if(!nbrs.length){stack.pop();continue;}
+      const [nx,ny]=nbrs[Math.floor(rng()*nbrs.length)];
+      open((cx+nx)/2,(cy+ny)/2);open(nx,ny);
+      seen.add(nx+','+ny);stack.push([nx,ny]);
+    }
+    world.tiles[1][11].type='airlock';
+    world.robot={x:1,y:7,dir:0};
+    return world;
+  },
+  makeApi(sim){return movementApi(sim,{scan:true,sideScan:true});},
+  win(sim){return onType(sim,'airlock');},
+  success:'The airlock cycles. Bridge lights bloom. HALCYON, at 100%: "Welcome back, engineer. All systems nominal — because of you."',
+  card:{title:'Pathfinding: algorithms on graphs',body:`
+    <p>The <b>right-hand rule</b> (wall following) solves any simply-connected maze with three lines of logic and zero memory. It's your first <em>graph algorithm</em> — the maze is nodes and connections, even if it doesn't look like one.</p>
+    <p>Its limits point at the good stuff: it finds <em>a</em> path, not the <em>shortest</em>. For that, real systems explore outward level-by-level (<b>breadth-first search</b>) or steer the exploration with a distance estimate (<b>A*</b>).</p>
+    <div class="real"><div class="bt">In the wild</div>GPS routing, network packet routing, web crawlers, dependency resolution in package managers, game AI — a huge share of "hard" real-world problems are graphs wearing costumes.</div>`},
+},
+];
+
+/* ============================================================
+   UI
+   ============================================================ */
+const $=(s)=>document.querySelector(s);
+const gridEl=$('#grid'),consoleEl=$('#console'),editor=$('#editor'),overlay=$('#overlay');
+let cur=0,unlocked=+(localStorage.getItem('cs_unlocked')||0),running=false;
+let viewWorld=null,robotEl=null,tileEls=[];
+const SPEEDS=[1,2,4];let speedIdx=0;
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+const delay=(base)=>CS.instant?0:base/SPEEDS[speedIdx];
+
+/* ---------- console ---------- */
+function cline(msg,cls='c-info'){
+  const d=document.createElement('div');d.className=cls;d.textContent=msg;
+  consoleEl.appendChild(d);
+  while(consoleEl.children.length>250)consoleEl.removeChild(consoleEl.firstChild);
+  consoleEl.scrollTop=consoleEl.scrollHeight;
+}
+const cclear=()=>{consoleEl.innerHTML='';};
+
+/* ---------- world rendering ---------- */
+function tileClasses(t){
+  let c='tile t-'+t.type;
+  if(t.revealed)c+=' revealed';
+  if(t.revealCls)c+=' '+t.revealCls;
+  if(t.fixed)c+=' fixed';
+  if(t.opened==='ok')c+=' open-ok';
+  if(t.opened==='bad')c+=' open-bad';
+  if(t.sorted)c+=' sorted';
+  return c;
+}
+function renderTile(x,y){
+  const t=viewWorld.tiles[y][x],el=tileEls[y][x];
+  el.className=tileClasses(t);
+  let lbl='';
+  if(t.type==='cell')lbl=t.revealed?t.label:'?';
+  if(t.type==='cabinet')lbl=t.revealed?t.label:'?';
+  if(t.type==='crate')lbl=t.revealed?t.label:'?';
+  el.querySelector('.tlabel').textContent=lbl;
+}
+function updateRobot(){
+  if(!viewWorld.robot){robotEl.style.display='none';return;}
+  robotEl.style.display='block';
+  const r=viewWorld.robot;
+  robotEl.style.transform=`translate(${r.x*PITCH}px,${r.y*PITCH}px)`;
+  robotEl.querySelector('.body').style.transform=`rotate(${r.dir*90}deg)`;
+}
+function renderWorld(world){
+  viewWorld=world;
+  gridEl.innerHTML='';
+  gridEl.style.gridTemplateColumns=`repeat(${world.w},${TILE}px)`;
+  tileEls=[];
+  for(let y=0;y<world.h;y++){
+    tileEls.push([]);
+    for(let x=0;x<world.w;x++){
+      const el=document.createElement('div');
+      const lb=document.createElement('span');lb.className='tlabel';
+      el.appendChild(lb);gridEl.appendChild(el);tileEls[y].push(el);
+    }
+  }
+  robotEl=document.createElement('div');robotEl.id='robot';
+  robotEl.innerHTML='<div class="body"></div>';
+  gridEl.appendChild(robotEl);
+  for(let y=0;y<world.h;y++)for(let x=0;x<world.w;x++){
+    const t=world.tiles[y][x];
+    if(t.type==='cabinet'||t.type==='crate'){
+      const ix=document.createElement('span');ix.className='tidx';
+      ix.textContent=String(x-1);tileEls[y][x].appendChild(ix);
+    }
+    renderTile(x,y);
+  }
+  updateRobot();
+}
+
+/* ---------- action replay ---------- */
+async function applyAction(a){
+  switch(a.t){
+    case 'move':viewWorld.robot.x=a.x;viewWorld.robot.y=a.y;updateRobot();await sleep(delay(130));break;
+    case 'turn':viewWorld.robot.dir=a.dir;updateRobot();await sleep(delay(110));break;
+    case 'bump':robotEl.classList.add('bump');cline('· clunk — that\'s a wall.','c-warn');
+      await sleep(delay(200));robotEl.classList.remove('bump');break;
+    case 'ping':{const el=tileEls[a.y]?.[a.x];if(el){el.classList.add('ping');await sleep(delay(90));el.classList.remove('ping');}break;}
+    case 'reveal':{const t=viewWorld.tiles[a.y][a.x];t.revealed=true;t.label=a.label;if(a.cls)t.revealCls=a.cls;
+      renderTile(a.x,a.y);await sleep(delay(220));break;}
+    case 'fix':{const t=viewWorld.tiles[a.y][a.x];t.fixed=true;renderTile(a.x,a.y);
+      cline('» replacement cell seated. voltage nominal.','c-ok');await sleep(delay(300));break;}
+    case 'open':{const t=viewWorld.tiles[a.y][a.x];t.opened=a.ok?'ok':'bad';renderTile(a.x,a.y);await sleep(delay(300));break;}
+    case 'swap':{const A=viewWorld.tiles[1][a.i+1],B=viewWorld.tiles[1][a.j+1];
+      [A.weight,B.weight]=[B.weight,A.weight];
+      [A.label,B.label]=[B.label,A.label];
+      [A.revealed,B.revealed]=[B.revealed,A.revealed];
+      renderTile(a.i+1,1);renderTile(a.j+1,1);await sleep(delay(240));break;}
+    case 'report':cline('» '+a.msg,'c-report');await sleep(delay(60));break;
+    case 'win':if(viewWorld.robot){robotEl.classList.add('win');}
+      if(cur===5)for(let x=1;x<=8;x++){viewWorld.tiles[1][x].sorted=true;renderTile(x,1);}
+      await sleep(delay(350));break;
+  }
+}
+async function replayTrial(level,seed,actions){
+  renderWorld(level.build(mulberry32(seed)));
+  await sleep(delay(300));
+  for(const a of actions)await applyAction(a);
+}
+
+/* ---------- run flow ---------- */
+function countCodeLines(code){
+  return code.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('//')).length;
+}
+function statsOf(sim){
+  const parts=[];
+  for(const[k,v]of Object.entries(sim.counts))parts.push(`${k}: ${v}`);
+  return parts.join(', ');
+}
+async function runProgram(){
+  if(running)return false;
+  running=true;$('#runBtn').disabled=true;
+  try{
+    cclear();
+    const level=LEVELS[cur],code=editor.value;
+    localStorage.setItem('cs_code_'+level.id,code);
+    if(level.lineBudget){
+      const n=countCodeLines(code);
+      if(n>level.lineBudget){
+        cline(`✗ Uplink buffer overflow: your program is ${n} lines; the buffer holds ${level.lineBudget}.`,'c-err');
+        cline('  Byte: "The stairwell repeats itself. Perhaps your code should too — with a loop."','c-warn');
+        return false;
+      }
+    }
+    const sims=level.seeds.map(s=>runTrial(level,s,code));
+    if(sims[0].compileError){cline('✗ '+sims[0].failed,'c-err');return false;}
+    const failIdx=sims.findIndex(s=>!s.won);
+    const showIdx=failIdx===-1?0:failIdx;
+    cline(`▶ Uploading program… running ${sims.length} trial${sims.length>1?'s':''}. Replaying trial ${showIdx+1}.`);
+    await replayTrial(level,level.seeds[showIdx],sims[showIdx].actions);
+    sims.forEach((s,i)=>{
+      if(s.won)cline(`✓ Trial ${i+1}: objective complete${statsOf(s)?'  ('+statsOf(s)+')':''}`,'c-ok');
+      else cline(`✗ Trial ${i+1}: ${s.failed||'program ended before the objective was met.'}`,'c-err');
+    });
+    if(failIdx===-1){
+      cline('',''); cline('✓ CHAPTER COMPLETE — '+level.success,'c-ok');
+      if(cur>=unlocked){unlocked=cur+1;localStorage.setItem('cs_unlocked',unlocked);}
+      renderChips();
+      if(!CS.instant){await sleep(700);showCard(level);}
+      return true;
+    }
+    return false;
+  }finally{running=false;$('#runBtn').disabled=false;}
+}
+
+/* ---------- modal ---------- */
+let modalNext=null;
+function openModal(kicker,title,bodyHtml,btnLabel,next){
+  $('#m-kicker').textContent=kicker;
+  $('#m-title').textContent=title;
+  $('#m-body').innerHTML=bodyHtml;
+  $('#m-btn').textContent=btnLabel;
+  modalNext=next;overlay.classList.add('show');$('#m-btn').focus();
+}
+function closeModal(){overlay.classList.remove('show');const f=modalNext;modalNext=null;if(f)f();}
+$('#m-btn').addEventListener('click',closeModal);
+overlay.addEventListener('click',(e)=>{if(e.target===overlay)closeModal();});
+
+function showCard(level){
+  const last=cur===LEVELS.length-1;
+  openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,
+    last?'Roll credits':'Next chapter ▸',
+    ()=>{ if(last)showEnding(); else loadLevel(cur+1); });
+}
+function showEnding(){
+  openModal('Transmission · Meridian to home','Signal restored.',`
+    <p>HALCYON is back online, the crew is waking, and you — six weeks into the job — just debugged a starship. Here's what you actually shipped:</p>
+    <ul>
+      <li><b>Sequences & loops & conditionals</b> — the three moves every program is made of.</li>
+      <li><b>Linear search</b> — O(n): check everything, works anywhere.</li>
+      <li><b>Binary search</b> — O(log n): sorted data turns a million checks into twenty.</li>
+      <li><b>Sorting</b> — O(n²) by hand: the price you pay so search can be cheap.</li>
+      <li><b>Pathfinding</b> — your first graph algorithm, three lines of wall-hugging logic.</li>
+    </ul>
+    <div class="real"><div class="bt">Your next mission</div>These five are the backbone of technical interviews. Re-implement binary search and selection sort from memory in JavaScript or Python — if you can, you're genuinely ahead of most bootcamp week-6 students. Then look up <em>breadth-first search</em>: you already know why it matters.</div>
+    <p>Replay any chapter from the bar above. The corridors reshuffle; your algorithms won't mind.</p>`,
+    'Back to the ship',null);
+}
+function showIntro(){
+  openModal('Incoming transmission','You are the only engineer awake.',`
+    <p>The deep-space freighter <b>Meridian</b> hit a debris storm. The ship's AI, HALCYON, is fragmented. The crew is in cryo. You — the newest engineer aboard, first job after switching careers — are awake.</p>
+    <p>Your one tool: <b>Byte</b>, a maintenance robot that executes any JavaScript you upload. Each chapter, you'll write a small program; the ship will test it on <em>randomized</em> layouts, so memorized answers fail and real algorithms win.</p>
+    <ul>
+      <li>Write code in the editor, then press <b>▶ Run</b> (or Ctrl/Cmd + Enter).</li>
+      <li>Byte's command set for each chapter is listed on the left.</li>
+      <li>Stuck? The starter code and HALCYON's fragments always contain the idea.</li>
+    </ul>`,
+    'Wake up Byte ▸',null);
+}
+
+/* ---------- level loading / chrome ---------- */
+function renderChips(){
+  const nav=$('#chips');nav.innerHTML='';
+  LEVELS.forEach((lv,i)=>{
+    const b=document.createElement('button');
+    b.className='chip'+(i===cur?' cur':'')+(i<unlocked?' done':'');
+    b.textContent=String(i+1);
+    b.title=`Chapter ${i+1}: ${lv.title} — ${lv.concept}`;
+    b.disabled=i>unlocked;
+    b.addEventListener('click',()=>loadLevel(i));
+    nav.appendChild(b);
+  });
+}
+function loadLevel(i){
+  cur=i;
+  const lv=LEVELS[i];
+  $('#lv-kicker').textContent=`Chapter ${i+1} of ${LEVELS.length}`;
+  $('#lv-title').textContent=lv.title;
+  $('#lv-concept').textContent=lv.concept;
+  $('#fname').textContent=`chapter_${i+1}.js`;
+  const comms=$('#lv-comms');comms.innerHTML='';
+  for(const [who,say] of lv.brief){
+    const d=document.createElement('div');
+    d.className=who.toLowerCase();
+    const w=document.createElement('div');w.className='who';w.textContent=who;
+    const s=document.createElement('div');s.className='say';s.textContent=say;
+    d.appendChild(w);d.appendChild(s);comms.appendChild(d);
+  }
+  $('#lv-objective').textContent=lv.objective;
+  $('#lv-budget').textContent=lv.lineBudget?`⚠ Uplink buffer: max ${lv.lineBudget} lines of code.`:'';
+  const apiEl=$('#lv-api');apiEl.innerHTML='';
+  for(const [sig,doc] of lv.api){
+    const d=document.createElement('div');d.className='fn';
+    const s=document.createElement('div');s.className='sig';s.textContent=sig;
+    const dd=document.createElement('div');dd.className='doc';dd.textContent=doc;
+    d.appendChild(s);d.appendChild(dd);apiEl.appendChild(d);
+  }
+  $('#hud').innerHTML=`DECK ${i+1} · <b>${lv.title.toUpperCase()}</b> · TRIALS: ${lv.seeds.length}`;
+  editor.value=localStorage.getItem('cs_code_'+lv.id)??lv.starter;
+  cclear();
+  cline(`— Chapter ${i+1}: ${lv.title} —`);
+  cline('Byte is standing by. Press ▶ Run to upload your program.');
+  renderWorld(lv.build(mulberry32(lv.seeds[0])));
+  renderChips();
+}
+
+/* ---------- wiring ---------- */
+$('#runBtn').addEventListener('click',runProgram);
+$('#resetBtn').addEventListener('click',()=>{
+  editor.value=LEVELS[cur].starter;
+  localStorage.removeItem('cs_code_'+LEVELS[cur].id);
+  cline('· starter code restored.','c-warn');
+});
+$('#speed').addEventListener('click',()=>{
+  speedIdx=(speedIdx+1)%SPEEDS.length;
+  $('#speed').textContent='SPEED '+SPEEDS[speedIdx]+'×';
+});
+editor.addEventListener('keydown',(e)=>{
+  if(e.key==='Tab'){e.preventDefault();
+    const s=editor.selectionStart,en=editor.selectionEnd;
+    editor.value=editor.value.slice(0,s)+'  '+editor.value.slice(en);
+    editor.selectionStart=editor.selectionEnd=s+2;}
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runProgram();}
+});
+
+/* debug / test hooks */
+const CS={levels:LEVELS,load:loadLevel,run:runProgram,instant:false,
+  runCode:async(code)=>{editor.value=code;return runProgram();},
+  get cur(){return cur;},get unlocked(){return unlocked;}};
+window.CS=CS;
+
+/* boot */
+loadLevel(Math.min(unlocked,LEVELS.length-1));
+if(!localStorage.getItem('cs_seen_intro')){
+  localStorage.setItem('cs_seen_intro','1');
+  showIntro();
+}
+</script>
+<!-- ARTIFACT-END -->
+</body>
+</html>
