@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A story-driven browser game that teaches algorithms, data structures, and CS techniques. Program a robot to save a starship — 18 chapters, real JavaScript, no blocks.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Code Story — learn algorithms by saving a starship">
+<meta property="og:description" content="18 chapters of real JavaScript: search, sorting, stacks, queues, hash maps, BFS, Dijkstra, dynamic programming, parsing — taught by a story with randomized trials that fail memorized answers.">
+<meta property="og:url" content="https://raja-donthireddy.github.io/Code-Story/">
+<meta property="og:image" content="https://raja-donthireddy.github.io/Code-Story/screenshot.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Code Story — learn algorithms by saving a starship">
+<meta name="twitter:description" content="18 chapters of real JavaScript, taught by a story with randomized trials that fail memorized answers.">
+<meta name="twitter:image" content="https://raja-donthireddy.github.io/Code-Story/screenshot.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' rx='12' fill='%2353d6c6'/><rect x='38' y='30' width='24' height='14' rx='3' fill='%23062521'/></svg>">
 </head>
 <body>
 <!-- ARTIFACT-START -->
@@ -43,7 +54,7 @@
     main{grid-template-columns:1fr;min-height:0}
     #mission{border-right:none;border-bottom:1px solid var(--line)}
     #right{border-left:none;border-top:1px solid var(--line)}
-    #editor{min-height:220px}
+    #edwrap{min-height:220px}
   }
 
   /* ---------- mission panel ---------- */
@@ -62,6 +73,13 @@
   .box .bt{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
   #lv-objective{font-family:var(--sans);font-size:13.5px}
   #lv-budget{color:var(--amber);font-size:12.5px;margin-top:6px}
+  #lv-side{margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+  .sidebtn{background:var(--panel);border:1px solid var(--line2);border-left:2px solid var(--amber);color:var(--text);
+    padding:8px 12px;font-size:12.5px;text-align:left;border-radius:2px;letter-spacing:.02em}
+  .sidebtn:hover{border-color:var(--amber)}
+  .sidebtn.done{border-left-color:var(--good)}
+  .sidebtn .sb-k{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);display:block}
+  .sidebtn.done .sb-k{color:var(--good)}
   #lv-api{display:flex;flex-direction:column;gap:8px}
   #lv-api .fn{font-size:12.5px}
   #lv-api .sig{color:var(--accent)}
@@ -155,8 +173,22 @@
   .btn.primary{border-color:var(--accent);color:var(--accent)}
   .btn.primary:hover{background:rgba(83,214,198,.08)}
   .btn:disabled{opacity:.4;cursor:not-allowed}
-  #editor{flex:1;min-height:260px;resize:none;border:none;background:var(--panel2);color:var(--text);
-    font-family:var(--mono);font-size:13.5px;line-height:1.6;padding:12px 14px;tab-size:2}
+  #edwrap{flex:1;min-height:260px;display:flex;overflow:hidden;background:var(--panel2)}
+  #gutter{width:40px;flex:none;overflow:hidden;border-right:1px solid var(--line);background:var(--panel2)}
+  #gutterin{padding:12px 8px 12px 4px;text-align:right;color:#3b4c61;font-size:13.5px;line-height:1.6;white-space:pre;font-variant-numeric:tabular-nums}
+  #edstack{position:relative;flex:1;overflow:hidden}
+  #editor,#hl{position:absolute;inset:0;margin:0;border:none;font-family:var(--mono);font-size:13.5px;
+    line-height:1.6;padding:12px 14px;tab-size:2;white-space:pre;overflow:auto;letter-spacing:normal}
+  #editor{resize:none;background:transparent;color:transparent;caret-color:var(--accent);z-index:2;word-wrap:normal}
+  #editor::selection{background:rgba(83,214,198,.25)}
+  #hl{z-index:1;pointer-events:none;background:var(--panel2);color:var(--text);overflow:hidden}
+  #hl .cm{color:#4e5f70}
+  #hl .st{color:var(--amber)}
+  #hl .kw{color:var(--accent)}
+  #hl .nm{color:#86b8e8}
+  #hl .fn{color:#e2ecf5}
+  #editor.err-flash{animation:errsh .18s linear 2}
+  @keyframes errsh{25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
   #console{height:210px;overflow-y:auto;border-top:1px solid var(--line);padding:10px 14px;background:#060a10;font-size:12.5px;line-height:1.7}
   #console div{white-space:pre-wrap;word-break:break-word}
   .c-info{color:var(--muted)} .c-err{color:var(--bad)} .c-ok{color:var(--good)}
@@ -195,6 +227,7 @@
     <div id="lv-concept"></div>
     <div class="comms" id="lv-comms"></div>
     <div class="box"><div class="bt">Objective</div><div id="lv-objective"></div><div id="lv-budget"></div></div>
+    <div id="lv-side"></div>
     <div class="box"><div class="bt">Byte's command set</div><div id="lv-api"></div></div>
   </aside>
 
@@ -210,7 +243,13 @@
       <button class="btn" id="resetBtn" title="Restore this chapter's starter code">Reset</button>
       <button class="btn primary" id="runBtn" title="Ctrl/Cmd + Enter">▶ Run</button>
     </div>
-    <textarea id="editor" spellcheck="false" aria-label="Code editor"></textarea>
+    <div id="edwrap">
+      <div id="gutter"><div id="gutterin">1</div></div>
+      <div id="edstack">
+        <pre id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
+        <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Code editor"></textarea>
+      </div>
+    </div>
     <div id="console" aria-live="polite"></div>
   </section>
 </main>
@@ -353,11 +392,15 @@ function runTrial(level,seed,code,ti){
   let fn;
   try{
     fn=new Function(...Object.keys(api),'__guard','"use strict";\n'+injectGuards(code)+'\n');
-  }catch(e){sim.failed='Syntax error — '+e.message;sim.compileError=true;return sim;}
+  }catch(e){
+    const br=bracketReport(code);
+    sim.failed='Syntax error — '+e.message+(br?`   (hint: ${br})`:'');
+    sim.compileError=true;return sim;
+  }
   let g=0;
   const guard=()=>{if(++g>GUARD_MAX)throw new Error(`The program looped (or recursed) ${GUARD_MAX.toLocaleString()} times without finishing — an infinite loop, unbounded recursion, or a brute force that recomputes the same subproblems. Check your exit or base condition — or remember answers you've already computed.`);};
   try{fn(...Object.values(api),guard);}
-  catch(e){if(!(e instanceof StopRun))sim.failed=e.message||String(e);}
+  catch(e){if(!(e instanceof StopRun))sim.failed=describeError(e,code);}
   if(!sim.won&&level.winAtEnd&&level.win(sim)){sim.won=true;sim.actions.push({t:'win'});}
   return sim;
 }
@@ -1806,6 +1849,392 @@ transmit(decode(signal()));
 ];
 
 /* ============================================================
+   SIDE MISSIONS — optional practice variants, one rep is never
+   enough. Unlocked by completing the parent chapter.
+   ============================================================ */
+const SIDE_MISSIONS=[
+
+{
+  id:'side_lb',parent:4,side:true,title:'First of Many',concept:'Binary search — lower bound',
+  seeds:[14,59,82],
+  brief:[
+    ['HALCYON','A wrinkle, engineer: several cabinets hold the SAME part number — later, uncertified batches. Regulations are clear: take the FIRST cabinet with that ID, and only that one.'],
+    ['BYTE','Plain binary search lands somewhere in the middle of a duplicate run. You need the leftmost. Hint: even when you find a match… keep looking left.'],
+  ],
+  objective:'The 15 cabinet IDs are sorted but may repeat. open() the FIRST (lowest-index) cabinet whose ID equals target() — with at most 5 idAt() scans. Opening a later duplicate fails.',
+  api:[
+    ['count() / target() / idAt(i) / open(i)','As in chapter 5. Scanner holds 5 charges.'],
+    ['The twist','On a match, don\'t stop — remember it and keep searching LEFT for an earlier one.'],
+  ],
+  starter:`// Lower-bound binary search:
+// find the FIRST index whose id >= target.
+// If id at mid is >= target, the answer is at mid
+// or to its LEFT: hi = mid - 1. Otherwise lo = mid + 1.
+
+let lo = 0, hi = count() - 1;
+const t = target();
+while (lo <= hi) {
+  const mid = Math.floor((lo + hi) / 2);
+  // compare idAt(mid) with t and shrink the range
+}
+// when the loop ends, lo is the first index with id >= t
+`,
+  build(rng){
+    const world=emptyWorld(17,3);
+    const ids=[];let v=ri(rng,100,140);
+    const first=ri(rng,4,10),runLen=ri(rng,2,3);
+    for(let i=0;i<15;i++){
+      ids.push(v);
+      // hold the value steady inside the duplicate run only
+      if(i<first||i>=first+runLen-1)v+=ri(rng,7,40);
+    }
+    for(let x=1;x<=15;x++){const t=world.tiles[1][x];t.type='cabinet';t.idx=x-1;}
+    world.meta={ids,first,target:ids[first],scans:0,opened:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return 15;},
+      target:()=>{opTick(sim);return m.target;},
+      idAt:(i)=>{opTick(sim);checkIndex(i,15,'idAt');
+        if(++m.scans>5)throw new Error('Scanner battery drained — max 5 scans. A lower-bound search needs no more than that. Trial failed.');
+        sim.actions.push({t:'reveal',x:i+1,y:1,label:String(m.ids[i])});
+        bump(sim,'scans');return m.ids[i];},
+      open:(i)=>{opTick(sim);checkIndex(i,15,'open');
+        if(i===m.first){m.opened=true;sim.actions.push({t:'open',x:i+1,y:1,ok:true});maybeWin(sim);}
+        else if(m.ids[i]===m.target){sim.actions.push({t:'open',x:i+1,y:1,ok:false});
+          throw new Error(`Cabinet ${i} holds part ${m.target} — but so does an EARLIER cabinet. Certified stock is always the first. Trial failed.`);}
+        else{sim.actions.push({t:'open',x:i+1,y:1,ok:false});
+          throw new Error(`Cabinet ${i} holds part ${m.ids[i]}, not ${m.target}. Trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.opened===true;},
+  success:'First of the batch, certified stamp and all. The duplicates stay sealed.',
+  card:{title:'Lower bound: the leftmost match',body:`
+    <p>Plain binary search answers "is it here?" — <b>lower bound</b> answers "where does it <em>start</em>?" The change is one line: on a match, keep searching left instead of stopping.</p>
+    <div class="real"><div class="bt">In the wild</div>Range queries ("all orders since Tuesday" = lower bound on a sorted index), insertion points, and a top-five interview follow-up: "…now find the FIRST occurrence."</div>`},
+},
+
+{
+  id:'side_brackets',parent:7,side:true,title:'The Weld Inspector',concept:'Stacks — bracket matching',
+  seeds:[27,63,95],
+  brief:[
+    ['HALCYON','The auto-welder logs every clamp as (, [ or { and every release as ), ] or }. A healthy log closes everything it opens, in reverse order. Storm damage corrupted some logs.'],
+    ['BYTE','Sound familiar? Last thing clamped is the first thing released. You built the tool for this in the main mission — a stack.'],
+  ],
+  objective:'Read logText() and deliver a verdict: verdict(true) if every bracket closes correctly, or verdict(false, i) with the index of the FIRST offender — a closer that doesn\'t match the most recent opener, or (if the log just ends) the earliest opener left unclosed. 3 trials: one clean log, two corrupted differently.',
+  api:[
+    ['logText()','The weld log, e.g. "([]{()})" — only bracket characters.'],
+    ['verdict(ok, i)','Your ruling. verdict(true) for a clean log; verdict(false, i) with the offending index otherwise.'],
+    ['stack.push(x) / stack.pop()','You know these. Consider storing [char, index] pairs.'],
+  ],
+  starter:`// Walk the log. Openers go on the stack (with their
+// index). A closer must match the TOP of the stack —
+// otherwise it's the offender. If the log ends with
+// openers still stacked, the earliest one left is bad.
+
+const s = logText();
+const match = { ")": "(", "]": "[", "}": "{" };
+let stack = [];
+for (let i = 0; i < s.length; i++) {
+  const c = s[i];
+  if (c === "(" || c === "[" || c === "{") {
+    // push [c, i]
+  } else {
+    // check the top of the stack
+  }
+}
+// then: anything left open?
+`,
+  build(rng,ti){
+    const kinds=[['(',')'],['[',']'],['{','}']];
+    const gen=(depth)=>{ // random balanced string
+      let out='';
+      const n=depth===2?ri(rng,2,3):ri(rng,1,2);
+      for(let k=0;k<n;k++){
+        const [o,c]=kinds[ri(rng,0,2)];
+        out+=o+(depth>0&&rng()<0.5?gen(depth-1):'')+c;
+      }
+      return out;
+    };
+    let s;
+    do{s=gen(2);}while(s.length<8||s.length>36);
+    let bad=null;
+    if(ti===1){ // corrupt: swap one closer for a wrong one
+      const closers={')':']',']':'}','}':')'};
+      const idxs=[...s].map((c,i)=>c in closers?i:-1).filter(i=>i>=0);
+      const p=idxs[ri(rng,1,idxs.length-1)];
+      s=s.slice(0,p)+closers[s[p]]+s.slice(p+1);
+      // truth: first mismatching closer via reference stack
+    }
+    if(ti===2){ // corrupt: delete a closer so an opener never closes
+      const idxs=[...s].map((c,i)=>')]}'.includes(c)?i:-1).filter(i=>i>=0);
+      s=s.slice(0,idxs[idxs.length-1])+s.slice(idxs[idxs.length-1]+1);
+    }
+    // compute the true verdict with a reference stack
+    const pairs={')':'(',']':'[','}':'{'};
+    const st=[];bad=null;
+    for(let i=0;i<s.length&&bad===null;i++){
+      const c=s[i];
+      if('([{'.includes(c))st.push([c,i]);
+      else if(!st.length||st[st.length-1][0]!==pairs[c])bad=i;
+      else st.pop();
+    }
+    if(bad===null&&st.length)bad=st[0][1];
+    const world=emptyWorld(15,Math.ceil(s.length/13)+2);
+    for(let i=0;i<s.length;i++){
+      const t=world.tiles[1+Math.floor(i/13)][1+i%13];
+      t.type='record';t.revealed=true;t.label=s[i];t.idx=i;
+    }
+    world.meta={s,bad,ruled:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      logText:()=>{opTick(sim);return m.s;},
+      verdict:(ok,i)=>{opTick(sim);
+        if(m.ruled)throw new Error('verdict() may only be called once per log.');
+        m.ruled=true;
+        const truthOk=m.bad===null;
+        if(ok===true&&truthOk){m.correct=true;maybeWin(sim);return;}
+        if(ok===false&&!truthOk&&i===m.bad){
+          m.correct=true;
+          sim.actions.push({t:'mark',x:1+m.bad%13,y:1+Math.floor(m.bad/13),cls:'bad'});
+          sim.actions.push({t:'note',msg:`fault confirmed at index ${m.bad}`});
+          maybeWin(sim);return;}
+        if(ok===true)throw new Error(`The log is NOT clean — the fault is at index ${m.bad}. Trial failed.`);
+        if(truthOk)throw new Error('False alarm — this log is clean. Trial failed.');
+        throw new Error(`Wrong index: you reported ${i}, the first offender is at ${m.bad}. (Closers must match the MOST RECENT opener; a leftover opener is reported at ITS index.) Trial failed.`);},
+    };
+  },
+  win(sim){return sim.world.meta.correct===true;},
+  success:'Verdicts filed. The welder hums back into service, closing everything it opens.',
+  card:{title:'Bracket matching: the stack\'s signature move',body:`
+    <p>"Does every opener close correctly?" is <em>the</em> canonical stack problem — the same check your code editor, compiler, and JSON parser run constantly.</p>
+    <div class="real"><div class="bt">In the wild</div>Syntax validation, matching HTML tags, evaluating expressions — and one of the most common warm-up interview questions in existence. You now solve it cold.</div>`},
+},
+
+{
+  id:'side_count',parent:10,side:true,title:'Head Count',concept:'Hash maps — counting',
+  seeds:[36,70],
+  brief:[
+    ['HALCYON','The airlock badge scanner logged every entry during the repairs — one long stream. The Captain wants to know who was in and out the most. There is a bottle of engine-room whiskey riding on it.'],
+    ['BYTE','A stream you can read once, and a question about frequencies. You know exactly which tool this is.'],
+  ],
+  objective:'Read the scan stream with nextScan() until it returns null, count entries per crew code, and answer(code, count) for the crew member with the MOST entries. Ties don\'t occur.',
+  api:[
+    ['nextScan()','Next badge code from the log, or null at the end. One-way.'],
+    ['answer(code, count)','Name the most frequent enterer and exactly how many times they entered.'],
+    ['counts[code] = (counts[code] || 0) + 1','The counting idiom — works even the first time a key appears.'],
+  ],
+  starter:`// Count with an object, then scan for the max.
+
+let counts = {};
+let scan = nextScan();
+while (scan !== null) {
+  // count it
+  scan = nextScan();
+}
+
+// find the code with the highest count,
+// then answer(code, count)
+`,
+  build(rng){
+    const world=emptyWorld(10,3);
+    const codes=[];
+    while(codes.length<6){const c='B-'+ri(rng,10,99);if(!codes.includes(c))codes.push(c);}
+    const tallies=codes.map(()=>ri(rng,2,5));
+    const champ=ri(rng,0,5);
+    tallies[champ]=Math.max(...tallies)+ri(rng,1,3);
+    const stream=[];
+    codes.forEach((c,i)=>{for(let k=0;k<tallies[i];k++)stream.push(c);});
+    for(let i=stream.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[stream[i],stream[j]]=[stream[j],stream[i]];}
+    for(let x=1;x<=6;x++){const t=world.tiles[1][x];t.type='pod';t.pid=codes[x-1];}
+    world.meta={stream,pos:0,codes,champ:codes[champ],champCount:tallies[champ],answered:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      nextScan:()=>{opTick(sim);
+        if(m.pos>=m.stream.length)return null;
+        const c=m.stream[m.pos++];
+        sim.actions.push({t:'ping',x:m.codes.indexOf(c)+1,y:1});
+        return c;},
+      answer:(code,count)=>{opTick(sim);
+        if(m.answered)throw new Error('answer() may only be called once.');
+        m.answered=true;
+        if(code===m.champ&&count===m.champCount){
+          m.correct=true;
+          sim.actions.push({t:'mark',x:m.codes.indexOf(code)+1,y:1,cls:'ok'});
+          sim.actions.push({t:'note',msg:`${code} entered ${count} times. Whiskey secured.`});
+          maybeWin(sim);}
+        else if(code!==m.champ)throw new Error(`${JSON.stringify(code)} is not the top enterer. Count EVERY scan before answering. Trial failed.`);
+        else throw new Error(`Right crew, wrong tally: ${code} entered ${m.champCount} times, not ${count}. Trial failed.`);},
+    };
+  },
+  win(sim){return sim.world.meta.correct===true;},
+  success:'The Captain pays up without a word. Data beats memory.',
+  card:{title:'Counting with a map',body:`
+    <p><code>counts[key] = (counts[key] || 0) + 1</code> — that one idiom answers "how many of each?" for anything: words, errors, votes, badge scans.</p>
+    <div class="real"><div class="bt">In the wild</div>Log analysis, analytics dashboards, de-duplication, word frequency — and the setup step of half the hash-map interview problems ever asked.</div>`},
+},
+
+{
+  id:'side_flood',parent:12,side:true,title:'Dead Zones',concept:'BFS — flood fill',
+  seeds:[48,76,99],
+  brief:[
+    ['HALCYON','Before we certify the hull, engineer: how much of this deck can actually be reached from the dock? Sealed compartments don\'t count — and don\'t get air.'],
+    ['BYTE','Same ripples as the shortest-path search. But this time nobody cares about a route — only how far the ripples spread.'],
+  ],
+  objective:'Count every open tile reachable from start() (including the start tile itself) and submit the number with reportReachable(n). Sealed-off open tiles must NOT be counted. All 3 randomized decks.',
+  api:[
+    ['isOpen(x, y) / start()','As in chapter 13.'],
+    ['reportReachable(n)','Submit the count of reachable tiles.'],
+    ['The twist','BFS again — but the queue and visited-set ARE the answer: count what you visit.'],
+  ],
+  starter:`// Flood fill = BFS without a destination.
+// Every tile that ever enters 'seen' is reachable.
+
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+const key = (p) => p.x + "," + p.y;
+
+let queue = [start()];
+let seen = {};
+seen[key(start())] = true;
+
+while (queue.length > 0) {
+  // take a tile, add unseen open neighbours
+}
+
+// how many keys ended up in 'seen'?
+// (Object.keys(seen).length counts them)
+`,
+  build(rng){
+    const world=emptyWorld(13,9);
+    for(let y=1;y<8;y++)for(let x=1;x<12;x++)
+      world.tiles[y][x].type=rng()<0.34?'wall':'floor';
+    const s={x:1,y:7};
+    world.tiles[s.y][s.x].type='floor';
+    // truth: flood fill
+    const seen=new Set([s.x+','+s.y]);
+    const q=[s];
+    while(q.length){
+      const c=q.shift();
+      for(const [dx,dy] of DIRS){
+        const nx=c.x+dx,ny=c.y+dy,k=nx+','+ny;
+        if(tileAt(world,nx,ny).type!=='wall'&&!seen.has(k)){seen.add(k);q.push({x:nx,y:ny});}
+      }
+    }
+    world.robot={x:s.x,y:s.y,dir:0};
+    world.meta={s,truth:seen.size,reported:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      isOpen:(x,y)=>{opTick(sim);return tileAt(sim.world,x,y).type!=='wall';},
+      start:()=>{opTick(sim);return {x:m.s.x,y:m.s.y};},
+      reportReachable:(n)=>{opTick(sim);
+        if(m.reported)throw new Error('reportReachable() may only be called once.');
+        m.reported=true;
+        if(n===m.truth){m.correct=true;
+          sim.actions.push({t:'note',msg:`${n} compartments reachable — certified.`});
+          maybeWin(sim);}
+        else throw new Error(`Survey says ${m.truth} reachable tiles, you reported ${n}. ${n<m.truth?'Some reachable tiles were missed — is every visited tile counted exactly once?':'Too many — are sealed pockets leaking into your count?'} Trial failed.`);},
+    };
+  },
+  win(sim){return sim.world.meta.correct===true;},
+  success:'Every reachable compartment mapped and counted. The dead zones stay sealed — and marked.',
+  card:{title:'Flood fill: BFS without a destination',body:`
+    <p>Remove the goal from BFS and what's left is <b>flood fill</b>: "everything connected to here." The visited set stops being bookkeeping and becomes the answer itself.</p>
+    <div class="real"><div class="bt">In the wild</div>The paint-bucket tool, minesweeper's empty-region reveal, counting islands on a grid (a famous interview question — you just solved it), network partition detection.</div>`},
+},
+
+{
+  id:'side_rob',parent:16,side:true,title:'Skip Charges',concept:'Dynamic programming — take or skip',
+  seeds:[55,87],
+  brief:[
+    ['HALCYON','Departure economics, engineer: 20 relay gates will buy surplus charge cells, each at its own price. But adjacent gates share an alarm line — sell to two neighbours and the deal is off.'],
+    ['BYTE','So at every gate the question is: take this one and skip its neighbour, or skip it and stay free. That is two subproblems… you know what stores subproblem answers.'],
+  ],
+  objective:'Choose gates to sell at — no two adjacent — maximizing total credits, and submit them with plotPicks([indices]). Only the maximum passes. (Brute-force recursion over 2²⁰ subsets will trip the guard.)',
+  api:[
+    ['gateCount() / valueAt(i)','20 gates, price per gate.'],
+    ['plotPicks(picks)','Your chosen gate indices, in any order, no two adjacent.'],
+    ['The table','best[i] = max( best[i-1],  best[i-2] + value[i] ) — skip gate i, or take it.'],
+  ],
+  starter:`// Take-or-skip DP:
+// best[i] = the most credits from gates 0..i.
+// Either skip gate i (best[i-1]) or take it
+// (best[i-2] + value[i]).
+
+const n = gateCount();
+let v = [];
+for (let i = 0; i < n; i++) v.push(valueAt(i));
+
+let best = [v[0], Math.max(v[0], v[1])];
+let took = [];
+for (let i = 2; i < n; i++) {
+  // fill best[i]
+}
+
+// reconstruct: walk i from n-1 down —
+// if best[i] === best[i-1], gate i was skipped (i--);
+// otherwise it was taken (record i, i -= 2).
+`,
+  build(rng){
+    const world=emptyWorld(12,4);
+    for(let tries=0;tries<100;tries++){
+      const v=[];for(let i=0;i<20;i++)v.push(ri(rng,5,40));
+      const best=[v[0],Math.max(v[0],v[1])];
+      for(let i=2;i<20;i++)best.push(Math.max(best[i-1],best[i-2]+v[i]));
+      // make sure "every other gate" doesn't happen to be optimal
+      let evens=0,odds=0;
+      for(let i=0;i<20;i++)(i%2?odds+=v[i]:evens+=v[i]);
+      if(Math.max(evens,odds)>=best[19])continue;
+      for(let i=0;i<20;i++){
+        const t=world.tiles[1+Math.floor(i/10)][1+i%10];
+        t.type='rad';t.cost=Math.min(9,Math.ceil(v[i]/5));t.idx=i;t.val=v[i];
+      }
+      world.meta={v,opt:best[19],sold:false};
+      return world;
+    }
+    throw new Error('gate generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      gateCount:()=>{opTick(sim);return 20;},
+      valueAt:(i)=>{opTick(sim);checkIndex(i,20,'valueAt');return m.v[i];},
+      plotPicks:(picks)=>{opTick(sim);
+        if(!Array.isArray(picks)||!picks.length)throw new Error('plotPicks(picks) expects a non-empty array of gate indices.');
+        picks.forEach(p=>{if(!Number.isInteger(p)||p<0||p>19)throw new Error(`plotPicks: ${JSON.stringify(p)} is not a gate index (0–19).`);});
+        const sorted=[...picks].sort((a,b)=>a-b);
+        for(let i=1;i<sorted.length;i++){
+          if(sorted[i]===sorted[i-1])throw new Error(`plotPicks: gate ${sorted[i]} listed twice.`);
+          if(sorted[i]-sorted[i-1]===1)throw new Error(`ALARM — gates ${sorted[i-1]} and ${sorted[i]} are adjacent. The deal is off. Trial failed.`);
+        }
+        const total=sorted.reduce((s,i)=>s+m.v[i],0);
+        if(total<m.opt)throw new Error(`Those picks earn ${total} credits — a ${m.opt}-credit selection exists. Take-or-skip, remembered per gate, never misses it. Trial failed.`);
+        sim.counts.credits=total;
+        for(const g of sorted)sim.actions.push({t:'mark',x:1+g%10,y:1+Math.floor(g/10),cls:'ok'});
+        m.sold=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.sold===true;},
+  success:'Maximum credits, zero alarms. The quartermaster double-checks the math and finds nothing to argue with.',
+  card:{title:'Take or skip: DP\'s other classic shape',body:`
+    <p>The toll road minimized a path; this maximizes a <em>selection</em> under a constraint. Same engine: each answer built from two smaller stored answers — take (<code>best[i-2] + v[i]</code>) or skip (<code>best[i-1]</code>).</p>
+    <div class="real"><div class="bt">In the wild</div>Scheduling non-overlapping jobs, ad slot selection, resource allocation — and, under the name "House Robber", one of the most-asked DP interview questions on earth.</div>`},
+},
+];
+const SIDE_BY_PARENT={};
+for(const sm of SIDE_MISSIONS)SIDE_BY_PARENT[sm.parent]=sm;
+
+/* ============================================================
    SOUND — tiny WebAudio bleep engine, no assets
    ============================================================ */
 let audioCtx=null;
@@ -1875,6 +2304,16 @@ const HINTS={
         'best[i] = toll[i] + the smallest of best[i-1], best[i-2], best[i-3]. Fill the array left to right, record from[i], then walk from[] backwards from gate 25 and reverse.'],
   parse:['Letters copy straight to the output. A digit announces a bracket block: decode what is INSIDE the block first, then repeat it.',
         'Inside a block there can be more blocks — so decode the slice with the SAME function: out += decode(s.slice(i + 2, close)) repeated Number(c) times, then i = close + 1.'],
+  side_lb:['A match is not the end — an EARLIER match might exist to the left. Shrink toward the left even when idAt(mid) equals the target.',
+        'If idAt(mid) >= target(): hi = mid - 1. Else: lo = mid + 1. When the loop ends, lo is the first index whose id is >= target — open(lo).'],
+  side_brackets:['Openers stack up; every closer must match the TOP of the stack. Store [char, index] pairs so you can report positions.',
+        'Mismatch or empty stack at a closer → verdict(false, that index). Loop ends with the stack non-empty → verdict(false, index of the earliest leftover opener: stack[0][1]). Otherwise verdict(true).'],
+  side_count:['counts[code] = (counts[code] || 0) + 1 — the || 0 handles the first sighting.',
+        'After the stream ends, loop over the counted codes (for...in works on objects) tracking the code with the biggest count, then answer(bestCode, bestCount).'],
+  side_flood:['This is chapter 13 with the goal removed: ripple outward, never revisit, and count what you touch.',
+        'Every tile added to seen is reachable — add neighbours only if isOpen AND not already in seen. At the end, Object.keys(seen).length is the answer.'],
+  side_rob:['Two choices per gate: skip it (keep best[i-1]) or take it (best[i-2] + its value). The bigger of the two IS best[i].',
+        'Reconstruct by walking backwards from gate 19: if best[i] === best[i-1] the gate was skipped (i--); otherwise it was taken — record i and jump i -= 2.'],
 };
 
 /* ============================================================
@@ -1884,10 +2323,74 @@ const $=(s)=>document.querySelector(s);
 const gridEl=$('#grid'),consoleEl=$('#console'),editor=$('#editor'),overlay=$('#overlay');
 let cur=0,unlocked=+(localStorage.getItem('cs_unlocked')||0),running=false;
 let failCounts={};
+let sideActive=null;
 let viewWorld=null,robotEl=null,tileEls=[];
 const SPEEDS=[1,2,4];let speedIdx=0;
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 const delay=(base)=>CS.instant?0:base/SPEEDS[speedIdx];
+
+/* ---------- editor: gutter + syntax highlight overlay ---------- */
+const hlcode=$('#hlcode'),gutterin=$('#gutterin'),hlpre=$('#hl');
+const HL_RE=/(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"?|'(?:[^'\\\n]|\\.)*'?|`(?:[^`\\]|\\.)*`?)|\b(function|return|if|else|while|for|let|const|var|new|true|false|null|undefined|of|in|break|continue|do|switch|case|default|typeof|throw|try|catch)\b|\b(\d+(?:\.\d+)?)\b|([A-Za-z_$][\w$]*)(?=\s*\()/g;
+function refreshEditor(){
+  const src=editor.value;
+  const esc=src.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  hlcode.innerHTML=esc.replace(HL_RE,(m,cm,st,kw,nm,fn)=>{
+    const cls=cm?'cm':st?'st':kw?'kw':nm?'nm':'fn';
+    return `<span class="${cls}">${m}</span>`;
+  })+'\n';
+  const n=src.split('\n').length;
+  let g='';for(let i=1;i<=n;i++)g+=i+'\n';
+  gutterin.textContent=g;
+  syncEditorScroll();
+}
+function syncEditorScroll(){
+  hlpre.scrollTop=editor.scrollTop;hlpre.scrollLeft=editor.scrollLeft;
+  gutterin.style.transform=`translateY(${-editor.scrollTop}px)`;
+}
+
+/* ---------- error locations ---------- */
+/* new Function() compiles as: line1 "function anonymous(args" /
+   line2 ") {" / line3 '"use strict";' / line4 = user line 1.
+   The guard injector never adds newlines, so lines are preserved. */
+function errLine(e,lineCount){
+  const m=/(?:<anonymous>|Function[^:]*):(\d+):\d+/.exec(e&&e.stack||'');
+  if(!m)return null;
+  const ln=+m[1]-3;
+  return (ln>=1&&ln<=lineCount)?ln:null;
+}
+function describeError(e,code){
+  let msg=e.message||String(e);
+  const lines=code.split('\n');
+  const ln=errLine(e,lines.length);
+  if(ln){
+    let snip=lines[ln-1].trim();
+    if(snip.length>52)snip=snip.slice(0,52)+'…';
+    msg+=`   [line ${ln}: ${snip}]`;
+  }
+  return msg;
+}
+/* string/comment-aware bracket balance report for syntax errors */
+function bracketReport(src){
+  const open=[],pairs={')':'(',']':'[','}':'{'};
+  let line=1,i=0;
+  while(i<src.length){
+    const c=src[i];
+    if(c==='\n'){line++;i++;continue;}
+    if(c==='"'||c==="'"||c==='`'){const q=c;i++;
+      while(i<src.length){if(src[i]==='\\'){i+=2;continue;}if(src[i]==='\n')line++;if(src[i]===q){i++;break;}i++;}continue;}
+    if(c==='/'&&src[i+1]==='/'){while(i<src.length&&src[i]!=='\n')i++;continue;}
+    if(c==='/'&&src[i+1]==='*'){while(i<src.length&&!(src[i]==='*'&&src[i+1]==='/')){if(src[i]==='\n')line++;i++;}i+=2;continue;}
+    if(c==='('||c==='['||c==='{')open.push([c,line]);
+    else if(c in pairs){
+      if(!open.length||open[open.length-1][0]!==pairs[c])return `Stray “${c}” on line ${line} with no matching “${pairs[c]}”.`;
+      open.pop();
+    }
+    i++;
+  }
+  if(open.length){const [ch,ln]=open[open.length-1];return `“${ch}” opened on line ${ln} is never closed.`;}
+  return null;
+}
 
 /* ---------- console ---------- */
 function cline(msg,cls='c-info'){
@@ -1920,7 +2423,7 @@ function renderTile(x,y){
   if(t.type==='cell'||t.type==='cabinet'||t.type==='crate'||t.type==='seal'||t.type==='record')lbl=t.revealed?t.label:'?';
   if(t.type==='pod')lbl=t.revealed?t.label:(t.pid??'?');
   if(t.type==='node')lbl=String(t.pid);
-  if(t.type==='rad')lbl=String(t.cost);
+  if(t.type==='rad')lbl=t.val!==undefined?String(t.val):String(t.cost);
   if(t.type==='sys')lbl=t.pid;
   el.querySelector('.tlabel').textContent=lbl;
 }
@@ -2016,7 +2519,7 @@ async function runProgram(){
   running=true;$('#runBtn').disabled=true;
   try{
     cclear();
-    const level=LEVELS[cur],code=editor.value;
+    const level=sideActive??LEVELS[cur],code=editor.value;
     localStorage.setItem('cs_code_'+level.id,code);
     if(level.lineBudget){
       const n=countCodeLines(code);
@@ -2037,9 +2540,15 @@ async function runProgram(){
       else cline(`✗ Trial ${i+1}: ${s.failed||'program ended before the objective was met.'}`,'c-err');
     });
     if(failIdx===-1){
-      cline('',''); cline('✓ CHAPTER COMPLETE — '+level.success,'c-ok');
+      cline('',''); cline(`✓ ${level.side?'SIDE MISSION':'CHAPTER'} COMPLETE — `+level.success,'c-ok');
       failCounts[level.id]=0;
-      if(cur>=unlocked){unlocked=cur+1;localStorage.setItem('cs_unlocked',unlocked);}
+      if(level.side){
+        localStorage.setItem('cs_side_'+level.id,'1');
+        renderSideButton();
+      }else if(cur>=unlocked){
+        unlocked=cur+1;localStorage.setItem('cs_unlocked',unlocked);
+        renderSideButton();
+      }
       renderChips();
       if(!CS.instant){await sleep(700);showCard(level);}
       return true;
@@ -2070,10 +2579,13 @@ overlay.addEventListener('click',(e)=>{if(e.target===overlay)closeModal();});
 
 function showCard(level){
   let btn='Next chapter ▸',next=()=>loadLevel(cur+1);
-  if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
-  if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
-  if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
-  if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
+  if(level.side){btn='Return to the ship ▸';next=()=>loadLevel(cur);}
+  else{
+    if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
+    if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
+    if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
+    if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
+  }
   openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
 }
 function showS1End(){
@@ -2172,6 +2684,55 @@ function showIntro(){
     'Wake up Byte ▸',null);
 }
 
+/* ---------- side missions ---------- */
+function renderSideButton(){
+  const box=$('#lv-side');box.innerHTML='';
+  const sm=SIDE_BY_PARENT[cur];
+  if(!sm||cur>=unlocked)return;
+  const done=localStorage.getItem('cs_side_'+sm.id)==='1';
+  const b=document.createElement('button');
+  b.className='sidebtn'+(done?' done':'');
+  if(sideActive){
+    b.innerHTML=`<span class="sb-k">◂ back to chapter ${cur+1}</span>${LEVELS[cur].title}`;
+    b.addEventListener('click',()=>loadLevel(cur));
+  }else{
+    b.innerHTML=`<span class="sb-k">◆ side mission ${done?'· complete ✓':'unlocked'}</span>${sm.title} — ${sm.concept}`;
+    b.addEventListener('click',()=>loadSideMission(sm));
+  }
+  box.appendChild(b);
+}
+function loadSideMission(sm){
+  sideActive=sm;
+  $('#lv-kicker').textContent=`Side mission · after Chapter ${sm.parent+1}`;
+  $('#lv-title').textContent=sm.title;
+  $('#lv-concept').textContent=sm.concept;
+  $('#fname').textContent=sm.id+'.js';
+  const comms=$('#lv-comms');comms.innerHTML='';
+  for(const [who,say] of sm.brief){
+    const d=document.createElement('div');d.className=who.toLowerCase();
+    const w=document.createElement('div');w.className='who';w.textContent=who;
+    const s=document.createElement('div');s.className='say';s.textContent=say;
+    d.appendChild(w);d.appendChild(s);comms.appendChild(d);
+  }
+  $('#lv-objective').textContent=sm.objective;
+  $('#lv-budget').textContent='';
+  const apiEl=$('#lv-api');apiEl.innerHTML='';
+  for(const [sig,doc] of sm.api){
+    const d=document.createElement('div');d.className='fn';
+    const s=document.createElement('div');s.className='sig';s.textContent=sig;
+    const dd=document.createElement('div');dd.className='doc';dd.textContent=doc;
+    d.appendChild(s);d.appendChild(dd);apiEl.appendChild(d);
+  }
+  $('#hud').innerHTML=`SIDE MISSION · <b>${sm.title.toUpperCase()}</b> · TRIALS: ${sm.seeds.length}`;
+  editor.value=localStorage.getItem('cs_code_'+sm.id)??sm.starter;
+  refreshEditor();
+  cclear();
+  cline(`— Side mission: ${sm.title} —`);
+  cline('Optional, repeatable, and worth it. Press ▶ Run when ready.');
+  renderWorld(sm.build(mulberry32(sm.seeds[0]),0));
+  renderSideButton();
+}
+
 /* ---------- level loading / chrome ---------- */
 function renderChips(){
   const nav=$('#chips');nav.innerHTML='';
@@ -2193,6 +2754,7 @@ function renderChips(){
 }
 function loadLevel(i){
   cur=i;
+  sideActive=null;
   const lv=LEVELS[i];
   const season=i<7?1:i<12?2:i<15?3:4;
   document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT'][season-1];
@@ -2219,11 +2781,13 @@ function loadLevel(i){
   }
   $('#hud').innerHTML=`DECK ${i+1} · <b>${lv.title.toUpperCase()}</b> · TRIALS: ${lv.seeds.length}`;
   editor.value=localStorage.getItem('cs_code_'+lv.id)??lv.starter;
+  refreshEditor();
   cclear();
   cline(`— Chapter ${i+1}: ${lv.title} —`);
   cline('Byte is standing by. Press ▶ Run to upload your program.');
   renderWorld(lv.build(mulberry32(lv.seeds[0])));
   renderChips();
+  renderSideButton();
   if(i===7&&!localStorage.getItem('cs_seen_s2')&&!CS.instant){
     localStorage.setItem('cs_seen_s2','1');
     showS2Intro();
@@ -2272,8 +2836,10 @@ $('#sndBtn').addEventListener('click',()=>{
 });
 $('#sndBtn').textContent=soundOn?'SND ✓':'SND ✗';
 $('#resetBtn').addEventListener('click',()=>{
-  editor.value=LEVELS[cur].starter;
-  localStorage.removeItem('cs_code_'+LEVELS[cur].id);
+  const lv=sideActive??LEVELS[cur];
+  editor.value=lv.starter;
+  localStorage.removeItem('cs_code_'+lv.id);
+  refreshEditor();
   cline('· starter code restored.','c-warn');
 });
 $('#speed').addEventListener('click',()=>{
@@ -2284,13 +2850,17 @@ editor.addEventListener('keydown',(e)=>{
   if(e.key==='Tab'){e.preventDefault();
     const s=editor.selectionStart,en=editor.selectionEnd;
     editor.value=editor.value.slice(0,s)+'  '+editor.value.slice(en);
-    editor.selectionStart=editor.selectionEnd=s+2;}
+    editor.selectionStart=editor.selectionEnd=s+2;
+    refreshEditor();}
   if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runProgram();}
 });
+editor.addEventListener('input',refreshEditor);
+editor.addEventListener('scroll',syncEditorScroll);
 
 /* debug / test hooks */
-const CS={levels:LEVELS,load:loadLevel,run:runProgram,instant:false,
+const CS={levels:LEVELS,sides:SIDE_MISSIONS,load:loadLevel,run:runProgram,instant:false,
   runCode:async(code)=>{editor.value=code;return runProgram();},
+  loadSide:(i)=>loadSideMission(SIDE_MISSIONS[i]),
   get cur(){return cur;},get unlocked(){return unlocked;}};
 window.CS=CS;
 

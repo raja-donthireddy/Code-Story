@@ -164,12 +164,23 @@ career-switcher's inner monologue, doing the conceptual connective work).
 - Efficiency stars were considered and deliberately skipped: the trial gates
   already force the efficient algorithm where it matters (battery, budget,
   fuel), so stars would add chrome without teaching.
+- **Feedback upgrade:** the editor gained line numbers and a dependency-free
+  syntax-highlight overlay, and every error — runtime, game-thrown, or
+  syntax — now reports the offending line with a snippet (`[line 7: cut(...)]`).
+  Syntax errors additionally get a string/comment-aware bracket-balance hint
+  ("'{' opened on line 3 is never closed").
+- **Side missions:** five optional practice variants unlocked by completing
+  their parent chapters — lower-bound binary search, bracket matching,
+  frequency counting, flood fill, and take-or-skip DP. One rep per concept is
+  never enough; these add the second rep where it counts most.
 
 ## Roadmap
 
 The curriculum is complete at four seasons — algorithms, data structures,
-graphs, techniques. Remaining ideas are distribution, not content:
+graphs, techniques (plus five practice side missions). Remaining ideas:
 
 - Solution playback share-links.
-- GitHub Pages deployment (the game is a single static file).
+- A "Chapter 0" interactive JS primer for players with zero prior syntax.
+- Step-through execution mode (replay one action at a time, source line
+  highlighted) — the debugger as a teaching tool.
 - Localization of story text (the level logic is already data-driven).

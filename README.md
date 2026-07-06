@@ -9,6 +9,8 @@ no drag-and-drop blocks. Four seasons, eighteen chapters.
 or just open `index.html` in any browser. No build step, no dependencies,
 no network — the whole game is one self-contained file.
 
+![Code Story — the Debris Field chapter](screenshot.png)
+
 ## Premise
 
 The deep-space freighter *Meridian* hit a debris storm. The ship's AI is
@@ -60,6 +62,11 @@ lists fail and only general algorithms pass — the core lesson of the game.
 | 17 | The Toll Road | Dynamic programming | Greedy provably overpays; brute-force recursion trips the guard |
 | 18 | The Message | Parsing — recursive descent | Nested repeat-blocks; flat find-and-replace shatters on trial 2 |
 
+**Side missions** — because one rep per concept is never enough. Completing a
+chapter unlocks an optional practice variant: lower-bound binary search
+(ch 5), bracket matching (ch 8), frequency counting (ch 11), flood fill
+(ch 13), and take-or-skip DP, a.k.a. House Robber (ch 17).
+
 After each chapter a **concept card** names what you just did, gives the
 big-O intuition, and maps it to real-world engineering (and interviews).
 
@@ -79,3 +86,7 @@ big-O intuition, and maps it to real-world engineering (and interviews).
 
 See [DESIGN.md](DESIGN.md) for the full game design document, including the
 learning-design principles and the roadmap for future seasons.
+
+## License
+
+[MIT](LICENSE) — play it, fork it, teach with it.
