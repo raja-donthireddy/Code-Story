@@ -45,7 +45,10 @@
   .chip:disabled{opacity:.35;cursor:not-allowed}
   .hbtn{background:none;border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.08em;border-radius:2px}
   .hbtn:hover{color:var(--text);border-color:var(--accent-dim)}
-  #hright{margin-left:auto;display:flex;gap:6px}
+  .hbtn.on{border-color:var(--accent);color:var(--accent)}
+  #hright{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  #nextBtn{display:none}
+  #nextBtn.waiting{border-color:var(--amber);color:var(--amber);animation:pulse 1.2s ease-in-out infinite}
 
   /* ---------- layout ---------- */
   main{display:grid;grid-template-columns:310px minmax(0,1fr) 430px;gap:0;min-height:calc(100vh - 49px)}
@@ -182,6 +185,8 @@
   #editor{resize:none;background:transparent;color:transparent;caret-color:var(--accent);z-index:2;word-wrap:normal}
   #editor::selection{background:rgba(83,214,198,.25)}
   #hl{z-index:1;pointer-events:none;background:var(--panel2);color:var(--text);overflow:hidden}
+  #hl .ln{display:block}
+  #hl .ln.active{background:rgba(224,164,88,.16);box-shadow:inset 2px 0 0 0 var(--amber)}
   #hl .cm{color:#4e5f70}
   #hl .st{color:var(--amber)}
   #hl .kw{color:var(--accent)}
@@ -207,15 +212,17 @@
   #modal .mbody code{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:#0a141c;padding:1px 5px;border-radius:2px}
   #modal .real{border-left:2px solid var(--amber);padding:8px 12px;margin:14px 0;background:rgba(224,164,88,.06)}
   #modal .real .bt{font-size:11px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:4px;font-family:var(--mono)}
-  #modal .actions{display:flex;justify-content:flex-end;margin-top:18px}
+  #modal .actions{display:flex;justify-content:flex-end;margin-top:18px;gap:10px}
 </style>
 
 <header>
   <div class="brand">CODE STORY <span class="dot">//</span> <span class="sub">SIGNAL LOST</span></div>
   <nav id="chips" aria-label="Chapters"></nav>
   <div id="hright">
+    <button class="hbtn" id="primerBtn" title="New to JavaScript? A 5-minute primer, anytime">JS PRIMER</button>
     <button class="hbtn" id="logBtn" title="Ship log — everything you've learned">LOG</button>
     <button class="hbtn" id="sndBtn" title="Sound effects">SND</button>
+    <button class="hbtn" id="stepToggle" title="Step-through replay: pause after every command, source line highlighted">STEP</button>
     <button class="hbtn" id="speed" title="Replay speed">SPEED 1×</button>
   </div>
 </header>
@@ -240,6 +247,8 @@
     <div id="edhead">
       <span class="fname">▸ <b id="fname">chapter_1.js</b></span>
       <span class="spacer"></span>
+      <button class="btn" id="nextBtn" title="Advance one step" disabled>⏭ Next</button>
+      <button class="btn" id="shareBtn" title="Copy a shareable link to this solution">🔗 Share</button>
       <button class="btn" id="resetBtn" title="Restore this chapter's starter code">Reset</button>
       <button class="btn primary" id="runBtn" title="Ctrl/Cmd + Enter">▶ Run</button>
     </div>
@@ -259,7 +268,10 @@
     <div class="kicker" id="m-kicker"></div>
     <h2 id="m-title"></h2>
     <div class="mbody" id="m-body"></div>
-    <div class="actions"><button class="btn primary" id="m-btn">Continue</button></div>
+    <div class="actions">
+      <button class="btn" id="m-btn2" style="display:none">Secondary</button>
+      <button class="btn primary" id="m-btn">Continue</button>
+    </div>
   </div>
 </div>
 
@@ -310,12 +322,24 @@ const onType=(sim,ty)=>sim.world.robot&&tileAt(sim.world,sim.world.robot.x,sim.w
 
 /* ---------- execution machinery ---------- */
 class StopRun extends Error{}
+/* Both live error traces (describeError) and in-flight action tagging
+   (opTick, for step-mode line highlighting) resolve a source line the
+   same way: find the frame inside the user's compiled Function and
+   undo the Function-constructor's 3-line preamble. */
+function stackLine(stack){
+  const m=/(?:<anonymous>|Function[^:]*):(\d+):\d+/.exec(stack||'');
+  if(!m)return null;
+  const ln=+m[1]-3;
+  return ln>=1?ln:null;
+}
+function curUserLine(){return stackLine(new Error().stack);}
 function maybeWin(sim){
   if(!sim.level.winAtEnd&&sim.level.win(sim)){
     sim.won=true;sim.actions.push({t:'win'});throw new StopRun();
   }
 }
 function opTick(sim){
+  sim.curLine=curUserLine();
   if(++sim.ops>OPS_MAX)throw new Error(`Byte executed ${OPS_MAX.toLocaleString()} operations without completing the objective, then powered down to save the battery.`);
 }
 const bump=(sim,k)=>{sim.counts[k]=(sim.counts[k]||0)+1;};
@@ -386,7 +410,12 @@ function injectGuards(src){
 
 function runTrial(level,seed,code,ti){
   const world=level.build(mulberry32(seed),ti||0);
-  const sim={world,level,actions:[],ops:0,won:false,failed:null,compileError:false,counts:{}};
+  const sim={world,level,actions:[],ops:0,won:false,failed:null,compileError:false,counts:{},curLine:null};
+  /* tag every pushed action with the source line active when it fired,
+     for step-mode highlighting — one hook point instead of touching
+     every level's dozens of sim.actions.push(...) call sites */
+  const rawPush=sim.actions.push.bind(sim.actions);
+  sim.actions.push=(obj)=>rawPush(Object.assign(obj,{line:sim.curLine}));
   const api=level.makeApi(sim);
   api.report=(msg)=>{opTick(sim);sim.actions.push({t:'report',msg:String(msg)});};
   let fn;
@@ -401,7 +430,10 @@ function runTrial(level,seed,code,ti){
   const guard=()=>{if(++g>GUARD_MAX)throw new Error(`The program looped (or recursed) ${GUARD_MAX.toLocaleString()} times without finishing — an infinite loop, unbounded recursion, or a brute force that recomputes the same subproblems. Check your exit or base condition — or remember answers you've already computed.`);};
   try{fn(...Object.values(api),guard);}
   catch(e){if(!(e instanceof StopRun))sim.failed=describeError(e,code);}
-  if(!sim.won&&level.winAtEnd&&level.win(sim)){sim.won=true;sim.actions.push({t:'win'});}
+  /* !sim.failed guard: an uncaught error already produced a precise
+     message (describeError) — a winAtEnd check must never overwrite
+     it with a generic "objective not met" diagnostic. */
+  if(!sim.won&&!sim.failed&&level.winAtEnd&&level.win(sim)){sim.won=true;sim.actions.push({t:'win'});}
   return sim;
 }
 
@@ -2235,6 +2267,163 @@ const SIDE_BY_PARENT={};
 for(const sm of SIDE_MISSIONS)SIDE_BY_PARENT[sm.parent]=sm;
 
 /* ============================================================
+   JS PRIMER — five skippable lessons for players with zero prior
+   JavaScript. Reachable anytime via the header button, and offered
+   as a fork on first visit. Uses the exact same level shape as a
+   chapter (build/makeApi/win/card) — just a plain terminal, no robot.
+   ============================================================ */
+function primerWorld(){
+  const w=emptyWorld(5,3);
+  for(let x=1;x<=3;x++)w.tiles[1][x].type='floor';
+  w.tiles[1][2].type='console';
+  return w;
+}
+const PRIMER=[
+
+{
+  id:'p0',primer:true,winAtEnd:true,title:'Say Something',concept:'Calling a function',
+  seeds:[1],
+  brief:[
+    ['BYTE','Before we\'re airborne — a dry run of the uplink. Call report() with any message and confirm it reaches me.'],
+  ],
+  objective:'Call report() with any message to test the uplink.',
+  api:[['report(message)','Prints message to the console below. The text in quotes is its argument.']],
+  starter:`// report(message) prints text to the console below.
+// Try it:
+
+report("Hello, Byte.");
+`,
+  build(){return primerWorld();},
+  makeApi(){return{};},
+  win(sim){
+    const ok=sim.actions.some(a=>a.t==='report'&&a.msg.trim().length>0);
+    if(!ok)sim.failed='No message arrived. Call report("...") with something between the quotes.';
+    return ok;
+  },
+  success:'Uplink confirmed. Byte receives your first transmission.',
+  card:{title:'Calling a function',body:`
+    <p><code>report(...)</code> is a <b>function</b> — a named, reusable action. The text in quotes is its <b>argument</b>: the input you hand it. Every command Byte understands, for the rest of this game, works exactly the same way: <code>name(argument)</code>.</p>`},
+},
+
+{
+  id:'p1',primer:true,winAtEnd:true,title:'Store a Number',concept:'Variables',
+  seeds:[1],
+  brief:[
+    ['BYTE','crew starts at 7 in the log below. Change what it holds to 12, then report it again — I want to see the update land.'],
+  ],
+  objective:'A variable named crew starts at 7. Set it to 12 and report() it again.',
+  api:[['let crew = 7;','Declares a variable and gives it a starting value.'],['crew = 12;','Reassigns it — no let the second time.']],
+  starter:`let crew = 7;
+report(crew);
+
+// now set crew to 12 and report it again
+`,
+  build(){return primerWorld();},
+  makeApi(){return{};},
+  win(sim){
+    const reports=sim.actions.filter(a=>a.t==='report');
+    if(reports.length<2){sim.failed='Only one report() ran. report(crew) again after changing it.';return false;}
+    const last=reports[reports.length-1].msg;
+    if(last!=='12')sim.failed=`Final report was "${last}" — crew should read 12 by the end. (crew = 12; with no "let".)`;
+    return last==='12';
+  },
+  success:'Crew count updated and confirmed. Reassignment: understood.',
+  card:{title:'Variables: names that hold values',body:`
+    <p>A <b>variable</b> is a labeled box. <code>let crew = 7;</code> creates the box and puts 7 inside; <code>crew = 12;</code> — no <code>let</code> the second time — replaces what's inside without renaming the box.</p>`},
+},
+
+{
+  id:'p2',primer:true,winAtEnd:true,title:'Numbers vs. Text',concept:'Types & coercion',
+  seeds:[1],
+  brief:[
+    ['BYTE','a and b arrived over a text channel — they\'re words, not numbers, even though they look like digits. Report their NUMERIC sum.'],
+  ],
+  objective:'a and b start as TEXT ("4" and "5"). report() their NUMERIC sum — it should read 9, not 45.',
+  api:[['Number(x)','Converts text to an actual number.'],['+','Adds numbers, but GLUES text together.']],
+  starter:`let a = "4";
+let b = "5";
+
+// report the NUMERIC sum of a and b
+`,
+  build(){return primerWorld();},
+  makeApi(){return{};},
+  win(sim){
+    const reports=sim.actions.filter(a=>a.t==='report');
+    if(!reports.length){sim.failed='Nothing was reported yet.';return false;}
+    const last=reports[reports.length-1].msg;
+    if(last==='9')return true;
+    if(last==='45')sim.failed='You reported "45" — that\'s TEXT concatenation (a + b glues the strings together). Convert first: Number(a) + Number(b).';
+    else sim.failed=`Reported "${last}", expected 9.`;
+    return false;
+  },
+  success:'Numeric sum confirmed: 9. Text and numbers look alike but behave nothing alike.',
+  card:{title:'Numbers vs. text',body:`
+    <p>"4" and 4 look the same but are different TYPES. <code>+</code> on two pieces of text glues them together (<code>"4"+"5"</code> → <code>"45"</code>); <code>+</code> on two numbers adds them (<code>4+5</code> → <code>9</code>). <code>Number(x)</code> converts text into a number first.</p>`},
+},
+
+{
+  id:'p3',primer:true,winAtEnd:true,title:'Make a Decision',concept:'if / else',
+  seeds:[0,1,2],
+  brief:[
+    ['BYTE','fuel() reads different EVERY trial. A hardcoded answer fails at least one of them — the program has to actually check.'],
+  ],
+  objective:'fuel() returns a number. If it is less than 10, report("refuel"); otherwise report("go"). Must work on all 3 trials.',
+  api:[['fuel()','Byte\'s current fuel level — different each trial.'],['if (x < 10) { ... } else { ... }','Runs one branch or the other, never both.']],
+  starter:`// fuel() returns Byte's current fuel level.
+let f = fuel();
+
+if (f < 10) {
+  // report what Byte should do
+} else {
+  // report the other thing
+}
+`,
+  build(rng,ti){const w=primerWorld();w.meta={fuel:[4,15,8][ti]??4};return w;},
+  makeApi(sim){return{fuel:()=>{opTick(sim);return sim.world.meta.fuel;}};},
+  win(sim){
+    const reports=sim.actions.filter(a=>a.t==='report');
+    const expected=sim.world.meta.fuel<10?'refuel':'go';
+    if(!reports.length){sim.failed='Nothing was reported.';return false;}
+    const last=reports[reports.length-1].msg;
+    if(last!==expected)sim.failed=`fuel() was ${sim.world.meta.fuel} — the correct call was report("${expected}"), not "${last}".`;
+    return last===expected;
+  },
+  success:'Correct call, every time — even when the fuel changed.',
+  card:{title:'if / else: branching on a condition',body:`
+    <p><code>if (condition) { ... } else { ... }</code> runs ONE branch based on whether the condition is true. This is how programs react instead of just replaying a fixed script — you'll use it constantly from Chapter 3 onward.</p>`},
+},
+
+{
+  id:'p4',primer:true,winAtEnd:true,title:'Repeat Yourself',concept:'for loops',
+  seeds:[1],
+  brief:[
+    ['BYTE','Last drill: report the numbers 1 through 5, in order, without writing report() five separate times.'],
+  ],
+  objective:'Use a for loop to report() the numbers 1 through 5, one call per number, in order.',
+  api:[['for (let i = 1; i <= 5; i++) { ... }','Repeats its body once per value of i, 1 through 5.']],
+  starter:`// A for loop repeats a block a fixed number of times.
+
+for (let i = 1; i <= 5; i++) {
+  // report the number i
+}
+`,
+  build(){return primerWorld();},
+  makeApi(){return{};},
+  win(sim){
+    const got=sim.actions.filter(a=>a.t==='report').map(a=>a.msg);
+    const want=['1','2','3','4','5'];
+    if(got.join(',')===want.join(','))return true;
+    sim.failed=`Expected reports 1 through 5 in order; got: ${got.join(', ')||'(nothing)'}.`;
+    return false;
+  },
+  success:'Five reports, in order, one loop. That pattern scales to five thousand.',
+  card:{title:'for loops: repeat with a counter',body:`
+    <p><code>for (let i = 1; i <= 5; i++) { ... }</code> runs its body once per value of <code>i</code>, from 1 to 5. The counter <code>i</code> is available INSIDE the loop — use it as data, not just a stopping point. Every "do this to each item" pattern in the game ahead starts here.</p>`},
+},
+];
+PRIMER.forEach((p,i)=>p.idx=i);
+
+/* ============================================================
    SOUND — tiny WebAudio bleep engine, no assets
    ============================================================ */
 let audioCtx=null;
@@ -2314,6 +2503,16 @@ const HINTS={
         'Every tile added to seen is reachable — add neighbours only if isOpen AND not already in seen. At the end, Object.keys(seen).length is the answer.'],
   side_rob:['Two choices per gate: skip it (keep best[i-1]) or take it (best[i-2] + its value). The bigger of the two IS best[i].',
         'Reconstruct by walking backwards from gate 19: if best[i] === best[i-1] the gate was skipped (i--); otherwise it was taken — record i and jump i -= 2.'],
+  p0:['report(...) takes whatever text you put between the quotes and prints it below.',
+        'Exactly: report("Hello, Byte."); — any non-empty message works.'],
+  p1:['report(crew) already works for 7. Now change what crew HOLDS — crew = 12; with no "let" this time — then report it again.',
+        'Add two lines: crew = 12; then report(crew); — the SECOND report is the one that gets checked.'],
+  p2:['a and b hold TEXT ("4","5"). Number(a) converts text into an actual number before adding.',
+        'report(Number(a) + Number(b)); reports 9. report(a + b) reports "45" instead — text glued together, not added.'],
+  p3:['Compare f to 10 with the < operator inside if(...) — no quotes around f, it is already a number.',
+        'if (f < 10) { report("refuel"); } else { report("go"); } — fuel() changes every trial, so both branches must be correct.'],
+  p4:['for (let i = 1; i <= 5; i++) { ... } runs its body 5 times, with i taking each value 1 through 5 in turn.',
+        'Inside the loop, just: report(i); — that alone reports 1, 2, 3, 4, 5 in order.'],
 };
 
 /* ============================================================
@@ -2324,6 +2523,8 @@ const gridEl=$('#grid'),consoleEl=$('#console'),editor=$('#editor'),overlay=$('#
 let cur=0,unlocked=+(localStorage.getItem('cs_unlocked')||0),running=false;
 let failCounts={};
 let sideActive=null;
+let primerActive=null;
+const activeLevel=()=>primerActive??sideActive??LEVELS[cur];
 let viewWorld=null,robotEl=null,tileEls=[];
 const SPEEDS=[1,2,4];let speedIdx=0;
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
@@ -2333,14 +2534,18 @@ const delay=(base)=>CS.instant?0:base/SPEEDS[speedIdx];
 const hlcode=$('#hlcode'),gutterin=$('#gutterin'),hlpre=$('#hl');
 const HL_RE=/(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"?|'(?:[^'\\\n]|\\.)*'?|`(?:[^`\\]|\\.)*`?)|\b(function|return|if|else|while|for|let|const|var|new|true|false|null|undefined|of|in|break|continue|do|switch|case|default|typeof|throw|try|catch)\b|\b(\d+(?:\.\d+)?)\b|([A-Za-z_$][\w$]*)(?=\s*\()/g;
 function refreshEditor(){
-  const src=editor.value;
-  const esc=src.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  hlcode.innerHTML=esc.replace(HL_RE,(m,cm,st,kw,nm,fn)=>{
-    const cls=cm?'cm':st?'st':kw?'kw':nm?'nm':'fn';
-    return `<span class="${cls}">${m}</span>`;
-  })+'\n';
-  const n=src.split('\n').length;
-  let g='';for(let i=1;i<=n;i++)g+=i+'\n';
+  const lines=editor.value.split('\n');
+  let html='';
+  for(let i=0;i<lines.length;i++){
+    const esc=lines[i].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const hl=esc.replace(HL_RE,(m,cm,st,kw,nm,fn)=>{
+      const cls=cm?'cm':st?'st':kw?'kw':nm?'nm':'fn';
+      return `<span class="${cls}">${m}</span>`;
+    });
+    html+=`<span class="ln" data-ln="${i+1}">${hl||' '}</span>`;
+  }
+  hlcode.innerHTML=html;
+  let g='';for(let i=1;i<=lines.length;i++)g+=i+'\n';
   gutterin.textContent=g;
   syncEditorScroll();
 }
@@ -2348,16 +2553,30 @@ function syncEditorScroll(){
   hlpre.scrollTop=editor.scrollTop;hlpre.scrollLeft=editor.scrollLeft;
   gutterin.style.transform=`translateY(${-editor.scrollTop}px)`;
 }
+/* ---------- step-mode active-line highlight ---------- */
+function setActiveLine(n){
+  const cur=hlcode.querySelector('.ln.active');
+  if(cur)cur.classList.remove('active');
+  if(!n)return;
+  const el=hlcode.querySelector(`.ln[data-ln="${n}"]`);
+  if(!el)return;
+  el.classList.add('active');
+  const edRect=editor.getBoundingClientRect(),elRect=el.getBoundingClientRect();
+  if(elRect.top<edRect.top||elRect.bottom>edRect.bottom){
+    editor.scrollTop+=(elRect.top-edRect.top)-edRect.height/3;
+    syncEditorScroll();
+  }
+}
 
 /* ---------- error locations ---------- */
 /* new Function() compiles as: line1 "function anonymous(args" /
    line2 ") {" / line3 '"use strict";' / line4 = user line 1.
-   The guard injector never adds newlines, so lines are preserved. */
+   The guard injector never adds newlines, so lines are preserved.
+   (stackLine/curUserLine, which do the actual -3 correction, live
+   next to opTick in the interpreter section above.) */
 function errLine(e,lineCount){
-  const m=/(?:<anonymous>|Function[^:]*):(\d+):\d+/.exec(e&&e.stack||'');
-  if(!m)return null;
-  const ln=+m[1]-3;
-  return (ln>=1&&ln<=lineCount)?ln:null;
+  const ln=stackLine(e&&e.stack);
+  return (ln!==null&&ln<=lineCount)?ln:null;
 }
 function describeError(e,code){
   let msg=e.message||String(e);
@@ -2499,10 +2718,26 @@ async function applyAction(a){
       await sleep(delay(350));break;
   }
 }
+let stepMode=localStorage.getItem('cs_step')==='1';
+let stepResolve=null;
+function waitForStepClick(n,total){
+  const b=$('#nextBtn');
+  b.disabled=false;b.classList.add('waiting');b.textContent=`⏭ Next (${n}/${total})`;
+  return new Promise((res)=>{stepResolve=()=>{b.disabled=true;b.classList.remove('waiting');b.textContent='⏭ Next';res();};});
+}
 async function replayTrial(level,seed,actions,ti){
   renderWorld(level.build(mulberry32(seed),ti||0));
+  setActiveLine(null);
   await sleep(delay(300));
-  for(const a of actions)await applyAction(a);
+  for(let idx=0;idx<actions.length;idx++){
+    const a=actions[idx];
+    if(stepMode&&!CS.instant){
+      setActiveLine(a.line||null);
+      await waitForStepClick(idx+1,actions.length);
+    }
+    await applyAction(a);
+  }
+  setActiveLine(null);
 }
 
 /* ---------- run flow ---------- */
@@ -2519,7 +2754,7 @@ async function runProgram(){
   running=true;$('#runBtn').disabled=true;
   try{
     cclear();
-    const level=sideActive??LEVELS[cur],code=editor.value;
+    const level=activeLevel(),code=editor.value;
     localStorage.setItem('cs_code_'+level.id,code);
     if(level.lineBudget){
       const n=countCodeLines(code);
@@ -2540,11 +2775,15 @@ async function runProgram(){
       else cline(`✗ Trial ${i+1}: ${s.failed||'program ended before the objective was met.'}`,'c-err');
     });
     if(failIdx===-1){
-      cline('',''); cline(`✓ ${level.side?'SIDE MISSION':'CHAPTER'} COMPLETE — `+level.success,'c-ok');
+      const kind=level.side?'SIDE MISSION':level.primer?'LESSON':'CHAPTER';
+      cline('',''); cline(`✓ ${kind} COMPLETE — `+level.success,'c-ok');
       failCounts[level.id]=0;
       if(level.side){
         localStorage.setItem('cs_side_'+level.id,'1');
         renderSideButton();
+      }else if(level.primer){
+        const done=+(localStorage.getItem('cs_primer_done')||0);
+        if(level.idx>=done)localStorage.setItem('cs_primer_done',String(level.idx+1));
       }else if(cur>=unlocked){
         unlocked=cur+1;localStorage.setItem('cs_unlocked',unlocked);
         renderSideButton();
@@ -2565,21 +2804,31 @@ async function runProgram(){
 }
 
 /* ---------- modal ---------- */
-let modalNext=null;
-function openModal(kicker,title,bodyHtml,btnLabel,next){
+let modalNext=null,modalNext2=null;
+function openModal(kicker,title,bodyHtml,btnLabel,next,btn2Label,next2){
   $('#m-kicker').textContent=kicker;
   $('#m-title').textContent=title;
   $('#m-body').innerHTML=bodyHtml;
   $('#m-btn').textContent=btnLabel;
-  modalNext=next;overlay.classList.add('show');$('#m-btn').focus();
+  modalNext=next;
+  const b2=$('#m-btn2');
+  if(btn2Label){b2.style.display='';b2.textContent=btn2Label;modalNext2=next2;}
+  else{b2.style.display='none';modalNext2=null;}
+  overlay.classList.add('show');$('#m-btn').focus();
 }
-function closeModal(){overlay.classList.remove('show');const f=modalNext;modalNext=null;if(f)f();}
+function closeModal(){overlay.classList.remove('show');const f=modalNext;modalNext=null;modalNext2=null;if(f)f();}
+function closeModal2(){overlay.classList.remove('show');const f=modalNext2;modalNext=null;modalNext2=null;if(f)f();}
 $('#m-btn').addEventListener('click',closeModal);
+$('#m-btn2').addEventListener('click',closeModal2);
 overlay.addEventListener('click',(e)=>{if(e.target===overlay)closeModal();});
 
 function showCard(level){
   let btn='Next chapter ▸',next=()=>loadLevel(cur+1);
   if(level.side){btn='Return to the ship ▸';next=()=>loadLevel(cur);}
+  else if(level.primer){
+    if(level.idx<PRIMER.length-1){btn='Next lesson ▸';next=()=>loadPrimer(level.idx+1);}
+    else{btn='Start Chapter 1 ▸';next=()=>loadLevel(0);}
+  }
   else{
     if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
     if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
@@ -2681,12 +2930,54 @@ function showIntro(){
       <li>Byte's command set for each chapter is listed on the left.</li>
       <li>Stuck? The starter code and HALCYON's fragments always contain the idea.</li>
     </ul>`,
-    'Wake up Byte ▸',null);
+    'Wake up Byte ▸',null,
+    'New to JavaScript? Start here (5 min) ▸',()=>loadPrimer(0));
+}
+
+/* ---------- JS primer ---------- */
+function loadPrimer(i){
+  const lv=PRIMER[i];
+  primerActive=lv;sideActive=null;
+  $('#lv-kicker').textContent=`JS Primer · Lesson ${i+1} of ${PRIMER.length}`;
+  $('#lv-title').textContent=lv.title;
+  $('#lv-concept').textContent=lv.concept;
+  $('#fname').textContent=lv.id+'.js';
+  const comms=$('#lv-comms');comms.innerHTML='';
+  for(const [who,say] of lv.brief){
+    const d=document.createElement('div');d.className=who.toLowerCase();
+    const w=document.createElement('div');w.className='who';w.textContent=who;
+    const s=document.createElement('div');s.className='say';s.textContent=say;
+    d.appendChild(w);d.appendChild(s);comms.appendChild(d);
+  }
+  $('#lv-objective').textContent=lv.objective;
+  $('#lv-budget').textContent='';
+  const side=$('#lv-side');side.innerHTML='';
+  const b=document.createElement('button');
+  b.className='sidebtn';
+  b.innerHTML=`<span class="sb-k">◂ skip the primer</span>Go straight to Chapter 1`;
+  b.addEventListener('click',()=>loadLevel(0));
+  side.appendChild(b);
+  const apiEl=$('#lv-api');apiEl.innerHTML='';
+  for(const [sig,doc] of lv.api){
+    const d=document.createElement('div');d.className='fn';
+    const s=document.createElement('div');s.className='sig';s.textContent=sig;
+    const dd=document.createElement('div');dd.className='doc';dd.textContent=doc;
+    d.appendChild(s);d.appendChild(dd);apiEl.appendChild(d);
+  }
+  $('#hud').innerHTML=`JS PRIMER · <b>${lv.title.toUpperCase()}</b> · TRIALS: ${lv.seeds.length}`;
+  editor.value=localStorage.getItem('cs_code_'+lv.id)??lv.starter;
+  refreshEditor();
+  cclear();
+  cline(`— JS Primer: ${lv.title} —`);
+  cline('No prior JavaScript needed. Press ▶ Run when ready.');
+  renderWorld(lv.build(mulberry32(lv.seeds[0]),0));
+  renderChips();
 }
 
 /* ---------- side missions ---------- */
 function renderSideButton(){
   const box=$('#lv-side');box.innerHTML='';
+  if(primerActive)return;
   const sm=SIDE_BY_PARENT[cur];
   if(!sm||cur>=unlocked)return;
   const done=localStorage.getItem('cs_side_'+sm.id)==='1';
@@ -2702,7 +2993,7 @@ function renderSideButton(){
   box.appendChild(b);
 }
 function loadSideMission(sm){
-  sideActive=sm;
+  sideActive=sm;primerActive=null;
   $('#lv-kicker').textContent=`Side mission · after Chapter ${sm.parent+1}`;
   $('#lv-title').textContent=sm.title;
   $('#lv-concept').textContent=sm.concept;
@@ -2744,7 +3035,7 @@ function renderChips(){
       nav.appendChild(s);
     }
     const b=document.createElement('button');
-    b.className='chip'+(i===cur?' cur':'')+(i<unlocked?' done':'');
+    b.className='chip'+(i===cur&&!primerActive?' cur':'')+(i<unlocked?' done':'');
     b.textContent=String(i+1);
     b.title=`Chapter ${i+1}: ${lv.title} — ${lv.concept}`;
     b.disabled=i>unlocked;
@@ -2754,7 +3045,7 @@ function renderChips(){
 }
 function loadLevel(i){
   cur=i;
-  sideActive=null;
+  sideActive=null;primerActive=null;
   const lv=LEVELS[i];
   const season=i<7?1:i<12?2:i<15?3:4;
   document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT'][season-1];
@@ -2825,6 +3116,48 @@ function showShipLog(){
   openModal('Ship log · Meridian','What you\'ve learned so far',html,'Close',null);
 }
 
+/* ---------- solution share links ---------- */
+function buildShareUrl(level,code){
+  const payload=btoa(unescape(encodeURIComponent(code)));
+  const url=new URL(location.href);
+  url.hash=`lvl=${encodeURIComponent(level.id)}&code=${payload}`;
+  return url.toString();
+}
+function decodeShareCode(payload){
+  try{return decodeURIComponent(escape(atob(payload)));}
+  catch(e){return null;}
+}
+async function copyText(text){
+  try{await navigator.clipboard.writeText(text);return true;}
+  catch(e){
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.focus();ta.select();
+      const ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e2){return false;}
+  }
+}
+function applyShareLink(){
+  const h=location.hash.replace(/^#/,'');
+  if(!h)return false;
+  const params=new URLSearchParams(h);
+  const lvlId=params.get('lvl'),payload=params.get('code');
+  if(!lvlId||!payload)return false;
+  const code=decodeShareCode(payload);
+  if(code===null)return false;
+  const msg='🔗 Loaded a shared solution. Press ▶ Run to see it in action, or keep editing.';
+  const idx=LEVELS.findIndex(l=>l.id===lvlId);
+  if(idx>=0){loadLevel(idx);editor.value=code;refreshEditor();cline(msg,'c-warn');return true;}
+  const sm=SIDE_MISSIONS.find(s=>s.id===lvlId);
+  if(sm){loadSideMission(sm);editor.value=code;refreshEditor();cline(msg,'c-warn');return true;}
+  const pm=PRIMER.find(p=>p.id===lvlId);
+  if(pm){loadPrimer(pm.idx);editor.value=code;refreshEditor();cline(msg,'c-warn');return true;}
+  return false;
+}
+
 /* ---------- wiring ---------- */
 $('#runBtn').addEventListener('click',runProgram);
 $('#logBtn').addEventListener('click',showShipLog);
@@ -2836,7 +3169,7 @@ $('#sndBtn').addEventListener('click',()=>{
 });
 $('#sndBtn').textContent=soundOn?'SND ✓':'SND ✗';
 $('#resetBtn').addEventListener('click',()=>{
-  const lv=sideActive??LEVELS[cur];
+  const lv=activeLevel();
   editor.value=lv.starter;
   localStorage.removeItem('cs_code_'+lv.id);
   refreshEditor();
@@ -2845,6 +3178,23 @@ $('#resetBtn').addEventListener('click',()=>{
 $('#speed').addEventListener('click',()=>{
   speedIdx=(speedIdx+1)%SPEEDS.length;
   $('#speed').textContent='SPEED '+SPEEDS[speedIdx]+'×';
+});
+$('#stepToggle').addEventListener('click',()=>{
+  stepMode=!stepMode;
+  localStorage.setItem('cs_step',stepMode?'1':'0');
+  $('#stepToggle').classList.toggle('on',stepMode);
+  $('#nextBtn').style.display=stepMode?'':'none';
+});
+$('#stepToggle').classList.toggle('on',stepMode);
+$('#nextBtn').style.display=stepMode?'':'none';
+$('#nextBtn').addEventListener('click',()=>{if(stepResolve){const r=stepResolve;stepResolve=null;r();}});
+$('#primerBtn').addEventListener('click',()=>loadPrimer(0));
+$('#shareBtn').addEventListener('click',async()=>{
+  const lv=activeLevel();
+  const url=buildShareUrl(lv,editor.value);
+  const ok=await copyText(url);
+  cline('','');
+  cline(ok?'🔗 Share link copied — paste it to show someone your solution.':'🔗 Share link (copy manually): '+url,ok?'c-ok':'c-info');
 });
 editor.addEventListener('keydown',(e)=>{
   if(e.key==='Tab'){e.preventDefault();
@@ -2858,14 +3208,17 @@ editor.addEventListener('input',refreshEditor);
 editor.addEventListener('scroll',syncEditorScroll);
 
 /* debug / test hooks */
-const CS={levels:LEVELS,sides:SIDE_MISSIONS,load:loadLevel,run:runProgram,instant:false,
+const CS={levels:LEVELS,sides:SIDE_MISSIONS,primer:PRIMER,load:loadLevel,run:runProgram,instant:false,
   runCode:async(code)=>{editor.value=code;return runProgram();},
   loadSide:(i)=>loadSideMission(SIDE_MISSIONS[i]),
-  get cur(){return cur;},get unlocked(){return unlocked;}};
+  loadPrimer:(i)=>loadPrimer(i),
+  buildShareUrl,decodeShareCode,
+  get cur(){return cur;},get unlocked(){return unlocked;},
+  get stepMode(){return stepMode;},set stepMode(v){stepMode=v;$('#stepToggle').classList.toggle('on',v);$('#nextBtn').style.display=v?'':'none';}};
 window.CS=CS;
 
 /* boot */
-loadLevel(Math.min(unlocked,LEVELS.length-1));
+if(!applyShareLink())loadLevel(Math.min(unlocked,LEVELS.length-1));
 if(!localStorage.getItem('cs_seen_intro')){
   localStorage.setItem('cs_seen_intro','1');
   showIntro();
