@@ -5,7 +5,8 @@ core CS techniques** by making you program a robot to save a crippled
 starship. Built for adult career-switchers: real JavaScript from chapter one,
 no drag-and-drop blocks. Four seasons, eighteen chapters.
 
-**Play it:** open `index.html` in any browser. No build step, no dependencies,
+**Play it:** [raja-donthireddy.github.io/Code-Story](https://raja-donthireddy.github.io/Code-Story/) —
+or just open `index.html` in any browser. No build step, no dependencies,
 no network — the whole game is one self-contained file.
 
 ## Premise
