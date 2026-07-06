@@ -102,9 +102,24 @@ pedagogy: graph algorithms are not new magic, they are Seasons 1+2 composed.
 Chapter 13→14 is the season's thesis in miniature: change one decision
 (oldest-first → cheapest-first) and BFS becomes Dijkstra. Chapter 15
 generalizes "graphs" beyond space: arrows can mean *needs*, not *adjacent*.
-The finale names the arc explicitly — three seasons ≈ a CS fundamentals
-semester — and hands the player their "real Season 4" (practice problems,
-building something real).
+
+## Curriculum map — Season 4: First Contact (techniques)
+
+The finale season teaches ways of *thinking* rather than machines: recursion,
+dynamic programming, parsing. Narratively it closes the loop — the debris
+storm from chapter 1 turns out to have been the wake of something arriving,
+and the last chapter literally decodes its apology.
+
+| Ch | Mission | Concept | Mechanic that forces the concept | Trials |
+|----|---------|---------|----------------------------------|--------|
+| 16 | The Ice Moon | Recursion / divide & conquer | Beacon hidden in an 8×8 field; rectangle probes with a 14-charge budget and a single dig. Cell sweeps drain the sounder; quartering (2-D binary search) always fits | 3 |
+| 17 | The Toll Road | Dynamic programming | 26 gates, jumps of 1–3, toll per landing. Generators regenerate until greedy is strictly worse than optimal; brute-force recursion trips the (new) function-entry guard. Bottom-up table wins | 2 |
+| 18 | The Message | Parsing (recursive descent) | Run-length grammar with nested blocks (`2[VU3[T]]`). Trial 2 is depth-2, so flat find-and-replace fails; the reference decoder validates exact expansion. Trial 3 decodes the story's ending | 3 |
+
+Engine note: Season 4 required extending the loop-guard injector to function
+bodies and arrow-function blocks, so *unbounded recursion and exponential
+brute force* halt with a friendly message instead of freezing the tab — which
+is itself the chapter 17 teaching gate.
 
 ## Systems
 
@@ -152,10 +167,9 @@ career-switcher's inner monologue, doing the conceptual connective work).
 
 ## Roadmap
 
+The curriculum is complete at four seasons — algorithms, data structures,
+graphs, techniques. Remaining ideas are distribution, not content:
+
 - Solution playback share-links.
-- **Possible Season 4 — "First Contact" (composition):** recursion &
-  divide-and-conquer (merge sort as a fleet-repair montage), dynamic
-  programming (fuel planning), regular expressions / parsing (decoding the
-  alien signal) — or ship the polish pass and call the curriculum complete.
-- **Meta-progression:** a "ship systems" board that fills in as concepts are
-  mastered, doubling as a syllabus map the player can screenshot.
+- GitHub Pages deployment (the game is a single static file).
+- Localization of story text (the level logic is already data-driven).

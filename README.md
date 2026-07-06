@@ -1,9 +1,9 @@
 # Code Story
 
-A story-driven browser game that teaches **algorithms and data structures** by
-making you program a robot to save a crippled starship. Built for adult
-career-switchers: real JavaScript from chapter one, no drag-and-drop blocks.
-Three seasons, fifteen chapters.
+A story-driven browser game that teaches **algorithms, data structures, and
+core CS techniques** by making you program a robot to save a crippled
+starship. Built for adult career-switchers: real JavaScript from chapter one,
+no drag-and-drop blocks. Four seasons, eighteen chapters.
 
 **Play it:** open `index.html` in any browser. No build step, no dependencies,
 no network — the whole game is one self-contained file.
@@ -50,6 +50,14 @@ lists fail and only general algorithms pass — the core lesson of the game.
 | 13 | The Debris Field | Breadth-first search | Fuel for exactly the shortest route — chapter 7's wall-follower won't cut it |
 | 14 | The Hot Zone | Dijkstra — weighted paths | Fewest tiles ≠ least radiation; grids are built so plain BFS always fails |
 | 15 | Restart Sequence | Topological sort | Dependency-locked systems; list order is never a valid restart order |
+
+**Season 4 — First Contact** (techniques — answer the signal):
+
+| Ch | Mission | Concept | The teeth |
+|----|-------------|-----------------------------|-----------|
+| 16 | The Ice Moon | Recursion — divide & conquer | 64 cells, 14 rectangle probes, one dig: quarter or die |
+| 17 | The Toll Road | Dynamic programming | Greedy provably overpays; brute-force recursion trips the guard |
+| 18 | The Message | Parsing — recursive descent | Nested repeat-blocks; flat find-and-replace shatters on trial 2 |
 
 After each chapter a **concept card** names what you just did, gives the
 big-O intuition, and maps it to real-world engineering (and interviews).

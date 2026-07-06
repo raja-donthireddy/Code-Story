@@ -317,7 +317,27 @@ function injectGuards(src){
       }else if(word==='do'){
         while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
         if(src[i]==='{'){out+='{__guard();';i++;}
+      }else if(word==='function'){
+        // guard function bodies too, so runaway RECURSION halts
+        // as gracefully as runaway loops
+        let j=i;
+        while(j<src.length&&/\s/.test(src[j]))j++;
+        if(/[A-Za-z_$]/.test(src[j]||'')){j++;while(j<src.length&&/[A-Za-z0-9_$]/.test(src[j]))j++;}
+        while(j<src.length&&/\s/.test(src[j]))j++;
+        if(src[j]==='('){
+          let depth=0;
+          do{if(src[j]==='(')depth++;else if(src[j]===')')depth--;j++;}while(j<src.length&&depth>0);
+          while(j<src.length&&/\s/.test(src[j]))j++;
+          if(src[j]==='{'){out+=src.slice(i,j+1)+'__guard();';i=j+1;}
+        }
       }
+      continue;
+    }
+    if(ch==='='&&src[i+1]==='>'){
+      out+='=>';i+=2;
+      let j=i;
+      while(j<src.length&&/\s/.test(src[j]))j++;
+      if(src[j]==='{'){out+=src.slice(i,j+1)+'__guard();';i=j+1;}
       continue;
     }
     out+=ch;i++;
@@ -325,8 +345,8 @@ function injectGuards(src){
   return out;
 }
 
-function runTrial(level,seed,code){
-  const world=level.build(mulberry32(seed));
+function runTrial(level,seed,code,ti){
+  const world=level.build(mulberry32(seed),ti||0);
   const sim={world,level,actions:[],ops:0,won:false,failed:null,compileError:false,counts:{}};
   const api=level.makeApi(sim);
   api.report=(msg)=>{opTick(sim);sim.actions.push({t:'report',msg:String(msg)});};
@@ -335,7 +355,7 @@ function runTrial(level,seed,code){
     fn=new Function(...Object.keys(api),'__guard','"use strict";\n'+injectGuards(code)+'\n');
   }catch(e){sim.failed='Syntax error — '+e.message;sim.compileError=true;return sim;}
   let g=0;
-  const guard=()=>{if(++g>GUARD_MAX)throw new Error(`The program looped ${GUARD_MAX.toLocaleString()} times without finishing — that's almost certainly an infinite loop. Check your loop's exit condition.`);};
+  const guard=()=>{if(++g>GUARD_MAX)throw new Error(`The program looped (or recursed) ${GUARD_MAX.toLocaleString()} times without finishing — an infinite loop, unbounded recursion, or a brute force that recomputes the same subproblems. Check your exit or base condition — or remember answers you've already computed.`);};
   try{fn(...Object.values(api),guard);}
   catch(e){if(!(e instanceof StopRun))sim.failed=e.message||String(e);}
   if(!sim.won&&level.winAtEnd&&level.win(sim)){sim.won=true;sim.actions.push({t:'win'});}
@@ -416,6 +436,22 @@ function validateRoute(world,route,s,g,fname){
     if(tileAt(world,b.x,b.y).type==='wall')
       throw new Error(`${fname}: waypoint ${i} (${b.x}, ${b.y}) is inside debris. The drone disagrees.`);
   }
+}
+
+/* reference decoder for the alien signal (chapter 18) */
+function rleDecode(s){
+  let out='',i=0;
+  while(i<s.length){
+    const c=s[i];
+    if(c>='1'&&c<='9'){
+      let k=i+1,depth=0;
+      do{if(s[k]==='[')depth++;else if(s[k]===']')depth--;k++;}while(depth>0);
+      const inner=rleDecode(s.slice(i+2,k-1));
+      for(let r=0;r<Number(c);r++)out+=inner;
+      i=k;
+    }else{out+=c;i++;}
+  }
+  return out;
 }
 
 /* ============================================================
@@ -1503,6 +1539,270 @@ while (started < all.length) {
     <p>And your worry was correct: if a sweep ever starts nothing while systems are still down, the graph has a <em>cycle</em> — A needs B needs A — and no valid order exists at all. You'll meet that in real life as "circular dependency detected".</p>
     <div class="real"><div class="bt">In the wild</div>Build systems (make, Gradle, cargo) deciding compile order, package managers resolving installs, spreadsheets recalculating cells, CI pipelines, course prerequisites — any "this before that" problem is this exact graph.</div>`},
 },
+
+/* ============ SEASON 4 — FIRST CONTACT ============ */
+
+/* ---- 16 · recursion / divide & conquer ---- */
+{
+  id:'quad',title:'The Ice Moon',concept:'Recursion — divide & conquer',
+  seeds:[44,68,91],
+  brief:[
+    ['HALCYON','The signal resolves to a beacon under the ice of moon LV-227 — somewhere in an 8×8 survey square. The orbital sounder can scan any RECTANGLE, but its capacitor holds 14 charges.'],
+    ['BYTE','Sixty-four cells, fourteen charges, one dig. Sweep cell-by-cell and the capacitor dies on row two. But one probe can interrogate a whole region…'],
+    ['YOU','Chapter 5, but in two dimensions: ask "is it in THIS quarter?" — then ask the same question of that quarter. A function that calls itself on a smaller square.'],
+  ],
+  objective:'Find the beacon and digAt() it — with at most 14 probe() charges, and exactly ONE dig. Quarter the square, probe the quadrants, recurse into the hot one. All 3 trials.',
+  api:[
+    ['gridSize()','Survey square is gridSize() × gridSize() (8), coordinates 0–7.'],
+    ['probe(x1, y1, x2, y2)','true if the beacon lies inside that rectangle (inclusive). Costs 1 of 14 charges.'],
+    ['digAt(x, y)','One shot. Beacon → recovered. Empty ice → trial failed.'],
+    ['function search(…) { … search(…); }','A function may call itself — give it a base case first.'],
+  ],
+  starter:`// Divide & conquer:
+// base case  — a 1x1 square IS the beacon's cell: dig.
+// otherwise  — split into four quadrants, probe them,
+//              and recurse into the one that pings.
+
+function search(x1, y1, x2, y2) {
+  if (x1 === x2 && y1 === y2) {
+    digAt(x1, y1);
+    return;
+  }
+  const mx = Math.floor((x1 + x2) / 2);
+  const my = Math.floor((y1 + y2) / 2);
+  // quadrants:
+  //   [x1,y1, mx,my]     [mx+1,y1, x2,my]
+  //   [x1,my+1, mx,y2]   [mx+1,my+1, x2,y2]
+  // probe each; search(...) the hot one.
+}
+
+search(0, 0, gridSize() - 1, gridSize() - 1);
+`,
+  build(rng){
+    const world=emptyWorld(10,10);
+    for(let y=1;y<9;y++)for(let x=1;x<9;x++)world.tiles[y][x].type='floor';
+    // beacon deep enough that a cell-by-cell sweep always drains
+    // the capacitor before reaching it
+    const bx=ri(rng,0,7),by=ri(rng,3,7);
+    world.meta={bx,by,charges:0,dug:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const okCoord=(v,f)=>{if(!Number.isInteger(v)||v<0||v>7)throw new Error(`${f}: coordinates run 0 to 7 — got ${v}.`);};
+    return {
+      gridSize:()=>{opTick(sim);return 8;},
+      probe:(x1,y1,x2,y2)=>{opTick(sim);
+        [x1,y1,x2,y2].forEach(v=>okCoord(v,'probe'));
+        if(x1>x2||y1>y2)throw new Error(`probe(${x1}, ${y1}, ${x2}, ${y2}) — the corner (x1, y1) must be top-left: x1 ≤ x2 and y1 ≤ y2.`);
+        if(++m.charges>14)throw new Error('Sounder capacitor dead — that was charge #15 of 14. Each probe must eliminate three QUARTERS of the remaining area, not one cell. Trial failed.');
+        sim.actions.push({t:'pingRect',x1:x1+1,y1:y1+1,x2:x2+1,y2:y2+1});
+        bump(sim,'probes');
+        return m.bx>=x1&&m.bx<=x2&&m.by>=y1&&m.by<=y2;},
+      digAt:(x,y)=>{opTick(sim);
+        okCoord(x,'digAt');okCoord(y,'digAt');
+        if(m.dug)throw new Error('The lander carried one drill head. It is spent.');
+        m.dug=true;
+        if(x===m.bx&&y===m.by){m.found=true;
+          sim.actions.push({t:'mark',x:x+1,y:y+1,cls:'ok'});maybeWin(sim);}
+        else{sim.actions.push({t:'mark',x:x+1,y:y+1,cls:'bad'});
+          throw new Error(`The shaft at (${x}, ${y}) came up empty ice — and that was the only drill head. Dig only when the square is 1×1 and certain. Trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.found===true;},
+  success:'The drill breaks through into a warm, lit cavity. The beacon is not wreckage. It is a door.',
+  card:{title:'Recursion: the function that calls itself',body:`
+    <p>Your <code>search()</code> solved an 8×8 problem by handing itself four 4×4 problems. That's <b>recursion</b>: a <em>base case</em> you can answer directly, plus a way to shrink everything else toward it. Chapter 5's binary search was secretly this — halving is divide &amp; conquer in one dimension.</p>
+    <p>And here's the season-two callback: recursion <em>works</em> because of chapter 8's call stack — every unfinished <code>search()</code> waits on the stack while its smaller self runs.</p>
+    <div class="real"><div class="bt">In the wild</div>Walking file trees and org charts, JSON and HTML are recursive by nature, merge sort and quicksort ("sort each half, combine"), graphics engines subdividing space — exactly what you just did.</div>`},
+},
+
+/* ---- 17 · dynamic programming ---- */
+{
+  id:'dp',title:'The Toll Road',concept:'Dynamic programming',
+  seeds:[33,79],
+  brief:[
+    ['HALCYON','The door answers to a docking sequence: 26 charge gates in a line. From any gate the shuttle can jump 1, 2, or 3 gates forward, paying the toll of the gate it LANDS on. Fuel is exact: only the cheapest total will dock.'],
+    ['BYTE','Warning, engineer: I tried brute force on the way over — every possible route, recursively. I recomputed gate 12\'s best cost four hundred thousand times before my stack tripped. There are only 26 gates. Something is deeply wasteful there.'],
+    ['YOU','Byte\'s recursion kept re-answering the SAME question. So answer each question once, in order: best cost to gate 0, then 1, then 2… each one built from three answers I already have.'],
+  ],
+  objective:'Dock at gate 25 for the minimum total toll and submit your gate sequence with plotJumps([0, …, 25]). Jumps of 1–3 gates, toll paid per landing. Greedy hopping to the cheapest visible gate will NOT be optimal, and brute-force recursion will trip the guard. Build a table.',
+  api:[
+    ['gateCount()','26 gates, indices 0 (dock, free) to 25.'],
+    ['tollAt(i)','Toll for landing on gate i.'],
+    ['plotJumps(route)','Submit the sequence of gates, starting 0, ending 25, steps of 1–3.'],
+    ['The idea','best[i] = tollAt(i) + min(best[i-1], best[i-2], best[i-3]). Fill left to right.'],
+  ],
+  starter:`// Dynamic programming, bottom-up:
+// best[i] = cheapest total to REACH gate i.
+// Each entry uses three answers you already computed.
+
+const n = gateCount();
+let toll = [];
+for (let i = 0; i < n; i++) toll.push(tollAt(i));
+
+let best = [0];      // gate 0 is the free dock
+let from = [null];   // which gate we came from
+
+for (let i = 1; i < n; i++) {
+  // try arriving from i-1, i-2, i-3 (when they exist):
+  // pick the one with the smallest best[...],
+  // record best[i] = that + toll[i], and from[i].
+}
+
+// walk from[] backwards from gate 25, reverse,
+// plotJumps(...) the result.
+`,
+  build(rng){
+    for(let tries=0;tries<200;tries++){
+      const toll=[0];
+      for(let i=1;i<26;i++)toll.push(ri(rng,1,9));
+      // optimal, by the same DP the player will write
+      const best=[0],from=[null];
+      for(let i=1;i<26;i++){
+        let b=Infinity,f=null;
+        for(let k=1;k<=3;k++)if(i-k>=0&&best[i-k]+toll[i]<b){b=best[i-k]+toll[i];f=i-k;}
+        best.push(b);from.push(f);
+      }
+      // greedy (hop to cheapest visible gate) must be strictly worse
+      let gi=0,gcost=0;
+      while(gi<25){
+        let pick=gi+1;
+        for(let j=gi+2;j<=Math.min(gi+3,25);j++)if(toll[j]<toll[pick])pick=j;
+        gi=pick;gcost+=toll[gi];
+      }
+      if(gcost<=best[25])continue;
+      const world=emptyWorld(15,4);
+      for(let i=0;i<26;i++){
+        const t=world.tiles[1+Math.floor(i/13)][1+i%13];
+        t.type='rad';t.cost=toll[i];t.idx=i;
+        if(i===25)t.goal=true;
+      }
+      world.meta={toll,opt:best[25],docked:false};
+      return world;
+    }
+    throw new Error('gate generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const posOf=(i)=>({x:1+i%13,y:1+Math.floor(i/13)});
+    return {
+      gateCount:()=>{opTick(sim);return 26;},
+      tollAt:(i)=>{opTick(sim);checkIndex(i,26,'tollAt');return m.toll[i];},
+      plotJumps:(route)=>{opTick(sim);
+        if(!Array.isArray(route)||route.length<2)throw new Error('plotJumps(route) expects an array of gate indices.');
+        route.forEach(v=>{if(!Number.isInteger(v)||v<0||v>25)throw new Error(`plotJumps: ${JSON.stringify(v)} is not a gate index (0–25).`);});
+        if(route[0]!==0)throw new Error('plotJumps: the sequence must start at gate 0 (the dock).');
+        if(route[route.length-1]!==25)throw new Error('plotJumps: the sequence must end at gate 25.');
+        let total=0;
+        for(let i=1;i<route.length;i++){
+          const step=route[i]-route[i-1];
+          if(step<1||step>3)throw new Error(`plotJumps: gate ${route[i-1]} → ${route[i]} is a jump of ${step}. The shuttle jumps 1, 2, or 3 gates FORWARD.`);
+          total+=m.toll[route[i]];
+        }
+        if(total>m.opt)throw new Error(`That sequence costs ${total} fuel — a ${m.opt}-fuel docking exists. Greedy grabs the cheapest NEXT gate and pays for it later; the table never does. Trial failed.`);
+        sim.counts.fuel=total;
+        for(const g of route){const p=posOf(g);sim.actions.push({t:'mark',x:p.x,y:p.y,cls:'ok'});}
+        m.docked=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.docked===true;},
+  success:'The shuttle threads the gates on fumes and the door accepts the sequence. Inside: a chamber, and a signal repeating patiently.',
+  card:{title:'Dynamic programming: answer each question once',body:`
+    <p>Byte's brute force died because plain recursion <b>re-solves the same subproblems</b> — best-cost-to-gate-12 doesn't change, so computing it 400,000 times is pure waste. <b>Dynamic programming</b> is the fix: store each subanswer (chapter 11's move) and build bigger answers out of stored smaller ones.</p>
+    <p>You did it <em>bottom-up</em> — a table filled left to right. The other style, recursion plus a memo cache, gives identical results. Either way: exponential becomes linear.</p>
+    <div class="real"><div class="bt">In the wild</div>git diff and spell-check (edit distance), route planners, resource allocation and scheduling, bioinformatics sequence alignment — and the famously feared tier of interview questions, which you have now quietly entered.</div>`},
+},
+
+/* ---- 18 · parsing ---- */
+{
+  id:'parse',title:'The Message',concept:'Parsing — recursive descent',
+  seeds:[51,62,88],
+  brief:[
+    ['HALCYON','The chamber transmits the same structured burst, endlessly. I have the alphabet mapped — the structure is compression: a digit means "repeat the bracketed block that follows". Blocks can contain blocks.'],
+    ['BYTE','So 3[KA] says KAKAKA, and 2[VU3[T]] says VUTTTVUTTT. Flat find-and-replace will shatter on the nesting, engineer. The grammar is recursive; the decoder must be too.'],
+    ['YOU','Walk the string. Letters copy across. A digit hands me a bracket block — which is just a smaller message. Same function, smaller input. Chapter 16 taught me exactly this shape.'],
+  ],
+  objective:'Decode the signal() and transmit() the expansion. Digits 1–9 repeat their following [block]; blocks nest. Your decoder must handle nesting — trial 2 is depth-2, and the final trial is the real message.',
+  api:[
+    ['signal()','The encoded transmission (letters, spaces, digits, brackets).'],
+    ['matchBracket(s, i)','Index of the ] matching the [ at position i. (It counts depth — try writing your own after.)'],
+    ['transmit(text)','Send the decoded message. Must be exact.'],
+    ['s.slice(a, b) / s[i]','Substring from a up to (not including) b; single character.'],
+  ],
+  starter:`// Recursive descent:
+// letters copy straight to the output.
+// a digit announces a [block] — decode the INSIDE
+// (same function, smaller string), repeat it, move on.
+
+function decode(s) {
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c >= "1" && c <= "9") {
+      const close = matchBracket(s, i + 1);
+      // decode s.slice(i + 2, close), append it
+      // Number(c) times, then jump i past the block
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+transmit(decode(signal()));
+`,
+  build(rng,ti){
+    const W=['KHA','ZOR','VUT','TIK','RAA','MEL','ODA','SHU','NEB','ILO'];
+    const pick=()=>W[ri(rng,0,W.length-1)];
+    let enc;
+    if(ti===0)enc=`${pick()} ${ri(rng,2,4)}[${pick()} ]${pick()}`;
+    else if(ti===1)enc=`${ri(rng,2,3)}[${pick()} ${ri(rng,2,3)}[${pick()} ]]${pick()}`;
+    else enc='2[WE SEE YOU FRIEND ]WE ARE THE STORM AND WE ARE SORRY';
+    const expected=rleDecode(enc);
+    const rows=Math.ceil(enc.length/13);
+    const world=emptyWorld(15,rows+2);
+    for(let i=0;i<enc.length;i++){
+      const t=world.tiles[1+Math.floor(i/13)][1+i%13];
+      t.type='record';t.revealed=true;t.label=enc[i]===' '?'·':enc[i];t.idx=i;
+    }
+    world.meta={enc,expected,sent:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      signal:()=>{opTick(sim);return m.enc;},
+      matchBracket:(s,i)=>{opTick(sim);
+        if(typeof s!=='string'||s[i]!=='[')throw new Error(`matchBracket(s, ${i}) — position ${i} is not a "[". A digit's block starts one character after the digit.`);
+        let depth=0;
+        for(let k=i;k<s.length;k++){
+          if(s[k]==='[')depth++;
+          if(s[k]===']'&&--depth===0)return k;
+        }
+        throw new Error('matchBracket: no matching "]" — is the string sliced correctly?');},
+      transmit:(text)=>{opTick(sim);
+        text=String(text);
+        if(text===m.expected){
+          m.sent=true;
+          for(let y=0;y<sim.world.h;y++)for(let x=0;x<sim.world.w;x++)
+            if(sim.world.tiles[y][x].type==='record')sim.actions.push({t:'mark',x,y,cls:'ok'});
+          sim.actions.push({t:'note',msg:'TRANSLATION: '+m.expected});
+          maybeWin(sim);
+        }else{
+          let n=0;while(n<Math.max(text.length,m.expected.length)&&text[n]===m.expected[n])n++;
+          throw new Error(`Transmission garbled at character ${n}: expected “…${m.expected.slice(Math.max(0,n-6),n+6)}…”, received “…${text.slice(Math.max(0,n-6),n+6)}…”. Nested blocks must be decoded by the same function that decodes the whole. Trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.sent===true;},
+  success:'The chamber falls silent, then glows. Translation confirmed. They have been trying to apologize since the storm.',
+  card:{title:'Parsing: giving structure to strings',body:`
+    <p>You wrote a <b>recursive descent parser</b> — the same technique, at heart, that reads JSON, compiles programming languages, and understands config files. The key insight: the grammar was recursive (blocks contain blocks), so the decoder had to be recursive too.</p>
+    <p>That's also why plain find-and-replace shattered on trial 2 — and it's the famous reason regular expressions alone can't parse HTML: <em>flat tools can't track nesting</em>. Nesting needs a stack — which recursion gives you for free (chapter 8, one last time).</p>
+    <div class="real"><div class="bt">In the wild</div><code>JSON.parse</code>, every compiler and template engine, spreadsheet formulas, markdown renderers — and the regexes you WILL write at work, now with an honest sense of where they stop being enough.</div>`},
+},
 ];
 
 /* ============================================================
@@ -1569,6 +1869,12 @@ const HINTS={
         'Linear-scan todo for the smallest dist and splice it out. Then relax: nd = dist[key(cur)] + costOf(n.x, n.y); keep it if n is unseen or nd beats dist[key(n)].'],
   topo:['Sweep the list: anything whose dependsOn() systems are ALL up can start right now. Then sweep again. And again.',
         'Track up[s] = true in an object. Check every d in dependsOn(s) against it; restart(s) only when all pass. The outer while re-sweeps until all nine are up.'],
+  quad:['One probe answers: is it inside THIS rectangle? Split the square into four quadrants and ask each one.',
+        'Base case first: when x1 === x2 && y1 === y2, digAt(x1, y1). Otherwise compute mx and my, probe each quadrant, and call search() again on the one that returns true.'],
+  dp:['Greedy dies here — the cheapest next gate can force two expensive gates later. Compute the best cost TO each gate, in order.',
+        'best[i] = toll[i] + the smallest of best[i-1], best[i-2], best[i-3]. Fill the array left to right, record from[i], then walk from[] backwards from gate 25 and reverse.'],
+  parse:['Letters copy straight to the output. A digit announces a bracket block: decode what is INSIDE the block first, then repeat it.',
+        'Inside a block there can be more blocks — so decode the slice with the SAME function: out += decode(s.slice(i + 2, close)) repeated Number(c) times, then i = close + 1.'],
 };
 
 /* ============================================================
@@ -1660,6 +1966,11 @@ async function applyAction(a){
     case 'bump':robotEl.classList.add('bump');cline('· clunk — that\'s a wall.','c-warn');SFX.bump();
       await sleep(delay(200));robotEl.classList.remove('bump');break;
     case 'ping':{const el=tileEls[a.y]?.[a.x];if(el){el.classList.add('ping');SFX.ping();await sleep(delay(90));el.classList.remove('ping');}break;}
+    case 'pingRect':{const els=[];
+      for(let y=a.y1;y<=a.y2;y++)for(let x=a.x1;x<=a.x2;x++){const el=tileEls[y]?.[x];if(el){el.classList.add('ping');els.push(el);}}
+      SFX.ping();await sleep(delay(320));
+      for(const el of els)el.classList.remove('ping');
+      await sleep(delay(80));break;}
     case 'reveal':{const t=viewWorld.tiles[a.y][a.x];t.revealed=true;t.label=a.label;if(a.cls)t.revealCls=a.cls;
       renderTile(a.x,a.y);SFX.reveal();await sleep(delay(220));break;}
     case 'fix':{const t=viewWorld.tiles[a.y][a.x];t.fixed=true;renderTile(a.x,a.y);
@@ -1685,8 +1996,8 @@ async function applyAction(a){
       await sleep(delay(350));break;
   }
 }
-async function replayTrial(level,seed,actions){
-  renderWorld(level.build(mulberry32(seed)));
+async function replayTrial(level,seed,actions,ti){
+  renderWorld(level.build(mulberry32(seed),ti||0));
   await sleep(delay(300));
   for(const a of actions)await applyAction(a);
 }
@@ -1715,12 +2026,12 @@ async function runProgram(){
         return false;
       }
     }
-    const sims=level.seeds.map(s=>runTrial(level,s,code));
+    const sims=level.seeds.map((s,i)=>runTrial(level,s,code,i));
     if(sims[0].compileError){cline('✗ '+sims[0].failed,'c-err');return false;}
     const failIdx=sims.findIndex(s=>!s.won);
     const showIdx=failIdx===-1?0:failIdx;
     cline(`▶ Uploading program… running ${sims.length} trial${sims.length>1?'s':''}. Replaying trial ${showIdx+1}.`);
-    await replayTrial(level,level.seeds[showIdx],sims[showIdx].actions);
+    await replayTrial(level,level.seeds[showIdx],sims[showIdx].actions,showIdx);
     sims.forEach((s,i)=>{
       if(s.won)cline(`✓ Trial ${i+1}: objective complete${statsOf(s)?'  ('+statsOf(s)+')':''}`,'c-ok');
       else cline(`✗ Trial ${i+1}: ${s.failed||'program ended before the objective was met.'}`,'c-err');
@@ -1761,6 +2072,7 @@ function showCard(level){
   let btn='Next chapter ▸',next=()=>loadLevel(cur+1);
   if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
   if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
+  if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
   if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
   openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
 }
@@ -1792,17 +2104,40 @@ function showS2End(){
     <div class="real"><div class="bt">Season 3 · The Relay Network</div>Everything out there — debris fields, power routing, restart dependencies — is a <b>graph</b>. And you already own every part these algorithms are built from.</div>`,
     'Begin Season 3: The Relay Network ▸',()=>loadLevel(12));
 }
-function showFinale(){
-  openModal('Transmission · Sector Command','Sector clear, Chief Engineer.',`
-    <p>Seventeen ships lock nav within the minute. The Captain makes it official on the spot: field promotion, effective immediately. Fifteen chapters ago you were six weeks into your first engineering job. Look at the log you shipped:</p>
+function showS3End(){
+  openModal('Season 3 complete · The Relay Network','Sector clear, Chief Engineer.',`
+    <p>Seventeen ships lock nav within the minute, and the Captain makes it official: field promotion. Season 3's graph toolkit, for the log:</p>
     <ul>
-      <li><b>Season 1</b> — sequences, loops, conditionals, linear &amp; binary search, sorting, pathfinding.</li>
-      <li><b>Season 2</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
-      <li><b>Season 3</b> — BFS, Dijkstra, topological sort: the graph algorithms, each built from Season 1 + 2 parts.</li>
+      <li><b>BFS</b> — a queue walking a graph; first arrival is the shortest path.</li>
+      <li><b>Dijkstra</b> — same walk, priority queue instead: weighted shortest paths.</li>
+      <li><b>Topological sort</b> — when arrows mean "needs", order is an algorithm.</li>
     </ul>
-    <p>That's not a game curriculum — that's the core of a CS fundamentals semester and the overwhelming majority of what technical interviews test.</p>
-    <div class="real"><div class="bt">Your real Season 4</div>It runs outside this game: (1) re-implement BFS and a hash-map word counter from memory in JavaScript or Python; (2) work through a set of "easy" interview problems — you'll recognize almost every one; (3) build something real and small, end to end. HALCYON's last fragment, for the road: <em>you were never learning to program a robot — the robot was how you learned to think in steps, structures, and graphs.</em></p>
-    <p>Replay any chapter from the bar above. The layouts reshuffle; your programs won't mind.</p>`,
+    <p>Then the newly-woken relay network delivers its first message. It repeats on all frequencies, in no human encoding — and it is aimed at the Meridian.</p>
+    <div class="real"><div class="bt">Season 4 · First Contact</div>Recursion, dynamic programming, parsing — the <em>techniques</em> tier: not new problems, but new ways of thinking that make hard problems fold. One last trip out.</div>`,
+    'Begin Season 4: First Contact ▸',()=>loadLevel(15));
+}
+function showS4Intro(){
+  openModal('Season 4 · First Contact','The signal is aimed at you.',`
+    <p>Something under the ice of moon LV-227 has been transmitting since the relay network woke — patiently, structurally, deliberately. Command's orders are one line: <em>"Meridian: investigate. Send the engineer."</em></p>
+    <p>This season is the techniques tier. No new machines — new <b>shapes of thought</b>: functions that call themselves, tables that remember subanswers, grammars that nest. Each one built openly from parts you've already earned.</p>
+    <ul>
+      <li>These chapters lean harder on the starters. Read them — they're half the lesson.</li>
+      <li>Byte's loop guard now watches recursion too. It has opinions about brute force.</li>
+    </ul>`,
+    'Break orbit ▸',null);
+}
+function showFinale(){
+  openModal('Transmission · to whom it may concern','WE ARE THE STORM AND WE ARE SORRY.',`
+    <p>The "debris storm" that crippled the Meridian was a wake — the turbulence of something vast arriving, and it has spent the whole story trying to say sorry. First contact, made by a career-switcher with a maintenance robot and eighteen chapters of fundamentals:</p>
+    <ul>
+      <li><b>Season 1 · algorithms</b> — sequences, loops, conditionals, search, sorting, pathfinding.</li>
+      <li><b>Season 2 · data structures</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
+      <li><b>Season 3 · graphs</b> — BFS, Dijkstra, topological sort.</li>
+      <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
+    </ul>
+    <p>That is a genuine CS-fundamentals curriculum, end to end — and nearly the entire technical-interview canon. You didn't read about it. You <em>shipped</em> it, against randomized trials, eighteen times.</p>
+    <div class="real"><div class="bt">Your real Season 5</div>(1) Re-implement binary search, BFS, and the toll-road DP from memory, in JavaScript or Python. (2) Take a set of "easy"-tier interview problems — you will recognize almost every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, and finally in shapes that fold.</em></p>
+    <p>Replay any chapter from the bar above. The universe reshuffles; your programs won't mind.</p>`,
     'End transmission',null);
 }
 function showS3Intro(){
@@ -1841,10 +2176,10 @@ function showIntro(){
 function renderChips(){
   const nav=$('#chips');nav.innerHTML='';
   LEVELS.forEach((lv,i)=>{
-    if(i===7||i===12){
+    if(i===7||i===12||i===15){
       const s=document.createElement('span');s.className='sdiv';
-      s.textContent=i===7?'S2':'S3';
-      s.title=i===7?'Season 2: Cold Storage':'Season 3: The Relay Network';
+      s.textContent={7:'S2',12:'S3',15:'S4'}[i];
+      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact'}[i];
       nav.appendChild(s);
     }
     const b=document.createElement('button');
@@ -1859,8 +2194,8 @@ function renderChips(){
 function loadLevel(i){
   cur=i;
   const lv=LEVELS[i];
-  const season=i<7?1:i<12?2:3;
-  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK'][season-1];
+  const season=i<7?1:i<12?2:i<15?3:4;
+  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT'][season-1];
   $('#lv-kicker').textContent=`Season ${season} · Chapter ${i+1} of ${LEVELS.length}`;
   $('#lv-title').textContent=lv.title;
   $('#lv-concept').textContent=lv.concept;
@@ -1897,6 +2232,10 @@ function loadLevel(i){
     localStorage.setItem('cs_seen_s3','1');
     showS3Intro();
   }
+  if(i===15&&!localStorage.getItem('cs_seen_s4')&&!CS.instant){
+    localStorage.setItem('cs_seen_s4','1');
+    showS4Intro();
+  }
 }
 
 function showShipLog(){
@@ -1904,6 +2243,7 @@ function showShipLog(){
     {name:'Season 1 · Signal Lost — algorithms',from:0,to:6},
     {name:'Season 2 · Cold Storage — data structures',from:7,to:11},
     {name:'Season 3 · The Relay Network — graphs',from:12,to:14},
+    {name:'Season 4 · First Contact — techniques',from:15,to:17},
   ];
   let html='<p>Every concept this ship has taught you, and where you are. This list doubles as a syllabus — screenshot it.</p>';
   for(const s of seasons){
@@ -1917,7 +2257,7 @@ function showShipLog(){
   }
   const doneCount=Math.min(unlocked,LEVELS.length);
   html+=`<div class="real"><div class="bt">Status</div>${doneCount} of ${LEVELS.length} chapters complete.`+
-    (doneCount===LEVELS.length?' Curriculum clear — your real Season 4 runs outside this game.':' The layouts reshuffle on every run; your programs won\'t mind.')+'</div>';
+    (doneCount===LEVELS.length?' Curriculum clear — your real Season 5 runs outside this game.':' The layouts reshuffle on every run; your programs won\'t mind.')+'</div>';
   openModal('Ship log · Meridian','What you\'ve learned so far',html,'Close',null);
 }
 
