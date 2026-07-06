@@ -1,0 +1,2306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<!-- ARTIFACT-START -->
+<title>Code Story — Signal Lost</title>
+<style>
+  :root{
+    --bg:#070b12; --panel:#0e1520; --panel2:#0a101a; --line:#1c2939; --line2:#243549;
+    --text:#c9d5e0; --muted:#71818f; --accent:#53d6c6; --accent-dim:#2b6e66;
+    --amber:#e0a458; --good:#66d188; --bad:#e5545e;
+    --mono:ui-monospace,"SFMono-Regular","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;min-height:100vh}
+  button{font-family:var(--mono);cursor:pointer}
+  button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .brand{font-weight:700;letter-spacing:.18em;font-size:15px;white-space:nowrap}
+  .brand .sub{color:var(--amber);font-weight:400;letter-spacing:.12em}
+  .brand .dot{color:var(--accent)}
+  #chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{background:var(--panel);border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.06em;border-radius:2px}
+  .chip:not(:disabled):hover{border-color:var(--accent-dim);color:var(--text)}
+  .chip.cur{border-color:var(--accent);color:var(--accent)}
+  .chip.done::after{content:" ✓";color:var(--good)}
+  .chip:disabled{opacity:.35;cursor:not-allowed}
+  .hbtn{background:none;border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.08em;border-radius:2px}
+  .hbtn:hover{color:var(--text);border-color:var(--accent-dim)}
+  #hright{margin-left:auto;display:flex;gap:6px}
+
+  /* ---------- layout ---------- */
+  main{display:grid;grid-template-columns:310px minmax(0,1fr) 430px;gap:0;min-height:calc(100vh - 49px)}
+  main>*{min-width:0}
+  @media (max-width:1150px){
+    main{grid-template-columns:1fr;min-height:0}
+    #mission{border-right:none;border-bottom:1px solid var(--line)}
+    #right{border-left:none;border-top:1px solid var(--line)}
+    #editor{min-height:220px}
+  }
+
+  /* ---------- mission panel ---------- */
+  #mission{border-right:1px solid var(--line);padding:18px;overflow-y:auto;background:var(--panel2)}
+  .kicker{font-size:11px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+  #lv-title{font-size:19px;font-weight:700;letter-spacing:.04em;margin:2px 0 2px;text-wrap:balance}
+  #lv-concept{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent-dim);padding:2px 8px;border-radius:2px;margin-bottom:14px}
+  .comms{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  .comms .who{font-size:11px;letter-spacing:.16em;margin-bottom:1px}
+  .comms .halcyon .who{color:var(--amber)}
+  .comms .byte .who{color:var(--accent)}
+  .comms .you .who{color:var(--muted)}
+  .comms .say{font-family:var(--sans);font-size:13.5px;color:var(--text);max-width:62ch}
+  .comms .halcyon .say{color:var(--amber);opacity:.9}
+  .box{border:1px solid var(--line2);border-radius:2px;padding:10px 12px;margin-bottom:14px;background:var(--panel)}
+  .box .bt{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  #lv-objective{font-family:var(--sans);font-size:13.5px}
+  #lv-budget{color:var(--amber);font-size:12.5px;margin-top:6px}
+  #lv-api{display:flex;flex-direction:column;gap:8px}
+  #lv-api .fn{font-size:12.5px}
+  #lv-api .sig{color:var(--accent)}
+  #lv-api .doc{color:var(--muted);font-family:var(--sans);font-size:12.5px}
+
+  /* ---------- viewport ---------- */
+  #viewport{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:
+    radial-gradient(ellipse 90% 70% at 50% 30%, #0b1322 0%, var(--bg) 70%);position:relative;overflow:auto}
+  #hud{font-size:11px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:16px}
+  #hud b{color:var(--text);font-weight:400}
+  #gridwrap{position:relative}
+  #grid{position:relative;display:grid;gap:2px}
+  .tile{width:40px;height:40px;border-radius:2px;position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column}
+  .t-wall{background:#1a2740;border:1px solid #2a3a58;box-shadow:inset 0 2px 0 rgba(255,255,255,.05)}
+  .t-floor{background:#090f1a;border:1px solid #101a29}
+  .t-console{background:#0a1a1c;border:1px solid var(--accent-dim);animation:pulse 1.6s ease-in-out infinite}
+  .t-console::before{content:"▣";color:var(--accent);font-size:18px}
+  .t-airlock{background:#0a1a1c;border:1px solid var(--accent-dim);animation:pulse 1.6s ease-in-out infinite}
+  .t-airlock::before{content:"◎";color:var(--accent);font-size:18px}
+  .t-debris{background:#0a111d;border:1px solid #3a2a1c}
+  .t-debris::before{content:"◆";color:var(--amber);font-size:15px}
+  .t-cell,.t-cabinet,.t-crate{background:#0d1626;border:1px solid #22304a}
+  .t-cell::before{content:"▮";color:#41546e;font-size:13px}
+  .t-cell.revealed.dead{border-color:var(--bad)}
+  .t-cell.revealed.dead::before{color:var(--bad)}
+  .t-cell.revealed.live::before{color:var(--good)}
+  .t-cell.fixed{border-color:var(--good);background:#0c1f16}
+  .t-cell.fixed::before{content:"▮";color:var(--good)}
+  .t-cabinet::before{content:"▤";color:#41546e;font-size:14px}
+  .t-cabinet.revealed::before{color:var(--accent)}
+  .t-cabinet.open-ok{border-color:var(--good);background:#0c1f16}
+  .t-cabinet.open-bad{border-color:var(--bad);background:#241014}
+  .t-crate::before{content:"▦";color:#5b6d85;font-size:15px}
+  .t-crate.revealed::before{color:var(--accent)}
+  .t-crate.sorted{border-color:var(--good)}
+  .t-crate.sorted::before{color:var(--good)}
+  .t-seal{background:#0d1626;border:1px solid #22304a}
+  .t-seal::before{content:"▬";color:#41546e;font-size:13px}
+  .t-seal.revealed::before{color:var(--amber)}
+  .t-pod{background:#0d1626;border:1px solid #22304a}
+  .t-pod::before{content:"❆";color:#41546e;font-size:14px}
+  .t-pod.revealed.alert::before{color:var(--amber)}
+  .t-node{background:#0d1626;border:1px solid #22304a}
+  .t-node::before{content:"◉";color:#5b6d85;font-size:13px}
+  .t-node.corrupt{border-color:#5a2a30}
+  .t-node.corrupt::before{color:var(--bad)}
+  .t-record{background:#0d1626;border:1px solid #22304a}
+  .t-record::before{content:"▤";color:#41546e;font-size:12px}
+  .t-record.revealed::before{color:var(--accent)}
+  .t-rad{background:#0d1420;border:1px solid #1c2939}
+  .t-rad .tlabel{font-size:11px;margin-top:0}
+  .rad-l{background:#0b1a14;border-color:#1e3a2b}
+  .rad-l .tlabel{color:#7fd9a0}
+  .rad-m{background:#181409;border-color:#3a2f18}
+  .rad-m .tlabel{color:#e0c078}
+  .rad-h{background:#1d0e10;border-color:#4a2028}
+  .rad-h .tlabel{color:#e58a92}
+  .t-sys{background:#0d1626;border:1px solid #22304a}
+  .t-sys::before{content:"◈";color:#5b6d85;font-size:13px}
+  .goalcell{border-color:var(--accent-dim);animation:pulse 1.6s ease-in-out infinite}
+  .tile.mark-ok{border-color:var(--good);background:#0c1f16}
+  .tile.mark-ok::before{color:var(--good)}
+  .tile.mark-bad{border-color:var(--bad);background:#241014}
+  .tile.mark-bad::before{color:var(--bad)}
+  .tile.mark-dim{opacity:.3}
+  .tlabel{font-size:9px;line-height:1;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+  .tidx{position:absolute;top:1px;left:3px;font-size:8px;line-height:1;color:#42546d;font-variant-numeric:tabular-nums}
+  .sdiv{color:var(--muted);font-size:10px;letter-spacing:.14em;align-self:center;padding:0 4px;user-select:none}
+  .revealed .tlabel{color:var(--text)}
+  .tile.ping{box-shadow:0 0 0 2px var(--accent)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(83,214,198,.15)}50%{box-shadow:0 0 14px rgba(83,214,198,.5)}}
+  #robot{position:absolute;width:40px;height:40px;transition:transform .13s linear;z-index:5;pointer-events:none}
+  #robot .body{position:absolute;inset:6px;background:var(--accent);border-radius:4px;transition:transform .13s linear;
+    box-shadow:0 0 12px rgba(83,214,198,.55)}
+  #robot .body::before{content:"";position:absolute;top:3px;left:50%;transform:translateX(-50%);width:8px;height:5px;background:#062521;border-radius:1px}
+  #robot.bump .body{background:var(--bad);box-shadow:0 0 12px rgba(229,84,94,.6)}
+  #robot.win .body{background:var(--good);box-shadow:0 0 18px rgba(102,209,136,.8)}
+  @media (prefers-reduced-motion:reduce){
+    #robot,#robot .body{transition:none}
+    .t-console,.t-airlock{animation:none}
+  }
+
+  /* ---------- right: editor + console ---------- */
+  #right{border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel2)}
+  #edhead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+  #edhead .fname{font-size:12px;letter-spacing:.12em;color:var(--muted)}
+  #edhead .fname b{color:var(--text);font-weight:400}
+  #edhead .spacer{flex:1}
+  .btn{border:1px solid var(--line2);background:var(--panel);color:var(--text);padding:5px 14px;font-size:12px;letter-spacing:.1em;border-radius:2px;text-transform:uppercase}
+  .btn:hover{border-color:var(--accent-dim)}
+  .btn.primary{border-color:var(--accent);color:var(--accent)}
+  .btn.primary:hover{background:rgba(83,214,198,.08)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  #editor{flex:1;min-height:260px;resize:none;border:none;background:var(--panel2);color:var(--text);
+    font-family:var(--mono);font-size:13.5px;line-height:1.6;padding:12px 14px;tab-size:2}
+  #console{height:210px;overflow-y:auto;border-top:1px solid var(--line);padding:10px 14px;background:#060a10;font-size:12.5px;line-height:1.7}
+  #console div{white-space:pre-wrap;word-break:break-word}
+  .c-info{color:var(--muted)} .c-err{color:var(--bad)} .c-ok{color:var(--good)}
+  .c-report{color:var(--accent)} .c-warn{color:var(--amber)}
+
+  /* ---------- modal ---------- */
+  #overlay{position:fixed;inset:0;background:rgba(4,7,12,.78);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  #overlay.show{display:flex}
+  #modal{background:var(--panel);border:1px solid var(--line2);border-top:2px solid var(--accent);max-width:560px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 30px;border-radius:2px}
+  #modal .kicker{color:var(--accent)}
+  #modal h2{margin:4px 0 14px;font-size:20px;letter-spacing:.03em;text-wrap:balance}
+  #modal .mbody{font-family:var(--sans);font-size:14px;color:var(--text)}
+  #modal .mbody p{margin:0 0 12px;max-width:60ch}
+  #modal .mbody ul{margin:0 0 12px;padding-left:20px}
+  #modal .mbody li{margin-bottom:6px;max-width:56ch}
+  #modal .mbody code{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:#0a141c;padding:1px 5px;border-radius:2px}
+  #modal .real{border-left:2px solid var(--amber);padding:8px 12px;margin:14px 0;background:rgba(224,164,88,.06)}
+  #modal .real .bt{font-size:11px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:4px;font-family:var(--mono)}
+  #modal .actions{display:flex;justify-content:flex-end;margin-top:18px}
+</style>
+
+<header>
+  <div class="brand">CODE STORY <span class="dot">//</span> <span class="sub">SIGNAL LOST</span></div>
+  <nav id="chips" aria-label="Chapters"></nav>
+  <div id="hright">
+    <button class="hbtn" id="logBtn" title="Ship log — everything you've learned">LOG</button>
+    <button class="hbtn" id="sndBtn" title="Sound effects">SND</button>
+    <button class="hbtn" id="speed" title="Replay speed">SPEED 1×</button>
+  </div>
+</header>
+
+<main>
+  <aside id="mission">
+    <div class="kicker" id="lv-kicker">Chapter 1 of 7</div>
+    <h1 id="lv-title"></h1>
+    <div id="lv-concept"></div>
+    <div class="comms" id="lv-comms"></div>
+    <div class="box"><div class="bt">Objective</div><div id="lv-objective"></div><div id="lv-budget"></div></div>
+    <div class="box"><div class="bt">Byte's command set</div><div id="lv-api"></div></div>
+  </aside>
+
+  <section id="viewport">
+    <div id="hud"></div>
+    <div id="gridwrap"><div id="grid"></div></div>
+  </section>
+
+  <section id="right">
+    <div id="edhead">
+      <span class="fname">▸ <b id="fname">chapter_1.js</b></span>
+      <span class="spacer"></span>
+      <button class="btn" id="resetBtn" title="Restore this chapter's starter code">Reset</button>
+      <button class="btn primary" id="runBtn" title="Ctrl/Cmd + Enter">▶ Run</button>
+    </div>
+    <textarea id="editor" spellcheck="false" aria-label="Code editor"></textarea>
+    <div id="console" aria-live="polite"></div>
+  </section>
+</main>
+
+<div id="overlay" role="dialog" aria-modal="true">
+  <div id="modal">
+    <div class="kicker" id="m-kicker"></div>
+    <h2 id="m-title"></h2>
+    <div class="mbody" id="m-body"></div>
+    <div class="actions"><button class="btn primary" id="m-btn">Continue</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   CODE STORY — SIGNAL LOST
+   A playable prototype that teaches algorithms through a
+   robot-programming story. Everything is self-contained.
+   ============================================================ */
+
+const TILE = 40, GAP = 2, PITCH = TILE + GAP;
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]]; // N E S W
+const OPS_MAX = 20000, GUARD_MAX = 100000;
+
+/* ---------- seeded rng ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const ri=(rng,min,max)=>min+Math.floor(rng()*(max-min+1));
+
+/* ---------- world helpers ---------- */
+function emptyWorld(w,h){
+  const tiles=[];
+  for(let y=0;y<h;y++){tiles.push([]);for(let x=0;x<w;x++)tiles[y].push({type:'wall'});}
+  return {w,h,tiles,robot:null,meta:{}};
+}
+function worldFromRows(rows){
+  const h=rows.length,w=rows[0].length,world=emptyWorld(w,h);
+  const rchars={'>':1,'<':3,'^':0,'v':2};
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const c=rows[y][x],t=world.tiles[y][x];
+    if(c==='#'){t.type='wall';continue;}
+    t.type='floor';
+    if(c==='C')t.type='console';
+    if(c in rchars)world.robot={x,y,dir:rchars[c]};
+  }
+  return world;
+}
+const tileAt=(world,x,y)=>(x<0||y<0||x>=world.w||y>=world.h)?{type:'wall'}:world.tiles[y][x];
+function classify(world,x,y){
+  const t=tileAt(world,x,y);
+  if(t.type==='wall')return'wall';
+  if(t.type==='console')return'console';
+  if(t.type==='debris')return'debris';
+  if(t.type==='airlock')return'airlock';
+  return'clear';
+}
+const onType=(sim,ty)=>sim.world.robot&&tileAt(sim.world,sim.world.robot.x,sim.world.robot.y).type===ty;
+
+/* ---------- execution machinery ---------- */
+class StopRun extends Error{}
+function maybeWin(sim){
+  if(!sim.level.winAtEnd&&sim.level.win(sim)){
+    sim.won=true;sim.actions.push({t:'win'});throw new StopRun();
+  }
+}
+function opTick(sim){
+  if(++sim.ops>OPS_MAX)throw new Error(`Byte executed ${OPS_MAX.toLocaleString()} operations without completing the objective, then powered down to save the battery.`);
+}
+const bump=(sim,k)=>{sim.counts[k]=(sim.counts[k]||0)+1;};
+
+/* Inject __guard() into every loop body so infinite loops halt
+   with a friendly error instead of freezing the tab. */
+function injectGuards(src){
+  let out='',i=0;
+  while(i<src.length){
+    const ch=src[i];
+    if(ch==='"'||ch==="'"||ch==='`'){const q=ch;out+=ch;i++;
+      while(i<src.length){if(src[i]==='\\'){out+=src[i]+(src[i+1]??'');i+=2;continue;}out+=src[i];if(src[i]===q){i++;break;}i++;}continue;}
+    if(ch==='/'&&src[i+1]==='/'){while(i<src.length&&src[i]!=='\n')out+=src[i++];continue;}
+    if(ch==='/'&&src[i+1]==='*'){while(i<src.length&&!(src[i]==='*'&&src[i+1]==='/'))out+=src[i++];out+='*/';i+=2;continue;}
+    if(/[A-Za-z_$]/.test(ch)){
+      let j=i;while(j<src.length&&/[A-Za-z0-9_$]/.test(src[j]))j++;
+      const word=src.slice(i,j);
+      const prev=out.length?out[out.length-1]:'';
+      out+=word;i=j;
+      if(/[A-Za-z0-9_$.]/.test(prev))continue; // part of a longer identifier / property
+      if(word==='for'||word==='while'){
+        while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
+        if(src[i]!=='(')continue;
+        let depth=0;
+        do{if(src[i]==='(')depth++;else if(src[i]===')')depth--;out+=src[i++];}while(i<src.length&&depth>0);
+        while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
+        if(src[i]==='{'){out+='{__guard();';i++;}
+        else if(src[i]===';'){out+=src[i++];} // do{}while(x); or empty body
+        else{ // single-statement body
+          out+='{__guard();';
+          let d2=0;
+          while(i<src.length){const c=src[i];out+=c;
+            if(c==='('||c==='['||c==='{')d2++;
+            if(c===')'||c===']'||c==='}')d2--;
+            i++;if(c===';'&&d2<=0)break;}
+          out+='}';
+        }
+      }else if(word==='do'){
+        while(i<src.length&&/\s/.test(src[i]))out+=src[i++];
+        if(src[i]==='{'){out+='{__guard();';i++;}
+      }else if(word==='function'){
+        // guard function bodies too, so runaway RECURSION halts
+        // as gracefully as runaway loops
+        let j=i;
+        while(j<src.length&&/\s/.test(src[j]))j++;
+        if(/[A-Za-z_$]/.test(src[j]||'')){j++;while(j<src.length&&/[A-Za-z0-9_$]/.test(src[j]))j++;}
+        while(j<src.length&&/\s/.test(src[j]))j++;
+        if(src[j]==='('){
+          let depth=0;
+          do{if(src[j]==='(')depth++;else if(src[j]===')')depth--;j++;}while(j<src.length&&depth>0);
+          while(j<src.length&&/\s/.test(src[j]))j++;
+          if(src[j]==='{'){out+=src.slice(i,j+1)+'__guard();';i=j+1;}
+        }
+      }
+      continue;
+    }
+    if(ch==='='&&src[i+1]==='>'){
+      out+='=>';i+=2;
+      let j=i;
+      while(j<src.length&&/\s/.test(src[j]))j++;
+      if(src[j]==='{'){out+=src.slice(i,j+1)+'__guard();';i=j+1;}
+      continue;
+    }
+    out+=ch;i++;
+  }
+  return out;
+}
+
+function runTrial(level,seed,code,ti){
+  const world=level.build(mulberry32(seed),ti||0);
+  const sim={world,level,actions:[],ops:0,won:false,failed:null,compileError:false,counts:{}};
+  const api=level.makeApi(sim);
+  api.report=(msg)=>{opTick(sim);sim.actions.push({t:'report',msg:String(msg)});};
+  let fn;
+  try{
+    fn=new Function(...Object.keys(api),'__guard','"use strict";\n'+injectGuards(code)+'\n');
+  }catch(e){sim.failed='Syntax error — '+e.message;sim.compileError=true;return sim;}
+  let g=0;
+  const guard=()=>{if(++g>GUARD_MAX)throw new Error(`The program looped (or recursed) ${GUARD_MAX.toLocaleString()} times without finishing — an infinite loop, unbounded recursion, or a brute force that recomputes the same subproblems. Check your exit or base condition — or remember answers you've already computed.`);};
+  try{fn(...Object.values(api),guard);}
+  catch(e){if(!(e instanceof StopRun))sim.failed=e.message||String(e);}
+  if(!sim.won&&level.winAtEnd&&level.win(sim)){sim.won=true;sim.actions.push({t:'win'});}
+  return sim;
+}
+
+/* ---------- shared robot command set ---------- */
+function movementApi(sim,opts={}){
+  const ahead=(turn=0)=>{
+    const r=sim.world.robot,d=(r.dir+turn+4)%4;
+    return {x:r.x+DIRS[d][0],y:r.y+DIRS[d][1]};
+  };
+  const api={
+    move(){opTick(sim);const p=ahead(),c=classify(sim.world,p.x,p.y);
+      if(c==='debris')throw new Error('CRUNCH. Byte drove straight into debris. Chassis integrity warning — trial failed. (Byte can scan() before moving.)');
+      if(c==='wall'){sim.actions.push({t:'bump'});return;}
+      sim.world.robot.x=p.x;sim.world.robot.y=p.y;
+      sim.actions.push({t:'move',x:p.x,y:p.y});bump(sim,'moves');maybeWin(sim);},
+    turnLeft(){opTick(sim);sim.world.robot.dir=(sim.world.robot.dir+3)%4;sim.actions.push({t:'turn',dir:sim.world.robot.dir});},
+    turnRight(){opTick(sim);sim.world.robot.dir=(sim.world.robot.dir+1)%4;sim.actions.push({t:'turn',dir:sim.world.robot.dir});},
+  };
+  if(opts.scan)api.scan=()=>{opTick(sim);const p=ahead(),c=classify(sim.world,p.x,p.y);sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'scans');return c;};
+  if(opts.sideScan){
+    api.scanLeft=()=>{opTick(sim);const p=ahead(-1),c=classify(sim.world,p.x,p.y);sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'scans');return c;};
+    api.scanRight=()=>{opTick(sim);const p=ahead(1),c=classify(sim.world,p.x,p.y);sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'scans');return c;};
+  }
+  return api;
+}
+function checkIndex(i,n,fname){
+  if(!Number.isInteger(i)||i<0||i>=n)
+    throw new Error(`${fname}(${i}) — there is no slot ${i}. Valid indices run from 0 to ${n-1}. (Programmers count from zero.)`);
+}
+
+/* ---------- grid-graph helpers (used by Season 3 builders) ---------- */
+function gridSolve(world,s,g,costFn){
+  // Dijkstra over open tiles; costFn(x,y) = cost of ENTERING a tile
+  // (1 everywhere = BFS). Returns {cost, route} or null if unreachable.
+  const key=(x,y)=>x+','+y;
+  const dist={},prev={};
+  dist[key(s.x,s.y)]=0;
+  const todo=[{x:s.x,y:s.y}];
+  while(todo.length){
+    let bi=0;
+    for(let i=1;i<todo.length;i++)
+      if(dist[key(todo[i].x,todo[i].y)]<dist[key(todo[bi].x,todo[bi].y)])bi=i;
+    const cur=todo.splice(bi,1)[0];
+    for(const [dx,dy] of DIRS){
+      const nx=cur.x+dx,ny=cur.y+dy;
+      if(tileAt(world,nx,ny).type==='wall')continue;
+      const nd=dist[key(cur.x,cur.y)]+costFn(nx,ny);
+      if(!(key(nx,ny) in dist)||nd<dist[key(nx,ny)]){
+        dist[key(nx,ny)]=nd;prev[key(nx,ny)]={x:cur.x,y:cur.y};
+        todo.push({x:nx,y:ny});
+      }
+    }
+  }
+  if(!(key(g.x,g.y) in dist))return null;
+  const route=[];let cur={x:g.x,y:g.y};
+  while(cur){route.push(cur);cur=prev[key(cur.x,cur.y)];}
+  route.reverse();
+  return {cost:dist[key(g.x,g.y)],route};
+}
+function validateRoute(world,route,s,g,fname){
+  if(!Array.isArray(route)||route.length<2)
+    throw new Error(`${fname}(route) expects an array of at least two {x, y} points.`);
+  for(const p of route)
+    if(!p||!Number.isInteger(p.x)||!Number.isInteger(p.y))
+      throw new Error(`${fname}: every waypoint must be an object like {x: 3, y: 5}.`);
+  if(route[0].x!==s.x||route[0].y!==s.y)
+    throw new Error(`${fname}: the route must begin at the start (${s.x}, ${s.y}).`);
+  const last=route[route.length-1];
+  if(last.x!==g.x||last.y!==g.y)
+    throw new Error(`${fname}: the route must end at the goal (${g.x}, ${g.y}).`);
+  for(let i=1;i<route.length;i++){
+    const a=route[i-1],b=route[i];
+    if(Math.abs(a.x-b.x)+Math.abs(a.y-b.y)!==1)
+      throw new Error(`${fname}: waypoint ${i} (${b.x}, ${b.y}) is not adjacent to (${a.x}, ${a.y}) — one step up/down/left/right at a time.`);
+    if(tileAt(world,b.x,b.y).type==='wall')
+      throw new Error(`${fname}: waypoint ${i} (${b.x}, ${b.y}) is inside debris. The drone disagrees.`);
+  }
+}
+
+/* reference decoder for the alien signal (chapter 18) */
+function rleDecode(s){
+  let out='',i=0;
+  while(i<s.length){
+    const c=s[i];
+    if(c>='1'&&c<='9'){
+      let k=i+1,depth=0;
+      do{if(s[k]==='[')depth++;else if(s[k]===']')depth--;k++;}while(depth>0);
+      const inner=rleDecode(s.slice(i+2,k-1));
+      for(let r=0;r<Number(c);r++)out+=inner;
+      i=k;
+    }else{out+=c;i++;}
+  }
+  return out;
+}
+
+/* ============================================================
+   LEVELS
+   ============================================================ */
+const LEVELS=[
+
+/* ---- 1 · sequences ---- */
+{
+  id:'seq',title:'Wake-Up Call',concept:'Sequences',
+  seeds:[1],
+  brief:[
+    ['HALCYON','…emergency power only… crew safe in cryo… maintenance unit B-YT3 will accept programs at any deck console…'],
+    ['BYTE','Boot complete. Hello, new engineer. Fair warning: I execute exactly what you write. No more, no less, no guessing.'],
+    ['YOU','Six weeks into my first engineering job, and the ship\'s AI is down. Okay. Deep breath. One instruction at a time.'],
+  ],
+  objective:'Walk Byte to the flashing deck console (▣) by giving it an exact sequence of commands.',
+  api:[
+    ['move()','Drive one tile in the direction Byte is facing.'],
+    ['turnLeft() / turnRight()','Rotate 90° in place.'],
+    ['report(msg)','Print a message to the output console below.'],
+  ],
+  starter:`// Byte starts facing east (right).
+// It only does EXACTLY what you write, in order.
+// Get it to the flashing console.
+
+move();
+move();
+// ...keep going
+`,
+  build(){return worldFromRows([
+    '#########',
+    '#>....###',
+    '#####.###',
+    '#####C###',
+    '#########',
+  ]);},
+  makeApi(sim){return movementApi(sim,{});},
+  win(sim){return onType(sim,'console');},
+  success:'The console flickers to life. Somewhere below deck, a relay closes.',
+  card:{title:'You wrote an algorithm',body:`
+    <p>An algorithm is just this: <b>a precise sequence of steps that gets a job done.</b> No intuition, no "you know what I mean" — the machine executes exactly what you wrote.</p>
+    <p>Every bug you will ever fix lives in the gap between what you <em>meant</em> and what you <em>wrote</em>. You just experienced the whole discipline in miniature.</p>
+    <div class="real"><div class="bt">In the wild</div>Deployment scripts, cooking-recipe-style data pipelines, spreadsheet macros — the "do these steps in order" shape is everywhere in real software.</div>`},
+},
+
+/* ---- 2 · loops ---- */
+{
+  id:'loop',title:'The Long Walk',concept:'Loops',
+  seeds:[1],
+  lineBudget:10,
+  brief:[
+    ['HALCYON','…stairwell to engineering… repeating structure… my fragments keep saying: do not write the same thing twice…'],
+    ['BYTE','This stairwell has four identical flights. My uplink buffer only holds 10 lines of code — you cannot fit 22 commands in it.'],
+    ['YOU','Four identical flights. Writing the same five commands four times feels wrong anyway.'],
+  ],
+  objective:'Descend the stairwell to the console. The uplink buffer holds only 10 lines — a copy-pasted solution will not fit. Wrap the repeating pattern in a loop.',
+  api:[
+    ['move() / turnLeft() / turnRight()','Same as before.'],
+    ['for (let i = 0; i < 4; i++) { … }','JavaScript: repeat a block 4 times.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// One flight of stairs is:
+//   move, move, turnRight, move, turnLeft
+// There are 4 identical flights, then 2 tiles to the console.
+// The buffer holds 10 lines — use a loop.
+
+for (let i = 0; i < 4; i++) {
+  // ...one flight goes here
+}
+`,
+  build(){return worldFromRows([
+    '#############',
+    '#>..#########',
+    '###...#######',
+    '#####...#####',
+    '#######...###',
+    '#########..C#',
+    '#############',
+  ]);},
+  makeApi(sim){return movementApi(sim,{});},
+  win(sim){return onType(sim,'console');},
+  success:'Byte rolls off the last stair. Engineering deck: reached.',
+  card:{title:'Loops: write it once, run it n times',body:`
+    <p>Twenty-two commands became a handful of lines. That's the point of a loop: <b>describe the pattern once and let the machine repeat it.</b></p>
+    <p>It also <em>scales</em>. Your program handles 4 flights — the same program handles 4,000. Repetition is the computer's job, not yours.</p>
+    <div class="real"><div class="bt">In the wild</div>"For each row in the spreadsheet…", "for each user in the database…", "retry 3 times…" — loops over data are most of what production code does all day.</div>`},
+},
+
+/* ---- 3 · conditionals ---- */
+{
+  id:'cond',title:'The Shifting Deck',concept:'Conditionals',
+  seeds:[11,42,77],
+  brief:[
+    ['HALCYON','…decompression warped the service corridors… bulkheads shifted… no two decks bent the same way…'],
+    ['BYTE','I will run your program on 3 different corridors. A memorized route will fail — I need a program that looks where it is going.'],
+    ['YOU','So I can\'t hardcode the path. The program has to sense the corridor and decide.'],
+  ],
+  objective:'Reach the console — on all 3 randomized corridors with the same program. Use scan() and if/else so Byte reacts to what is actually in front of it.',
+  api:[
+    ['scan()','Look one tile ahead. Returns "clear", "wall", or "console".'],
+    ['if (scan() === "wall") { … } else { … }','Branch on what the sensor sees.'],
+    ['while (condition) { … }','Loop while a condition holds.'],
+    ['move() / turnLeft() / turnRight()','Same as before.'],
+  ],
+  starter:`// The corridor bends differently every trial.
+// Strategy: while the console isn't ahead —
+//   if the way is clear, move;
+//   if it's a wall, try turning left; if that's
+//   also a wall, turn to face right instead.
+
+while (scan() !== "console") {
+  if (scan() === "clear") {
+    move();
+  } else {
+    turnLeft();
+    if (scan() !== "clear") {
+      turnRight();
+      turnRight();
+    }
+  }
+}
+move(); // step onto the console
+`,
+  build(rng){
+    const world=emptyWorld(13,9);
+    const open=(x,y)=>{world.tiles[y][x].type='floor';};
+    let cy=4;
+    for(let x=1;x<=3;x++)open(x,cy);
+    for(const c of [3,6,9]){
+      const opts=[];
+      if(cy-2>=2)opts.push(cy-2);
+      if(cy+2<=6)opts.push(cy+2);
+      const ny=opts[Math.floor(rng()*opts.length)];
+      for(let y=Math.min(cy,ny);y<=Math.max(cy,ny);y++)open(c,y);
+      cy=ny;
+      for(let x=c;x<=Math.min(c+3,11);x++)open(x,cy);
+    }
+    world.tiles[cy][11].type='console';
+    world.robot={x:1,y:4,dir:1};
+    return world;
+  },
+  makeApi(sim){return movementApi(sim,{scan:true});},
+  win(sim){return onType(sim,'console');},
+  success:'Three corridors, three arrivals, one program. HALCYON\'s voice is a little clearer now.',
+  card:{title:'Conditionals: programs that react',body:`
+    <p>Your first two programs were fixed routes. This one is different — it <b>senses its input and branches</b>. That's what makes it an algorithm rather than a recording.</p>
+    <p>Notice what the 3 trials proved: your code works on inputs you never saw while writing it. That is the actual bar for real software — it must handle <em>all</em> valid inputs, not just the demo.</p>
+    <div class="real"><div class="bt">In the wild</div>Form validation, retry-on-error, feature flags, "if the payment fails, roll back" — branching on live conditions is the second half of all code (loops are the first).</div>`},
+},
+
+/* ---- 4 · linear search ---- */
+{
+  id:'lsearch',title:'The Dead Cell',concept:'Linear search — O(n)',
+  seeds:[3,19,55],
+  brief:[
+    ['HALCYON','…main power failing… one cell in the battery row is dead… my logs do not say which…'],
+    ['BYTE','Ten power cells. One reads 0 volts. I can inspect the cell I\'m parked on. Find it, replace it.'],
+    ['YOU','No shortcut — I check them one by one until I find it. There must be a better way than this… someday.'],
+  ],
+  objective:'Byte starts on cell 1. Roll down the row, inspect() each cell, and replaceCell() when you find the dead one (0 volts). Works on all 3 trials — the dead cell moves.',
+  api:[
+    ['inspect()','Read the voltage of the cell Byte is parked on. Healthy ≈ 240, dead = 0.'],
+    ['replaceCell()','Swap out the cell Byte is parked on. Only works on the dead one.'],
+    ['move()','Roll to the next cell.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// Check cells one at a time until the reading is 0.
+// Then replace that cell.
+
+while (inspect() > 0) {
+  move();
+}
+report("Found it!");
+// ...now replace it
+`,
+  build(rng){
+    const world=emptyWorld(12,3);
+    const dead=ri(rng,1,10);
+    for(let x=1;x<=10;x++){
+      const t=world.tiles[1][x];
+      t.type='cell';t.voltage=(x===dead)?0:ri(rng,236,244);
+    }
+    world.robot={x:1,y:1,dir:1};
+    return world;
+  },
+  makeApi(sim){
+    const api=movementApi(sim,{});
+    api.inspect=()=>{opTick(sim);
+      const r=sim.world.robot,t=tileAt(sim.world,r.x,r.y);
+      if(t.type!=='cell')return -1;
+      sim.actions.push({t:'reveal',x:r.x,y:r.y,label:t.voltage+'V',cls:t.voltage===0?'dead':'live'});
+      bump(sim,'inspections');return t.voltage;};
+    api.replaceCell=()=>{opTick(sim);
+      const r=sim.world.robot,t=tileAt(sim.world,r.x,r.y);
+      if(t.type==='cell'&&t.voltage===0){t.fixed=true;sim.world.meta.fixed=true;
+        sim.actions.push({t:'fix',x:r.x,y:r.y});maybeWin(sim);}
+      else throw new Error('Byte pulled a healthy cell and the deck lights browned out. It has to be the DEAD one (0 volts). Trial failed.');};
+    return api;
+  },
+  win(sim){return sim.world.meta.fixed===true;},
+  success:'The dead cell clatters to the deck. Main power: restored. Lights everywhere.',
+  card:{title:'Linear search: check everything, one by one',body:`
+    <p>You just implemented <b>linear search</b> — walk the data front to back until you hit the target. Simple, always works, needs no preparation.</p>
+    <p>Its cost: with <code>n</code> items, the worst case is <code>n</code> checks. Ten cells, up to ten checks. A million records? Up to a million checks. Engineers write that as <b>O(n)</b> — "cost grows in step with the data."</p>
+    <div class="real"><div class="bt">In the wild</div>This is <code>Array.find()</code> / a plain <code>for</code> loop — and it's fine for small data. Knowing <em>when</em> it stops being fine is the next chapter.</div>`},
+},
+
+/* ---- 5 · binary search ---- */
+{
+  id:'bsearch',title:'The Archive',concept:'Binary search — O(log n)',
+  seeds:[7,23,61],
+  brief:[
+    ['HALCYON','…replacement nav module… parts archive… cabinets are sorted by part ID… scanner battery is nearly gone…'],
+    ['BYTE','15 cabinets, sorted by ID. The scanner has FOUR charges. Checking one-by-one needs up to 15. The sorting must be worth something.'],
+    ['YOU','Sorted… so if a cabinet\'s ID is too small, everything left of it is too small too. I can throw away half the row per scan.'],
+  ],
+  objective:'Find the cabinet whose ID matches target() and open() it — with at most 4 idAt() scans per trial. Halve the search range each scan. Cabinets are indexed 0–14, sorted ascending.',
+  api:[
+    ['count()','Number of cabinets (15).'],
+    ['target()','The part ID you must find.'],
+    ['idAt(i)','Scan cabinet i (0-indexed) and return its ID. Costs 1 of your 4 charges.'],
+    ['open(i)','Open cabinet i. Wrong cabinet trips the security alarm.'],
+    ['Math.floor(x)','Round down — handy for finding the middle index.'],
+  ],
+  starter:`// The cabinets are SORTED. Use it:
+// keep a lo..hi range, scan the middle,
+// and discard the half that can't contain the target.
+
+let lo = 0;
+let hi = count() - 1;
+
+while (lo <= hi) {
+  let mid = Math.floor((lo + hi) / 2);
+  let id = idAt(mid);
+  if (id === target()) {
+    // found it — open it!
+  } else if (id < target()) {
+    // target is somewhere to the right
+  } else {
+    // target is somewhere to the left
+  }
+}
+`,
+  build(rng){
+    const world=emptyWorld(17,3);
+    const ids=[];let v=ri(rng,100,140);
+    for(let i=0;i<15;i++){ids.push(v);v+=ri(rng,7,55);}
+    const ti=ri(rng,5,14);
+    for(let x=1;x<=15;x++){const t=world.tiles[1][x];t.type='cabinet';t.pid=ids[x-1];}
+    world.meta={ids,target:ids[ti],scans:0,opened:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return 15;},
+      target:()=>{opTick(sim);return m.target;},
+      idAt:(i)=>{opTick(sim);checkIndex(i,15,'idAt');
+        if(++m.scans>4)throw new Error('Scanner battery drained — that was scan #5 of a 4-charge battery. Linear habits die here: each scan must eliminate HALF the cabinets. Trial failed.');
+        sim.actions.push({t:'reveal',x:i+1,y:1,label:String(m.ids[i])});
+        bump(sim,'scans');return m.ids[i];},
+      open:(i)=>{opTick(sim);checkIndex(i,15,'open');
+        if(m.ids[i]===m.target){m.opened=true;sim.actions.push({t:'open',x:i+1,y:1,ok:true});maybeWin(sim);}
+        else{sim.actions.push({t:'open',x:i+1,y:1,ok:false});
+          throw new Error(`Cabinet ${i} holds part ${m.ids[i]}, not ${m.target}. Security alarm tripped — trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.opened===true;},
+  success:'Fourth scan. Right cabinet. The nav module is heavier than it looks. HALCYON almost sounds impressed.',
+  card:{title:'Binary search: halve it until it\'s found',body:`
+    <p>You found 1 cabinet in 15 with only 4 scans, because sorted data lets each scan <b>discard half of everything remaining</b>. 15 → 7 → 3 → 1.</p>
+    <p>The payoff explodes with scale: a <em>million</em> sorted items need at most <b>20</b> checks; a billion, 30. That's <b>O(log n)</b> — and it's why databases index their data and why "keep it sorted" is worth paying for.</p>
+    <div class="real"><div class="bt">In the wild</div>Database indexes, autocomplete, <code>git bisect</code> hunting the commit that broke the build — and the single most-asked whiteboard interview question in existence. You just wrote it.</div>`},
+},
+
+/* ---- 6 · sorting ---- */
+{
+  id:'sort',title:'Cargo Shuffle',concept:'Sorting — O(n²)',
+  seeds:[13,47],
+  brief:[
+    ['HALCYON','…thruster asymmetry… cargo bay must be rebalanced… crates ordered lightest to heaviest, port to starboard…'],
+    ['BYTE','8 crates, unknown weights. I have a scale and a crane: weigh(i) and swap(i, j). Arrange them ascending and we can burn for home.'],
+    ['YOU','Last chapter sorted data saved me 11 scans. Now I see why someone bothers to sort it in the first place.'],
+  ],
+  objective:'Rearrange the 8 crates (indices 0–7) into ascending weight order using weigh(i) and swap(i, j). The program must work on both randomized trials. Order is checked when your program ends.',
+  api:[
+    ['count()','Number of crates (8).'],
+    ['weigh(i)','Return the weight of the crate currently in slot i.'],
+    ['swap(i, j)','Crane-swap the crates in slots i and j.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// Selection sort: for each slot from left to right,
+// find the lightest crate in the unsorted remainder
+// and swap it into place.
+
+let n = count();
+for (let i = 0; i < n; i++) {
+  let lightest = i;
+  for (let j = i + 1; j < n; j++) {
+    // if crate j is lighter than crate 'lightest',
+    // remember j
+  }
+  // swap slot i with slot 'lightest'
+}
+`,
+  build(rng){
+    const world=emptyWorld(10,3);
+    const ws=new Set();
+    while(ws.size<8)ws.add(ri(rng,10,99));
+    const weights=[...ws];
+    // shuffle
+    for(let i=weights.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[weights[i],weights[j]]=[weights[j],weights[i]];}
+    for(let x=1;x<=8;x++){const t=world.tiles[1][x];t.type='crate';t.weight=weights[x-1];}
+    return world;
+  },
+  makeApi(sim){
+    return {
+      count:()=>{opTick(sim);return 8;},
+      weigh:(i)=>{opTick(sim);checkIndex(i,8,'weigh');
+        const t=sim.world.tiles[1][i+1];
+        sim.actions.push({t:'reveal',x:i+1,y:1,label:t.weight+'kg'});
+        bump(sim,'weighs');return t.weight;},
+      swap:(i,j)=>{opTick(sim);checkIndex(i,8,'swap');checkIndex(j,8,'swap');
+        const a=sim.world.tiles[1][i+1],b=sim.world.tiles[1][j+1];
+        [a.weight,b.weight]=[b.weight,a.weight];
+        sim.actions.push({t:'swap',i,j});bump(sim,'swaps');},
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    for(let x=1;x<8;x++)if(sim.world.tiles[1][x].weight>sim.world.tiles[1][x+1].weight)return false;
+    return true;
+  },
+  success:'The crates lock into their cradles, lightest to heaviest. The deck stops vibrating. Thrust: balanced.',
+  card:{title:'Sorting: paying the cost up front',body:`
+    <p>That was <b>selection sort</b>: for each position, hunt down the smallest remaining item. Two nested loops over <code>n</code> items ≈ <code>n²</code> comparisons — <b>O(n²)</b>. Fine for 8 crates; painful for 8 million.</p>
+    <p>Real systems use cleverer sorts (merge sort, quicksort — <b>O(n log n)</b>), but the deal is always the same: <b>pay once to sort, then every binary search afterwards is nearly free.</b> Chapter 5 was the payoff; this was the price.</p>
+    <div class="real"><div class="bt">In the wild</div><code>array.sort()</code> exists in every language — you'll rarely hand-write one at work, but interviews love them, and knowing the O(n²) vs O(n log n) difference is table stakes.</div>`},
+},
+
+/* ---- 7 · pathfinding ---- */
+{
+  id:'maze',title:'Escape Route',concept:'Pathfinding',
+  seeds:[29,83],
+  brief:[
+    ['HALCYON','…nav module installed… I am 94% restored… but the route to the bridge airlock collapsed into a maintenance maze… I cannot map it from here…'],
+    ['BYTE','No map. Local sensors only: I can peek ahead, left, and right. There is a classic trick for mazes like this, engineer.'],
+    ['YOU','Keep one hand on the right-hand wall and never let go. If the maze is fully connected, the wall leads you through every corridor — including the exit.'],
+  ],
+  objective:'Reach the airlock (◎) through an unmapped maze — on both randomized layouts. Hint: the right-hand rule. If the space to your right is open, turn right and step; else if ahead is open, step; else turn left.',
+  api:[
+    ['scan()','Look one tile ahead: "clear", "wall", or "airlock".'],
+    ['scanLeft() / scanRight()','Peek sideways without turning.'],
+    ['move() / turnLeft() / turnRight()','Same as always.'],
+    ['while (true) { … }','Loop forever — Byte stops automatically at the airlock.'],
+  ],
+  starter:`// Right-hand rule: hug the wall on your right.
+// 1. If the right side is open -> turn right, move.
+// 2. Else if ahead is open    -> move.
+// 3. Else                     -> turn left.
+// Byte stops by itself when it reaches the airlock.
+
+while (true) {
+  // your rule here
+}
+`,
+  build(rng){
+    const world=emptyWorld(13,9);
+    const open=(x,y)=>{world.tiles[y][x].type='floor';};
+    // recursive backtracker over cells at odd coordinates
+    const stack=[[1,7]],seen=new Set(['1,7']);
+    open(1,7);
+    while(stack.length){
+      const [cx,cy]=stack[stack.length-1];
+      const nbrs=[[cx+2,cy],[cx-2,cy],[cx,cy+2],[cx,cy-2]]
+        .filter(([x,y])=>x>0&&x<12&&y>0&&y<8&&!seen.has(x+','+y));
+      if(!nbrs.length){stack.pop();continue;}
+      const [nx,ny]=nbrs[Math.floor(rng()*nbrs.length)];
+      open((cx+nx)/2,(cy+ny)/2);open(nx,ny);
+      seen.add(nx+','+ny);stack.push([nx,ny]);
+    }
+    world.tiles[1][11].type='airlock';
+    world.robot={x:1,y:7,dir:0};
+    return world;
+  },
+  makeApi(sim){return movementApi(sim,{scan:true,sideScan:true});},
+  win(sim){return onType(sim,'airlock');},
+  success:'The airlock cycles. Bridge lights bloom. HALCYON, at 100%: "Welcome back, engineer. Now — about the crew."',
+  card:{title:'Pathfinding: algorithms on graphs',body:`
+    <p>The <b>right-hand rule</b> (wall following) solves any simply-connected maze with three lines of logic and zero memory. It's your first <em>graph algorithm</em> — the maze is nodes and connections, even if it doesn't look like one.</p>
+    <p>Its limits point at the good stuff: it finds <em>a</em> path, not the <em>shortest</em>. For that, real systems explore outward level-by-level (<b>breadth-first search</b>) or steer the exploration with a distance estimate (<b>A*</b>).</p>
+    <div class="real"><div class="bt">In the wild</div>GPS routing, network packet routing, web crawlers, dependency resolution in package managers, game AI — a huge share of "hard" real-world problems are graphs wearing costumes.</div>`},
+},
+
+/* ============ SEASON 2 — COLD STORAGE ============ */
+
+/* ---- 8 · stack ---- */
+{
+  id:'stack',title:'Pressure Seals',concept:'Stacks — LIFO',
+  seeds:[9,31,64],
+  brief:[
+    ['HALCYON','I am restored, engineer — but the crew is not. The cryo bay hatch sits behind eight emergency seals, welded on during the storm. Cut them out of order and the hatch buckles.'],
+    ['BYTE','The weld log streams oldest-first, one entry at a time — no rewinding. Rule of thumb for undoing things: the last seal on is the first seal off.'],
+    ['YOU','Last in, first out. I\'ll pile the log entries up as they arrive, then peel them off the top.'],
+  ],
+  objective:'Read the whole weld log with logNext(), then cut() all 8 seals in REVERSE installation order. Cutting any seal that still has a later seal on top of it buckles the hatch.',
+  api:[
+    ['logNext()','Next entry from the weld log (oldest first), or null when the log ends. One-way — you cannot re-read.'],
+    ['cut(id)','Cut a seal. Only the most recent uncut seal is safe to cut.'],
+    ['stack.push(x) / stack.pop()','JavaScript arrays: push adds to the end, pop removes from the end. That is a stack.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// 1. Read the log into an array with push().
+// 2. Then pop() entries off the end — pop gives you
+//    the LAST thing pushed, i.e. the newest seal first.
+
+let stack = [];
+let seal = logNext();
+while (seal !== null) {
+  stack.push(seal);
+  seal = logNext();
+}
+// now cut them, newest first
+`,
+  build(rng){
+    const world=emptyWorld(10,3);
+    const order=[];
+    while(order.length<8){const c='S-'+ri(rng,10,99);if(!order.includes(c))order.push(c);}
+    for(let x=1;x<=8;x++){const t=world.tiles[1][x];t.type='seal';t.sid=order[x-1];}
+    world.meta={order,logPos:0,remaining:8};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      logNext:()=>{opTick(sim);
+        if(m.logPos>=8)return null;
+        const id=m.order[m.logPos];
+        sim.actions.push({t:'reveal',x:m.logPos+1,y:1,label:id});
+        m.logPos++;bump(sim,'logReads');return id;},
+      cut:(id)=>{opTick(sim);
+        const pos=m.order.indexOf(id);
+        if(pos===-1)throw new Error(`cut(${JSON.stringify(id)}) — no seal has that ID.`);
+        const expected=m.order[m.remaining-1];
+        if(id!==expected)throw new Error(`The hatch GROANS. Seal ${id} is still pinned under ${expected} — the newest uncut seal must always come off first. Trial failed.`);
+        m.remaining--;bump(sim,'cuts');
+        sim.actions.push({t:'mark',x:pos+1,y:1,cls:'ok'});
+        maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.remaining===0;},
+  success:'The eighth seal clangs to the deck and the hatch swings free. Beyond it: rows of frosted pods.',
+  card:{title:'The stack: last in, first out',body:`
+    <p>You buffered a one-way stream and replayed it <em>backwards</em>. A pile you can only add to and take from the top — <b>push</b> and <b>pop</b> — is a <b>stack</b>, and a plain JavaScript array is already one.</p>
+    <p>Stacks are how computers remember "what was I doing before this?" — finish the newest thing first, then unwind.</p>
+    <div class="real"><div class="bt">In the wild</div>Ctrl+Z undo history, the browser back button, matching brackets in your editor — and the <em>call stack</em> that tracks every function your program enters, which is why the famous error (and website) is called "stack overflow".</div>`},
+},
+
+/* ---- 9 · queue ---- */
+{
+  id:'queue',title:'Wake Order',concept:'Queues — FIFO',
+  seeds:[17,52],
+  brief:[
+    ['HALCYON','Medical triage protocol: pods must be revived in the order their alarms fired. But my comm relay was patched, not fixed — it holds THREE unread alerts at most. Lose one, lose the order.'],
+    ['BYTE','Reviving a pod takes me a full cycle, and alarms keep firing while I work. You need somewhere bigger than the relay to keep the line.'],
+    ['YOU','Drain the relay into my own list every cycle, and always wake the pod at the FRONT of the line. First in, first out.'],
+  ],
+  objective:'Wake all 8 pods in the exact order their alerts arrived. Each wake() or standby() takes one cycle, during which new alerts land in the 3-slot relay. If a 4th unread alert arrives, the relay overflows and the trial fails — so drain it into your own queue every cycle.',
+  api:[
+    ['commCount()','How many unread alerts are in the relay right now.'],
+    ['readComm()','Take the oldest unread alert (a pod ID) out of the relay.'],
+    ['wake(id)','Revive a pod. Takes one cycle. Must follow alert order.'],
+    ['standby()','Wait one cycle (when no pod is ready to wake).'],
+    ['allAwake()','true once all 8 pods are up.'],
+    ['q.push(x) / q.shift()','Arrays again: push adds at the back, shift takes from the FRONT. That is a queue.'],
+  ],
+  starter:`// Every cycle: drain the relay into your queue,
+// then wake the pod at the FRONT of the queue.
+// push() adds at the back, shift() takes the front.
+
+let queue = [];
+while (!allAwake()) {
+  while (commCount() > 0) {
+    queue.push(readComm());
+  }
+  // wake the front of the queue — or standby()
+  // if the queue is empty
+}
+`,
+  build(rng){
+    const world=emptyWorld(10,3);
+    const ids=[];
+    while(ids.length<8){const c='P-'+ri(rng,10,99);if(!ids.includes(c))ids.push(c);}
+    const counts=[1,2,2,2,1]; // guaranteed burst: waking 1/cycle cannot keep up
+    const schedule=[];let k=0;
+    for(const n of counts){schedule.push(ids.slice(k,k+n));k+=n;}
+    for(let x=1;x<=8;x++){const t=world.tiles[1][x];t.type='pod';t.pid=ids[x-1];}
+    world.meta={schedule,arrivalOrder:ids,buffer:[],read:new Set(),woken:0,tick:0};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const posOf=(id)=>m.arrivalOrder.indexOf(id)+1;
+    const deliver=()=>{
+      for(const id of (m.schedule[m.tick]||[])){
+        m.buffer.push(id);
+        sim.actions.push({t:'reveal',x:posOf(id),y:1,label:id,cls:'alert'});
+        sim.actions.push({t:'note',msg:`alert: ${id} flagged  (relay ${m.buffer.length}/3)`});
+        if(m.buffer.length>3)throw new Error(`RELAY OVERFLOW — a 4th alert arrived while 3 sat unread, and the order is gone. Drain the relay into your own queue every cycle. Trial failed.`);
+      }
+      m.tick++;
+    };
+    deliver(); // cycle 0 alerts are waiting when your program starts
+    return {
+      commCount:()=>{opTick(sim);return m.buffer.length;},
+      readComm:()=>{opTick(sim);
+        if(!m.buffer.length)return null;
+        const id=m.buffer.shift();m.read.add(id);return id;},
+      allAwake:()=>{opTick(sim);return m.woken===8;},
+      standby:()=>{opTick(sim);bump(sim,'cycles');deliver();},
+      wake:(id)=>{opTick(sim);
+        if(!m.read.has(id))throw new Error(`wake(${JSON.stringify(id)}) — no alert for that pod has been read from the relay.`);
+        const expected=m.arrivalOrder[m.woken];
+        if(id!==expected)throw new Error(`Triage violation: ${expected}'s alarm fired before ${id}'s. First in, first out. Trial failed.`);
+        m.woken++;bump(sim,'cycles');
+        sim.actions.push({t:'mark',x:posOf(id),y:1,cls:'ok'});
+        sim.actions.push({t:'note',msg:`${id} is awake  (${m.woken}/8)`});
+        maybeWin(sim);
+        deliver();},
+    };
+  },
+  win(sim){return sim.world.meta.woken===8;},
+  success:'Eight pods hiss open in perfect order. Groggy crew members blink at the maintenance robot waving at them.',
+  card:{title:'The queue: first in, first out',body:`
+    <p>A stack answers "what's newest?"; a <b>queue</b> answers "who's been waiting longest?" — add at the back (<code>push</code>), serve from the front (<code>shift</code>). Fairness as a data structure.</p>
+    <p>The relay's 3-slot limit is the real lesson: <b>producers and consumers run at different speeds</b>, and a queue is the buffer between them.</p>
+    <div class="real"><div class="bt">In the wild</div>Message queues (Kafka, RabbitMQ, SQS) hold the modern internet together; print jobs, ticket systems, and web-server request handling are all queues. And breadth-first search — Season 3 — is "explore a graph using a queue."</div>`},
+},
+
+/* ---- 10 · linked list ---- */
+{
+  id:'list',title:'The Conveyor Chain',concept:'Linked lists',
+  seeds:[21,58,86],
+  brief:[
+    ['HALCYON','Cryo-fluid feeds the pods through a chain of couplers. Each coupler stores the ID of the NEXT coupler — there is no master list. The chain IS the list. The storm corroded some of them.'],
+    ['BYTE','I can inspect one coupler at a time, whichever you ask about. Splice the good ones around the corroded ones — and do not strand any good coupler.'],
+    ['YOU','Walk the chain with two markers: the last good coupler behind me, and the one I\'m inspecting. Corroded? Point the good one past it and keep walking.'],
+  ],
+  objective:'Traverse the chain from head() via nextOf(), and use setNext() to splice around every corroded coupler. When your program ends, the chain must run head-to-end through every good coupler and no corroded ones. Works on all 3 trials.',
+  api:[
+    ['head()','ID of the first coupler (the pump — always good).'],
+    ['nextOf(id)','ID of the coupler after this one, or null at the end of the chain.'],
+    ['statusOf(id)','"ok" or "corroded".'],
+    ['setNext(id, id2)','Re-point coupler id to id2 (or to null to end the chain there).'],
+  ],
+  starter:`// Two markers: 'prev' = last good coupler,
+// 'cur' = the one being inspected.
+// If cur is corroded, splice prev past it.
+
+let prev = head();
+let cur = nextOf(prev);
+while (cur !== null) {
+  if (statusOf(cur) === "corroded") {
+    // point prev at whatever follows cur
+  } else {
+    prev = cur;
+  }
+  cur = nextOf(cur);
+}
+`,
+  build(rng){
+    const world=emptyWorld(12,3);
+    const ids=[];
+    while(ids.length<10){const c=ri(rng,100,999);if(!ids.includes(c))ids.push(c);}
+    const nBad=ri(rng,2,3),bad=new Set();
+    while(bad.size<nBad)bad.add(ri(rng,1,9)); // never the head
+    const next={},status={},pos={};
+    ids.forEach((id,i)=>{next[id]=ids[i+1]??null;status[id]=bad.has(i)?'corroded':'ok';pos[id]=i;});
+    for(let x=1;x<=10;x++){const t=world.tiles[1][x];t.type='node';t.pid=ids[x-1];t.corrupt=bad.has(x-1);}
+    world.meta={ids,next,status,pos,head:ids[0]};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const known=(id,f)=>{if(!(id in m.next))throw new Error(`${f}(${JSON.stringify(id)}) — no coupler has that ID.`);};
+    return {
+      head:()=>{opTick(sim);return m.head;},
+      nextOf:(id)=>{opTick(sim);known(id,'nextOf');
+        sim.actions.push({t:'ping',x:m.pos[id]+1,y:1});bump(sim,'hops');
+        return m.next[id];},
+      statusOf:(id)=>{opTick(sim);known(id,'statusOf');return m.status[id];},
+      setNext:(id,nid)=>{opTick(sim);known(id,'setNext');
+        if(nid!==null)known(nid,'setNext');
+        m.next[id]=nid;bump(sim,'splices');
+        const from=m.pos[id],to=nid===null?m.ids.length:m.pos[nid];
+        for(const q of m.ids)
+          if(m.pos[q]>from&&m.pos[q]<to&&m.status[q]==='corroded')
+            sim.actions.push({t:'mark',x:m.pos[q]+1,y:1,cls:'dim'});},
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    const m=sim.world.meta;
+    const okCount=m.ids.filter(id=>m.status[id]==='ok').length;
+    let cur=m.head,seen=0;
+    while(cur!==null){
+      if(m.status[cur]!=='ok')return false;
+      if(++seen>m.ids.length)return false; // cycle
+      cur=m.next[cur];
+    }
+    return seen===okCount;
+  },
+  success:'Cryo-fluid gurgles through the spliced chain. Every good coupler flows; every corroded one is bypassed.',
+  card:{title:'Linked lists: the chain is the data',body:`
+    <p>No master array — each node only knows the <em>next</em> node. That's a <b>linked list</b>, and you just performed its signature move: <b>deletion by re-pointing</b>. No shifting elements around, just one pointer change.</p>
+    <p>The two-marker walk you used (<code>prev</code> trailing <code>cur</code>) is the classic <b>two-pointer traversal</b> — one of the most-tested patterns in coding interviews.</p>
+    <div class="real"><div class="bt">In the wild</div>Operating-system task lists, LRU caches, blockchain blocks, your music app's up-next — anywhere insertion and removal in the middle must be cheap. Arrays are better at "give me item 500"; lists are better at "cut this one out".</div>`},
+},
+
+/* ---- 11 · hash map ---- */
+{
+  id:'map',title:'The Manifest',concept:'Hash maps — O(1) lookup',
+  seeds:[35,72],
+  brief:[
+    ['HALCYON','Eight crew on the wake list. Their pod assignments are scattered through a 24-record manifest in cold storage. My archive reader runs on the cell you installed — THIRTY reads left.'],
+    ['BYTE','Eight searches through 24 records is up to 192 reads the slow way. Or: read everything ONCE, and remember it in something faster than paper.'],
+    ['YOU','One pass to build a lookup table — crew code in, pod number out. After that, every answer is instant.'],
+  ],
+  objective:'For each crew code in wakeList(), report the right pod with locate(crew, pod) — using at most 30 recordAt() reads per trial. Re-scanning the manifest for every name will blow the budget: build an index first.',
+  api:[
+    ['recordCount()','Number of manifest records (24).'],
+    ['recordAt(i)','Read record i → {crew: "K7", pod: 14}. Costs 1 of your 30 reads.'],
+    ['wakeList()','The 8 crew codes to locate (free).'],
+    ['locate(crew, pod)','Report that a crew member is in a pod. Wrong pod = opened empty = alarm.'],
+    ['obj[key] = value / obj[key]','A JavaScript object IS a hash map: store by key, fetch by key, instantly.'],
+  ],
+  starter:`// Pass 1: read all 24 records ONCE, storing each
+//   in an object:  index[crew] = pod
+// Pass 2: answer every wake-list query from the object.
+
+let index = {};
+for (let i = 0; i < recordCount(); i++) {
+  let r = recordAt(i);
+  // store r.pod under r.crew
+}
+
+for (const crew of wakeList()) {
+  // locate(crew, ...) using the index
+}
+`,
+  build(rng){
+    const world=emptyWorld(14,4);
+    const letters='ABCDEFGHJKLMNPRSTVWXYZ';
+    const crews=[];
+    while(crews.length<24){
+      const c=letters[ri(rng,0,letters.length-1)]+ri(rng,0,9);
+      if(!crews.includes(c))crews.push(c);
+    }
+    const pods=[];for(let i=1;i<=24;i++)pods.push(i);
+    for(let i=pods.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[pods[i],pods[j]]=[pods[j],pods[i]];}
+    const records=crews.map((c,i)=>({crew:c,pod:pods[i]}));
+    // wake list: 8 targets, forced deep into the manifest so
+    // per-query rescanning always exceeds the 30-read budget
+    let wake;
+    do{
+      const idx=new Set();
+      while(idx.size<8)idx.add(ri(rng,0,23));
+      wake=[...idx];
+    }while(wake.reduce((s,i)=>s+i+1,0)<=45);
+    const wakeCrews=wake.map(i=>records[i].crew);
+    for(let i=0;i<24;i++){
+      const x=1+i%12,y=1+Math.floor(i/12);
+      const t=world.tiles[y][x];t.type='record';t.idx=i;t.rec=records[i];
+    }
+    world.meta={records,wakeCrews,reads:0,located:new Set()};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    sim.actions.push({t:'note',msg:'wake list: '+m.wakeCrews.join(', ')});
+    const posOf=(i)=>({x:1+i%12,y:1+Math.floor(i/12)});
+    return {
+      recordCount:()=>{opTick(sim);return 24;},
+      recordAt:(i)=>{opTick(sim);checkIndex(i,24,'recordAt');
+        if(++m.reads>30)throw new Error('Archive reader dead — that was read #31 of 30. Re-scanning the manifest per name costs O(n) EVERY time; an index costs one pass, ever. Trial failed.');
+        const r=m.records[i],p=posOf(i);
+        sim.actions.push({t:'reveal',x:p.x,y:p.y,label:r.crew+':'+r.pod});
+        bump(sim,'reads');
+        return {crew:r.crew,pod:r.pod};},
+      wakeList:()=>{opTick(sim);return [...m.wakeCrews];},
+      locate:(crew,pod)=>{opTick(sim);
+        const i=m.records.findIndex(r=>r.crew===crew);
+        if(i===-1||!m.wakeCrews.includes(crew))throw new Error(`locate(${JSON.stringify(crew)}, …) — that code is not on the wake list.`);
+        if(pod===undefined)throw new Error(`locate("${crew}", undefined) — your index has no entry for ${crew}. Did pass 1 store every record?`);
+        const p=posOf(i);
+        if(m.records[i].pod!==pod){
+          sim.actions.push({t:'mark',x:p.x,y:p.y,cls:'bad'});
+          throw new Error(`Pod ${pod} opened EMPTY — ${crew} is not in there. Check what your index actually stored. Trial failed.`);}
+        m.located.add(crew);bump(sim,'located');
+        sim.actions.push({t:'mark',x:p.x,y:p.y,cls:'ok'});
+        maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.located.size===8;},
+  success:'Eight pods hum open on the first try each. 24 reads, 8 instant answers. The archive cell has power to spare.',
+  card:{title:'Hash maps: pay once, answer instantly',body:`
+    <p>You spent one pass building an <b>index</b>, and every lookup after that was <b>O(1)</b> — constant time, no matter how big the manifest gets. A plain JavaScript object (<code>index[key] = value</code>) is a hash map.</p>
+    <p>This read-once-query-many pattern is arguably the single most useful trick in practical programming — chapter 5's binary search needed <em>sorted</em> data; a hash map doesn't even need that.</p>
+    <div class="real"><div class="bt">In the wild</div>Database indexes, caches, session stores, JSON itself, counting and de-duplicating anything. In interviews, "could a hash map do this?" is the right first question for about half of all problems.</div>`},
+},
+
+/* ---- 12 · priority queue ---- */
+{
+  id:'pq',title:'The Critical List',concept:'Priority queues',
+  seeds:[41,90],
+  brief:[
+    ['HALCYON','The last ten pods. Life support is failing at different rates — every vitals alert carries a criticality score. Whoever is worst off wakes next. ALWAYS.'],
+    ['BYTE','The relay is properly repaired — buffer as many alerts as you like. But each cycle you must answer one question: of everyone waiting, who is most critical RIGHT NOW?'],
+    ['YOU','Keep the waiting pods in a list. Every cycle: drain the relay, scan for the max — chapter four taught me that — wake them, repeat. There\'s a name for this: a priority queue.'],
+  ],
+  objective:'Wake all 10 pods, always choosing the highest-criticality pod among those whose alerts you have read. New alerts keep arriving while you work — re-check the relay every cycle. Works on both trials.',
+  api:[
+    ['commCount() / readComm()','Relay, as before — but no size limit this time.'],
+    ['critOf(id)','Criticality score of a flagged pod (higher = more urgent).'],
+    ['wake(id)','Revive a pod. Takes one cycle. Must be the most critical pod waiting.'],
+    ['standby()','Wait one cycle.'],
+    ['allAwake()','true once all 10 pods are up.'],
+  ],
+  starter:`// A priority queue, hand-rolled:
+// drain the relay into 'waiting', then each cycle
+// find and wake the pod with the HIGHEST critOf().
+
+let waiting = [];
+while (!allAwake()) {
+  while (commCount() > 0) {
+    waiting.push(readComm());
+  }
+  if (waiting.length === 0) {
+    standby();
+    continue;
+  }
+  // find the index of the most critical pod in
+  // 'waiting', wake it, and remove it:
+  //   waiting.splice(thatIndex, 1);
+}
+`,
+  build(rng){
+    const world=emptyWorld(12,3);
+    const ids=[];
+    while(ids.length<10){const c='P-'+ri(rng,10,99);if(!ids.includes(c))ids.push(c);}
+    const cs=new Set();
+    while(cs.size<10)cs.add(ri(rng,10,99));
+    const crits=[...cs];
+    // first two arrivals ascend in criticality, so FIFO waking
+    // fails immediately — priority is not arrival order
+    if(crits[0]>crits[1])[crits[0],crits[1]]=[crits[1],crits[0]];
+    const crit={};ids.forEach((id,i)=>crit[id]=crits[i]);
+    const counts=[2,2,2,2,2],schedule=[];let k=0;
+    for(const n of counts){schedule.push(ids.slice(k,k+n));k+=n;}
+    for(let x=1;x<=10;x++){const t=world.tiles[1][x];t.type='pod';t.idx=ids[x-1];}
+    world.meta={ids,crit,schedule,buffer:[],read:new Set(),woken:new Set(),tick:0};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const posOf=(id)=>m.ids.indexOf(id)+1;
+    const deliver=()=>{
+      for(const id of (m.schedule[m.tick]||[])){
+        m.buffer.push(id);
+        sim.actions.push({t:'reveal',x:posOf(id),y:1,label:'crit '+m.crit[id],cls:'alert'});
+        sim.actions.push({t:'note',msg:`alert: ${id} — criticality ${m.crit[id]}`});
+      }
+      m.tick++;
+    };
+    deliver();
+    return {
+      commCount:()=>{opTick(sim);return m.buffer.length;},
+      readComm:()=>{opTick(sim);
+        if(!m.buffer.length)return null;
+        const id=m.buffer.shift();m.read.add(id);return id;},
+      critOf:(id)=>{opTick(sim);
+        if(!(id in m.crit))throw new Error(`critOf(${JSON.stringify(id)}) — no pod has that ID.`);
+        return m.crit[id];},
+      allAwake:()=>{opTick(sim);return m.woken.size===10;},
+      standby:()=>{opTick(sim);bump(sim,'cycles');deliver();},
+      wake:(id)=>{opTick(sim);
+        if(!m.read.has(id)||m.woken.has(id))throw new Error(`wake(${JSON.stringify(id)}) — that pod's alert has not been read (or it is already awake).`);
+        for(const q of m.read)
+          if(!m.woken.has(q)&&m.crit[q]>m.crit[id])
+            throw new Error(`Triage violation: ${q} is at criticality ${m.crit[q]} — worse than ${id} at ${m.crit[id]}. The most critical pod ALWAYS goes first. Trial failed.`);
+        m.woken.add(id);bump(sim,'cycles');
+        sim.actions.push({t:'mark',x:posOf(id),y:1,cls:'ok'});
+        sim.actions.push({t:'note',msg:`${id} is awake  (${m.woken.size}/10)`});
+        maybeWin(sim);
+        deliver();},
+    };
+  },
+  win(sim){return sim.world.meta.woken.size===10;},
+  success:'The last pod opens. The Captain steps out, reads the repair log top to bottom, and looks at you for a long moment. "Six weeks in, you said?"',
+  card:{title:'Priority queues: the most urgent thing, always',body:`
+    <p>A queue serves whoever waited longest; a <b>priority queue</b> serves whoever matters most. You built one from parts you already owned: an array, plus chapter 4's linear max-scan on every cycle.</p>
+    <p>That scan is O(n) per wake — fine for 10 pods. At scale, a <b>heap</b> keeps the max on top and does it in O(log n). Same idea, faster furniture — that's usually how data structures level up.</p>
+    <div class="real"><div class="bt">In the wild</div>Operating-system schedulers, hospital triage software, event loops firing the soonest timer, and Dijkstra's shortest-path algorithm — which is Season 3's opening move.</div>`},
+},
+
+/* ============ SEASON 3 — THE RELAY NETWORK ============ */
+
+/* ---- 13 · BFS ---- */
+{
+  id:'bfs',title:'The Debris Field',concept:'Breadth-first search',
+  seeds:[19,66,93],
+  brief:[
+    ['HALCYON','The whole sector relay network is dark, engineer — every ship out here is as blind as we were. First task: thread a survey drone through the debris field to the relay hub.'],
+    ['BYTE','The drone carries fuel for EXACTLY the shortest route — command deemed anything more "wasteful". Chapter 7\'s wall-hugging finds A route. We need THE route.'],
+    ['YOU','Explore in ripples: check everything 1 step away, then 2, then 3 — with a queue, like the cryo alerts. The first ripple to touch the hub IS the shortest path. Remember where each ripple came from, and walk it backwards.'],
+  ],
+  objective:'Compute the SHORTEST route from the drone (▲) to the hub (▣) and submit it with plotRoute([{x,y}, …]). The drone has fuel for exactly the minimum number of hops — any longer route fails. Works on all 3 randomized fields.',
+  api:[
+    ['isOpen(x, y)','true if that tile is inside the field and free of debris.'],
+    ['start() / goal()','{x, y} of the drone and the hub.'],
+    ['plotRoute(route)','Submit an array of {x, y} waypoints from start to goal, one step apart.'],
+    ['Keys trick','Objects can\'t be object keys — use strings: let k = p.x + "," + p.y;'],
+  ],
+  starter:`// Breadth-first search:
+// a queue of tiles to visit (oldest first), and a
+// 'cameFrom' map so you can walk the route backwards.
+
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+const key = (p) => p.x + "," + p.y;
+
+let s = start(), g = goal();
+let queue = [s];
+let cameFrom = {};
+cameFrom[key(s)] = null;
+
+while (queue.length > 0) {
+  let cur = queue.shift();
+  for (const [dx, dy] of DIRS) {
+    let n = { x: cur.x + dx, y: cur.y + dy };
+    // if n is open AND not already in cameFrom:
+    //   record where it came from, add it to the queue
+  }
+}
+
+// then: walk backwards from goal() via cameFrom,
+// reverse the list, plotRoute(...) it.
+`,
+  build(rng){
+    for(let tries=0;tries<80;tries++){
+      const world=emptyWorld(13,9);
+      for(let y=1;y<8;y++)for(let x=1;x<12;x++)
+        world.tiles[y][x].type=rng()<0.30?'wall':'floor';
+      const s={x:1,y:7},g={x:11,y:1};
+      world.tiles[s.y][s.x].type='floor';
+      world.tiles[g.y][g.x].type='console';
+      const sol=gridSolve(world,s,g,()=>1);
+      if(!sol||sol.cost<14)continue;
+      world.robot={x:s.x,y:s.y,dir:0};
+      world.meta={s,g,best:sol.cost,routed:false};
+      return world;
+    }
+    throw new Error('field generation failed'); // never with these seeds
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      isOpen:(x,y)=>{opTick(sim);return tileAt(sim.world,x,y).type!=='wall';},
+      start:()=>{opTick(sim);return {x:m.s.x,y:m.s.y};},
+      goal:()=>{opTick(sim);return {x:m.g.x,y:m.g.y};},
+      plotRoute:(route)=>{opTick(sim);
+        validateRoute(sim.world,route,m.s,m.g,'plotRoute');
+        const hops=route.length-1;
+        if(hops>m.best)throw new Error(`Route is ${hops} hops — the drone has fuel for exactly ${m.best}. A shorter path exists; ripple out with a queue and take the FIRST arrival. Trial failed.`);
+        bump(sim,'hops');sim.counts.hops=hops;
+        for(let i=1;i<route.length;i++)sim.actions.push({t:'mark',x:route[i].x,y:route[i].y,cls:'ok'});
+        m.routed=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.routed===true;},
+  success:'The drone slips through the field with dry tanks and a perfect line. Relay hub: docked.',
+  card:{title:'BFS: ripples find the shortest path',body:`
+    <p><b>Breadth-first search</b> is chapter 9's queue walking a graph: explore everything 1 step away, then 2, then 3. Because you expand in rings, <em>the first time you reach a tile is provably the shortest way to it</em>.</p>
+    <p>The <code>cameFrom</code> map is the other half of the trick — chapter 11's hash map remembering each ripple's origin, so the route can be rebuilt backwards. Compare chapter 7: the wall-follower found <em>a</em> path with no memory; BFS finds <em>the</em> path by remembering everything.</p>
+    <div class="real"><div class="bt">In the wild</div>"Degrees of separation" in social graphs, web crawlers, solving puzzle games, network broadcast — and the fact that it visits every node and edge just once, O(V+E), is why it scales to graphs with billions of edges.</div>`},
+},
+
+/* ---- 14 · Dijkstra ---- */
+{
+  id:'dijkstra',title:'The Hot Zone',concept:'Dijkstra — weighted paths',
+  seeds:[26,71],
+  brief:[
+    ['HALCYON','The hub is powered but its uplink mast is across a radiation zone. Every tile reads 1 to 9 rads. The repair crawler survives ONE route: the minimum-total-radiation route.'],
+    ['BYTE','Careful, engineer: fewest tiles is NOT least radiation. A three-tile shortcut through a 9-rad pocket loses to a long corridor of 1s. Steps are no longer equal.'],
+    ['YOU','So BFS breaks — its ripples count hops, not rads. New rule: always expand the CHEAPEST tile found so far. My chapter-12 max-scan, flipped to min. Queue out, priority queue in.'],
+  ],
+  objective:'Submit the route from the crawler (▲) to the pulsing mast tile with the minimum TOTAL radiation (sum of every tile you enter; the start tile is free). Any hotter route kills the crawler. Tile costs are printed on the map. Both trials.',
+  api:[
+    ['isOpen(x, y) / start() / goal()','As before.'],
+    ['costOf(x, y)','Radiation absorbed by entering that tile (1–9).'],
+    ['plotRoute(route)','Submit the route, one step at a time.'],
+    ['The one-line upgrade','BFS takes the OLDEST queued tile; Dijkstra takes the CHEAPEST-so-far. Everything else is the same shape.'],
+  ],
+  starter:`// Dijkstra = BFS with a priority queue.
+// dist[k] = least radiation found so far to reach k.
+// Each round: take the CHEAPEST tile in 'todo'
+// (linear min-scan — chapter 12), then try to improve
+// its neighbours.
+
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+const key = (p) => p.x + "," + p.y;
+
+let s = start(), g = goal();
+let dist = {}, cameFrom = {};
+dist[key(s)] = 0;
+let todo = [s];
+
+while (todo.length > 0) {
+  // 1. find index of the tile in 'todo' with the
+  //    smallest dist, and splice it out as 'cur'
+  // 2. for each neighbour n of cur that isOpen:
+  //      let nd = dist[key(cur)] + costOf(n.x, n.y);
+  //      if nd beats dist[key(n)] (or n is unseen):
+  //        record nd, cameFrom, push n onto todo
+}
+
+// walk cameFrom backwards from goal(), reverse,
+// plotRoute(...).
+`,
+  build(rng){
+    for(let tries=0;tries<200;tries++){
+      const world=emptyWorld(11,7);
+      for(let y=1;y<6;y++)for(let x=1;x<10;x++){
+        const t=world.tiles[y][x];
+        if(rng()<0.10){t.type='wall';continue;}
+        t.type='rad';t.cost=ri(rng,1,9);
+      }
+      const s={x:1,y:5},g={x:9,y:1};
+      const st=world.tiles[s.y][s.x],gt=world.tiles[g.y][g.x];
+      st.type='rad';st.cost=1;gt.type='rad';gt.cost=ri(rng,1,3);gt.goal=true;
+      const costFn=(x,y)=>world.tiles[y][x].cost;
+      const best=gridSolve(world,s,g,costFn);
+      if(!best)continue;
+      // cheapest cost achievable by ANY fewest-hops route, via
+      // layered BFS DP — must be strictly worse than optimal, so
+      // "just reuse BFS" fails on every trial
+      const hop=gridSolve(world,s,g,()=>1);
+      if(!hop)continue;
+      const K=(x,y)=>x+','+y;
+      const hd={},mc={};hd[K(s.x,s.y)]=0;mc[K(s.x,s.y)]=0;
+      const q=[{x:s.x,y:s.y}];
+      while(q.length){
+        const c=q.shift();
+        for(const [dx,dy] of DIRS){
+          const nx=c.x+dx,ny=c.y+dy;
+          if(tileAt(world,nx,ny).type==='wall')continue;
+          if(!(K(nx,ny) in hd)){hd[K(nx,ny)]=hd[K(c.x,c.y)]+1;q.push({x:nx,y:ny});}
+        }
+      }
+      const cells=Object.keys(hd).sort((a,b)=>hd[a]-hd[b]);
+      for(const ck of cells){
+        const [cx,cy]=ck.split(',').map(Number);
+        for(const [dx,dy] of DIRS){
+          const nx=cx+dx,ny=cy+dy,nk=K(nx,ny);
+          if(!(nk in hd)||hd[nk]!==hd[ck]+1)continue;
+          const nd=mc[ck]+costFn(nx,ny);
+          if(!(nk in mc)||nd<mc[nk])mc[nk]=nd;
+        }
+      }
+      if(!(K(g.x,g.y) in mc)||mc[K(g.x,g.y)]<=best.cost)continue;
+      world.robot={x:s.x,y:s.y,dir:0};
+      world.meta={s,g,best:best.cost,routed:false};
+      return world;
+    }
+    throw new Error('zone generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      isOpen:(x,y)=>{opTick(sim);const t=tileAt(sim.world,x,y);return t.type!=='wall';},
+      costOf:(x,y)=>{opTick(sim);const t=tileAt(sim.world,x,y);
+        if(t.type!=='rad')throw new Error(`costOf(${x}, ${y}) — that tile is debris or outside the zone. Check isOpen first.`);
+        return t.cost;},
+      start:()=>{opTick(sim);return {x:m.s.x,y:m.s.y};},
+      goal:()=>{opTick(sim);return {x:m.g.x,y:m.g.y};},
+      plotRoute:(route)=>{opTick(sim);
+        validateRoute(sim.world,route,m.s,m.g,'plotRoute');
+        let total=0;
+        for(let i=1;i<route.length;i++)total+=sim.world.tiles[route[i].y][route[i].x].cost;
+        if(total>m.best)throw new Error(`That route absorbs ${total} rads — a ${m.best}-rad route exists. Fewest tiles is not least radiation: expand the CHEAPEST tile first, not the oldest. Trial failed.`);
+        sim.counts.rads=total;
+        for(let i=1;i<route.length;i++)sim.actions.push({t:'mark',x:route[i].x,y:route[i].y,cls:'ok'});
+        m.routed=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.routed===true;},
+  success:'The crawler reaches the mast with dosimeter to spare and the uplink blinks alive. Halfway there.',
+  card:{title:'Dijkstra: when steps aren\'t equal',body:`
+    <p>You changed ONE decision — take the <em>cheapest-known</em> tile instead of the <em>oldest</em> — and BFS became <b>Dijkstra's algorithm</b>, the foundation of routing on weighted graphs. Swap the queue for a priority queue; the rest of the shape survives.</p>
+    <p>Your linear min-scan makes each pick O(n); a heap makes it O(log n). And if you add a "roughly how far to the goal?" hunch to the priority, Dijkstra becomes <b>A*</b> — the version games and robots use.</p>
+    <div class="real"><div class="bt">In the wild</div>GPS with traffic (time as weight, not distance), internet packet routing (OSPF literally runs Dijkstra), flight-price searches, power-grid planning. Arguably the most economically valuable 30 lines of code ever written.</div>`},
+},
+
+/* ---- 15 · topological sort ---- */
+{
+  id:'topo',title:'Restart Sequence',concept:'Topological sort',
+  seeds:[38,74,97],
+  brief:[
+    ['HALCYON','Last step, engineer: the relay station itself. Nine systems, all dark, and every one refuses to start before the systems it depends on. NAV before COM, power before everything…'],
+    ['BYTE','The dependency list is honest but unordered. Start a system too early and the cascade trips every breaker on the station. There is no partial credit on this one.'],
+    ['YOU','It\'s a graph again — arrows meaning "needs". Keep sweeping the list: anything whose dependencies are all up, start it. Repeat until nothing is dark. If a sweep starts nothing… that would mean a dependency loop. Let\'s hope command didn\'t build one.'],
+  ],
+  objective:'Restart all 9 systems in a valid dependency order: restart(id) fails if any of its dependsOn(id) systems is still down. The dependency graph reshuffles every trial — compute the order, don\'t memorize it. (Each system\'s requirements are printed in the console.)',
+  api:[
+    ['systemsList()','The 9 system codes, in no useful order.'],
+    ['dependsOn(id)','Codes that must be up BEFORE id can start (possibly none).'],
+    ['restart(id)','Start a system. Any dependency still down = station-wide cascade.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// Sweep the list repeatedly:
+// start anything whose dependencies are ALL up,
+// until everything is up. (Track what's up in an
+// object — chapter 11's trick.)
+
+const all = systemsList();
+let up = {};
+let started = 0;
+
+while (started < all.length) {
+  for (const s of all) {
+    if (up[s]) continue;
+    // is every code in dependsOn(s) already up?
+    // if yes: restart(s); up[s] = true; started++;
+  }
+}
+`,
+  build(rng){
+    const world=emptyWorld(11,3);
+    const codes=['RCT','NAV','COM','LIF','SHD','SEN','DOK','GRV','BCN'];
+    const topo=[...codes];
+    for(let i=topo.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[topo[i],topo[j]]=[topo[j],topo[i]];}
+    const deps={};deps[topo[0]]=[];
+    for(let i=1;i<topo.length;i++){
+      const n=Math.min(i,ri(rng,1,2)),pick=new Set();
+      while(pick.size<n)pick.add(topo[ri(rng,0,i-1)]);
+      deps[topo[i]]=[...pick];
+    }
+    // display order must NOT itself be a valid restart order,
+    // so "just restart them in list order" fails every trial
+    let display;
+    do{
+      display=[...codes];
+      for(let i=display.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[display[i],display[j]]=[display[j],display[i]];}
+    }while(display.every((s,i)=>deps[s].every(d=>display.indexOf(d)<i)));
+    for(let x=1;x<=9;x++){const t=world.tiles[1][x];t.type='sys';t.pid=display[x-1];}
+    world.meta={display,deps,up:new Set()};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    for(const s of m.display)
+      if(m.deps[s].length)
+        sim.actions.push({t:'note',msg:`${s} requires: ${m.deps[s].join(', ')}`});
+    const posOf=(id)=>m.display.indexOf(id)+1;
+    return {
+      systemsList:()=>{opTick(sim);return [...m.display];},
+      dependsOn:(id)=>{opTick(sim);
+        if(!(id in m.deps))throw new Error(`dependsOn(${JSON.stringify(id)}) — no system has that code.`);
+        return [...m.deps[id]];},
+      restart:(id)=>{opTick(sim);
+        if(!(id in m.deps))throw new Error(`restart(${JSON.stringify(id)}) — no system has that code.`);
+        if(m.up.has(id))throw new Error(`restart("${id}") — it is already up.`);
+        for(const d of m.deps[id])
+          if(!m.up.has(d))throw new Error(`CASCADE. ${id} drew power before ${d} was up, and every breaker on the station just tripped. Trial failed.`);
+        m.up.add(id);bump(sim,'restarts');
+        sim.actions.push({t:'mark',x:posOf(id),y:1,cls:'ok'});
+        sim.actions.push({t:'note',msg:`${id} online  (${m.up.size}/9)`});
+        maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.up.size===9;},
+  success:'BCN lights last, and the relay network ripples awake across the sector — seventeen stranded ships pick up nav-lock within the minute.',
+  card:{title:'Topological sort: dependency order',body:`
+    <p>A graph where arrows mean "needs" is a <b>dependency graph</b>, and an order that satisfies every arrow is a <b>topological sort</b>. Your repeated sweep is the honest version of <b>Kahn's algorithm</b>: start what's unblocked, repeat.</p>
+    <p>And your worry was correct: if a sweep ever starts nothing while systems are still down, the graph has a <em>cycle</em> — A needs B needs A — and no valid order exists at all. You'll meet that in real life as "circular dependency detected".</p>
+    <div class="real"><div class="bt">In the wild</div>Build systems (make, Gradle, cargo) deciding compile order, package managers resolving installs, spreadsheets recalculating cells, CI pipelines, course prerequisites — any "this before that" problem is this exact graph.</div>`},
+},
+
+/* ============ SEASON 4 — FIRST CONTACT ============ */
+
+/* ---- 16 · recursion / divide & conquer ---- */
+{
+  id:'quad',title:'The Ice Moon',concept:'Recursion — divide & conquer',
+  seeds:[44,68,91],
+  brief:[
+    ['HALCYON','The signal resolves to a beacon under the ice of moon LV-227 — somewhere in an 8×8 survey square. The orbital sounder can scan any RECTANGLE, but its capacitor holds 14 charges.'],
+    ['BYTE','Sixty-four cells, fourteen charges, one dig. Sweep cell-by-cell and the capacitor dies on row two. But one probe can interrogate a whole region…'],
+    ['YOU','Chapter 5, but in two dimensions: ask "is it in THIS quarter?" — then ask the same question of that quarter. A function that calls itself on a smaller square.'],
+  ],
+  objective:'Find the beacon and digAt() it — with at most 14 probe() charges, and exactly ONE dig. Quarter the square, probe the quadrants, recurse into the hot one. All 3 trials.',
+  api:[
+    ['gridSize()','Survey square is gridSize() × gridSize() (8), coordinates 0–7.'],
+    ['probe(x1, y1, x2, y2)','true if the beacon lies inside that rectangle (inclusive). Costs 1 of 14 charges.'],
+    ['digAt(x, y)','One shot. Beacon → recovered. Empty ice → trial failed.'],
+    ['function search(…) { … search(…); }','A function may call itself — give it a base case first.'],
+  ],
+  starter:`// Divide & conquer:
+// base case  — a 1x1 square IS the beacon's cell: dig.
+// otherwise  — split into four quadrants, probe them,
+//              and recurse into the one that pings.
+
+function search(x1, y1, x2, y2) {
+  if (x1 === x2 && y1 === y2) {
+    digAt(x1, y1);
+    return;
+  }
+  const mx = Math.floor((x1 + x2) / 2);
+  const my = Math.floor((y1 + y2) / 2);
+  // quadrants:
+  //   [x1,y1, mx,my]     [mx+1,y1, x2,my]
+  //   [x1,my+1, mx,y2]   [mx+1,my+1, x2,y2]
+  // probe each; search(...) the hot one.
+}
+
+search(0, 0, gridSize() - 1, gridSize() - 1);
+`,
+  build(rng){
+    const world=emptyWorld(10,10);
+    for(let y=1;y<9;y++)for(let x=1;x<9;x++)world.tiles[y][x].type='floor';
+    // beacon deep enough that a cell-by-cell sweep always drains
+    // the capacitor before reaching it
+    const bx=ri(rng,0,7),by=ri(rng,3,7);
+    world.meta={bx,by,charges:0,dug:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const okCoord=(v,f)=>{if(!Number.isInteger(v)||v<0||v>7)throw new Error(`${f}: coordinates run 0 to 7 — got ${v}.`);};
+    return {
+      gridSize:()=>{opTick(sim);return 8;},
+      probe:(x1,y1,x2,y2)=>{opTick(sim);
+        [x1,y1,x2,y2].forEach(v=>okCoord(v,'probe'));
+        if(x1>x2||y1>y2)throw new Error(`probe(${x1}, ${y1}, ${x2}, ${y2}) — the corner (x1, y1) must be top-left: x1 ≤ x2 and y1 ≤ y2.`);
+        if(++m.charges>14)throw new Error('Sounder capacitor dead — that was charge #15 of 14. Each probe must eliminate three QUARTERS of the remaining area, not one cell. Trial failed.');
+        sim.actions.push({t:'pingRect',x1:x1+1,y1:y1+1,x2:x2+1,y2:y2+1});
+        bump(sim,'probes');
+        return m.bx>=x1&&m.bx<=x2&&m.by>=y1&&m.by<=y2;},
+      digAt:(x,y)=>{opTick(sim);
+        okCoord(x,'digAt');okCoord(y,'digAt');
+        if(m.dug)throw new Error('The lander carried one drill head. It is spent.');
+        m.dug=true;
+        if(x===m.bx&&y===m.by){m.found=true;
+          sim.actions.push({t:'mark',x:x+1,y:y+1,cls:'ok'});maybeWin(sim);}
+        else{sim.actions.push({t:'mark',x:x+1,y:y+1,cls:'bad'});
+          throw new Error(`The shaft at (${x}, ${y}) came up empty ice — and that was the only drill head. Dig only when the square is 1×1 and certain. Trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.found===true;},
+  success:'The drill breaks through into a warm, lit cavity. The beacon is not wreckage. It is a door.',
+  card:{title:'Recursion: the function that calls itself',body:`
+    <p>Your <code>search()</code> solved an 8×8 problem by handing itself four 4×4 problems. That's <b>recursion</b>: a <em>base case</em> you can answer directly, plus a way to shrink everything else toward it. Chapter 5's binary search was secretly this — halving is divide &amp; conquer in one dimension.</p>
+    <p>And here's the season-two callback: recursion <em>works</em> because of chapter 8's call stack — every unfinished <code>search()</code> waits on the stack while its smaller self runs.</p>
+    <div class="real"><div class="bt">In the wild</div>Walking file trees and org charts, JSON and HTML are recursive by nature, merge sort and quicksort ("sort each half, combine"), graphics engines subdividing space — exactly what you just did.</div>`},
+},
+
+/* ---- 17 · dynamic programming ---- */
+{
+  id:'dp',title:'The Toll Road',concept:'Dynamic programming',
+  seeds:[33,79],
+  brief:[
+    ['HALCYON','The door answers to a docking sequence: 26 charge gates in a line. From any gate the shuttle can jump 1, 2, or 3 gates forward, paying the toll of the gate it LANDS on. Fuel is exact: only the cheapest total will dock.'],
+    ['BYTE','Warning, engineer: I tried brute force on the way over — every possible route, recursively. I recomputed gate 12\'s best cost four hundred thousand times before my stack tripped. There are only 26 gates. Something is deeply wasteful there.'],
+    ['YOU','Byte\'s recursion kept re-answering the SAME question. So answer each question once, in order: best cost to gate 0, then 1, then 2… each one built from three answers I already have.'],
+  ],
+  objective:'Dock at gate 25 for the minimum total toll and submit your gate sequence with plotJumps([0, …, 25]). Jumps of 1–3 gates, toll paid per landing. Greedy hopping to the cheapest visible gate will NOT be optimal, and brute-force recursion will trip the guard. Build a table.',
+  api:[
+    ['gateCount()','26 gates, indices 0 (dock, free) to 25.'],
+    ['tollAt(i)','Toll for landing on gate i.'],
+    ['plotJumps(route)','Submit the sequence of gates, starting 0, ending 25, steps of 1–3.'],
+    ['The idea','best[i] = tollAt(i) + min(best[i-1], best[i-2], best[i-3]). Fill left to right.'],
+  ],
+  starter:`// Dynamic programming, bottom-up:
+// best[i] = cheapest total to REACH gate i.
+// Each entry uses three answers you already computed.
+
+const n = gateCount();
+let toll = [];
+for (let i = 0; i < n; i++) toll.push(tollAt(i));
+
+let best = [0];      // gate 0 is the free dock
+let from = [null];   // which gate we came from
+
+for (let i = 1; i < n; i++) {
+  // try arriving from i-1, i-2, i-3 (when they exist):
+  // pick the one with the smallest best[...],
+  // record best[i] = that + toll[i], and from[i].
+}
+
+// walk from[] backwards from gate 25, reverse,
+// plotJumps(...) the result.
+`,
+  build(rng){
+    for(let tries=0;tries<200;tries++){
+      const toll=[0];
+      for(let i=1;i<26;i++)toll.push(ri(rng,1,9));
+      // optimal, by the same DP the player will write
+      const best=[0],from=[null];
+      for(let i=1;i<26;i++){
+        let b=Infinity,f=null;
+        for(let k=1;k<=3;k++)if(i-k>=0&&best[i-k]+toll[i]<b){b=best[i-k]+toll[i];f=i-k;}
+        best.push(b);from.push(f);
+      }
+      // greedy (hop to cheapest visible gate) must be strictly worse
+      let gi=0,gcost=0;
+      while(gi<25){
+        let pick=gi+1;
+        for(let j=gi+2;j<=Math.min(gi+3,25);j++)if(toll[j]<toll[pick])pick=j;
+        gi=pick;gcost+=toll[gi];
+      }
+      if(gcost<=best[25])continue;
+      const world=emptyWorld(15,4);
+      for(let i=0;i<26;i++){
+        const t=world.tiles[1+Math.floor(i/13)][1+i%13];
+        t.type='rad';t.cost=toll[i];t.idx=i;
+        if(i===25)t.goal=true;
+      }
+      world.meta={toll,opt:best[25],docked:false};
+      return world;
+    }
+    throw new Error('gate generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const posOf=(i)=>({x:1+i%13,y:1+Math.floor(i/13)});
+    return {
+      gateCount:()=>{opTick(sim);return 26;},
+      tollAt:(i)=>{opTick(sim);checkIndex(i,26,'tollAt');return m.toll[i];},
+      plotJumps:(route)=>{opTick(sim);
+        if(!Array.isArray(route)||route.length<2)throw new Error('plotJumps(route) expects an array of gate indices.');
+        route.forEach(v=>{if(!Number.isInteger(v)||v<0||v>25)throw new Error(`plotJumps: ${JSON.stringify(v)} is not a gate index (0–25).`);});
+        if(route[0]!==0)throw new Error('plotJumps: the sequence must start at gate 0 (the dock).');
+        if(route[route.length-1]!==25)throw new Error('plotJumps: the sequence must end at gate 25.');
+        let total=0;
+        for(let i=1;i<route.length;i++){
+          const step=route[i]-route[i-1];
+          if(step<1||step>3)throw new Error(`plotJumps: gate ${route[i-1]} → ${route[i]} is a jump of ${step}. The shuttle jumps 1, 2, or 3 gates FORWARD.`);
+          total+=m.toll[route[i]];
+        }
+        if(total>m.opt)throw new Error(`That sequence costs ${total} fuel — a ${m.opt}-fuel docking exists. Greedy grabs the cheapest NEXT gate and pays for it later; the table never does. Trial failed.`);
+        sim.counts.fuel=total;
+        for(const g of route){const p=posOf(g);sim.actions.push({t:'mark',x:p.x,y:p.y,cls:'ok'});}
+        m.docked=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.docked===true;},
+  success:'The shuttle threads the gates on fumes and the door accepts the sequence. Inside: a chamber, and a signal repeating patiently.',
+  card:{title:'Dynamic programming: answer each question once',body:`
+    <p>Byte's brute force died because plain recursion <b>re-solves the same subproblems</b> — best-cost-to-gate-12 doesn't change, so computing it 400,000 times is pure waste. <b>Dynamic programming</b> is the fix: store each subanswer (chapter 11's move) and build bigger answers out of stored smaller ones.</p>
+    <p>You did it <em>bottom-up</em> — a table filled left to right. The other style, recursion plus a memo cache, gives identical results. Either way: exponential becomes linear.</p>
+    <div class="real"><div class="bt">In the wild</div>git diff and spell-check (edit distance), route planners, resource allocation and scheduling, bioinformatics sequence alignment — and the famously feared tier of interview questions, which you have now quietly entered.</div>`},
+},
+
+/* ---- 18 · parsing ---- */
+{
+  id:'parse',title:'The Message',concept:'Parsing — recursive descent',
+  seeds:[51,62,88],
+  brief:[
+    ['HALCYON','The chamber transmits the same structured burst, endlessly. I have the alphabet mapped — the structure is compression: a digit means "repeat the bracketed block that follows". Blocks can contain blocks.'],
+    ['BYTE','So 3[KA] says KAKAKA, and 2[VU3[T]] says VUTTTVUTTT. Flat find-and-replace will shatter on the nesting, engineer. The grammar is recursive; the decoder must be too.'],
+    ['YOU','Walk the string. Letters copy across. A digit hands me a bracket block — which is just a smaller message. Same function, smaller input. Chapter 16 taught me exactly this shape.'],
+  ],
+  objective:'Decode the signal() and transmit() the expansion. Digits 1–9 repeat their following [block]; blocks nest. Your decoder must handle nesting — trial 2 is depth-2, and the final trial is the real message.',
+  api:[
+    ['signal()','The encoded transmission (letters, spaces, digits, brackets).'],
+    ['matchBracket(s, i)','Index of the ] matching the [ at position i. (It counts depth — try writing your own after.)'],
+    ['transmit(text)','Send the decoded message. Must be exact.'],
+    ['s.slice(a, b) / s[i]','Substring from a up to (not including) b; single character.'],
+  ],
+  starter:`// Recursive descent:
+// letters copy straight to the output.
+// a digit announces a [block] — decode the INSIDE
+// (same function, smaller string), repeat it, move on.
+
+function decode(s) {
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c >= "1" && c <= "9") {
+      const close = matchBracket(s, i + 1);
+      // decode s.slice(i + 2, close), append it
+      // Number(c) times, then jump i past the block
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+transmit(decode(signal()));
+`,
+  build(rng,ti){
+    const W=['KHA','ZOR','VUT','TIK','RAA','MEL','ODA','SHU','NEB','ILO'];
+    const pick=()=>W[ri(rng,0,W.length-1)];
+    let enc;
+    if(ti===0)enc=`${pick()} ${ri(rng,2,4)}[${pick()} ]${pick()}`;
+    else if(ti===1)enc=`${ri(rng,2,3)}[${pick()} ${ri(rng,2,3)}[${pick()} ]]${pick()}`;
+    else enc='2[WE SEE YOU FRIEND ]WE ARE THE STORM AND WE ARE SORRY';
+    const expected=rleDecode(enc);
+    const rows=Math.ceil(enc.length/13);
+    const world=emptyWorld(15,rows+2);
+    for(let i=0;i<enc.length;i++){
+      const t=world.tiles[1+Math.floor(i/13)][1+i%13];
+      t.type='record';t.revealed=true;t.label=enc[i]===' '?'·':enc[i];t.idx=i;
+    }
+    world.meta={enc,expected,sent:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      signal:()=>{opTick(sim);return m.enc;},
+      matchBracket:(s,i)=>{opTick(sim);
+        if(typeof s!=='string'||s[i]!=='[')throw new Error(`matchBracket(s, ${i}) — position ${i} is not a "[". A digit's block starts one character after the digit.`);
+        let depth=0;
+        for(let k=i;k<s.length;k++){
+          if(s[k]==='[')depth++;
+          if(s[k]===']'&&--depth===0)return k;
+        }
+        throw new Error('matchBracket: no matching "]" — is the string sliced correctly?');},
+      transmit:(text)=>{opTick(sim);
+        text=String(text);
+        if(text===m.expected){
+          m.sent=true;
+          for(let y=0;y<sim.world.h;y++)for(let x=0;x<sim.world.w;x++)
+            if(sim.world.tiles[y][x].type==='record')sim.actions.push({t:'mark',x,y,cls:'ok'});
+          sim.actions.push({t:'note',msg:'TRANSLATION: '+m.expected});
+          maybeWin(sim);
+        }else{
+          let n=0;while(n<Math.max(text.length,m.expected.length)&&text[n]===m.expected[n])n++;
+          throw new Error(`Transmission garbled at character ${n}: expected “…${m.expected.slice(Math.max(0,n-6),n+6)}…”, received “…${text.slice(Math.max(0,n-6),n+6)}…”. Nested blocks must be decoded by the same function that decodes the whole. Trial failed.`);}},
+    };
+  },
+  win(sim){return sim.world.meta.sent===true;},
+  success:'The chamber falls silent, then glows. Translation confirmed. They have been trying to apologize since the storm.',
+  card:{title:'Parsing: giving structure to strings',body:`
+    <p>You wrote a <b>recursive descent parser</b> — the same technique, at heart, that reads JSON, compiles programming languages, and understands config files. The key insight: the grammar was recursive (blocks contain blocks), so the decoder had to be recursive too.</p>
+    <p>That's also why plain find-and-replace shattered on trial 2 — and it's the famous reason regular expressions alone can't parse HTML: <em>flat tools can't track nesting</em>. Nesting needs a stack — which recursion gives you for free (chapter 8, one last time).</p>
+    <div class="real"><div class="bt">In the wild</div><code>JSON.parse</code>, every compiler and template engine, spreadsheet formulas, markdown renderers — and the regexes you WILL write at work, now with an honest sense of where they stop being enough.</div>`},
+},
+];
+
+/* ============================================================
+   SOUND — tiny WebAudio bleep engine, no assets
+   ============================================================ */
+let audioCtx=null;
+let soundOn=localStorage.getItem('cs_sound')!=='0';
+function blip(freq,dur=0.06,type='square',gain=0.03,when=0){
+  if(!soundOn||CS.instant)return;
+  try{
+    audioCtx??=new (window.AudioContext||window.webkitAudioContext)();
+    const t=audioCtx.currentTime+when;
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(gain,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g);g.connect(audioCtx.destination);
+    o.start(t);o.stop(t+dur+0.02);
+  }catch(e){/* audio unavailable — play on in silence */}
+}
+const SFX={
+  move:()=>blip(220,0.035,'square',0.018),
+  turn:()=>blip(170,0.03,'square',0.012),
+  ping:()=>blip(880,0.05,'sine',0.022),
+  reveal:()=>blip(660,0.06,'triangle',0.028),
+  ok:()=>{blip(523,0.07,'triangle',0.04);blip(784,0.09,'triangle',0.04,0.07);},
+  bad:()=>blip(110,0.28,'sawtooth',0.05),
+  bump:()=>blip(90,0.08,'square',0.04),
+  win:()=>[523,659,784,1047].forEach((f,i)=>blip(f,0.13,'triangle',0.045,i*0.09)),
+  mark:()=>blip(523,0.05,'triangle',0.03),
+};
+
+/* ============================================================
+   HINTS — HALCYON fragments, transmitted after 2 and 4 failed runs
+   ============================================================ */
+const HINTS={
+  seq:['The console is south-east of Byte: four tiles east, then two south.',
+       'Exact sequence: move() four times, turnRight() once, move() twice. Byte only turns when told.'],
+  loop:['One flight is: move, move, turnRight, move, turnLeft. Count the flights — four.',
+        'Wrap the five commands in for (let i = 0; i < 4; i++) { … }, then two more move() for the final stretch.'],
+  cond:['Byte cannot see the corridor — but scan() sees one tile. Only move when it reports "clear".',
+        'Loop while scan() !== "console". Clear ahead → move(). Blocked → turnLeft(); if STILL blocked, turnRight() twice to face the other way. One last move() after the loop.'],
+  lsearch:['A healthy cell reads about 240. The dead one reads 0. inspect() reads whatever Byte is parked on.',
+        'while (inspect() > 0) { move(); } stops exactly on the dead cell. Then replaceCell().'],
+  bsearch:['Fifteen cabinets, four scans: 15 → 7 → 3 → 1. Scan the MIDDLE, discard the half that cannot contain the target.',
+        'Keep lo and hi. mid = Math.floor((lo + hi) / 2). idAt(mid) too small → lo = mid + 1. Too big → hi = mid - 1. Equal → open(mid).'],
+  sort:['For slot 0: find the lightest of all 8 crates and swap it in. For slot 1: the lightest of the remaining 7. And so on.',
+        'Nested loops: outer i over slots; inner j from i+1 tracking the index of the lightest seen. After the inner loop, swap(i, lightest).'],
+  maze:['Trail your right hand along the wall and never let go. In Byte terms: check scanRight() before anything else, every single step.',
+        'Priority per step: right side open → turnRight() then move(). Ahead open → move(). Otherwise → turnLeft(). Let while (true) run — Byte stops itself at the airlock.'],
+  stack:['The log streams oldest→newest. The hatch wants newest→oldest. Store everything, then read it backwards.',
+        'push() each entry into an array. Then: while (stack.length > 0) { cut(stack.pop()); } — pop hands you the newest remaining seal.'],
+  queue:['The relay holds three. The bursts come faster than you can wake. Move alerts somewhere unlimited EVERY cycle.',
+        'Each pass of the loop: while (commCount() > 0) queue.push(readComm()); then wake(queue.shift()) — or standby() if your queue is empty.'],
+  list:['Two markers: prev (last good coupler) and cur (the one being inspected). When cur is corroded, prev should point PAST it.',
+        'setNext(prev, nextOf(cur)) splices cur out. Advance prev only when cur is ok; advance cur = nextOf(cur) every time.'],
+  map:['Thirty reads, twenty-four records: exactly one full pass, with change — IF you remember everything you read.',
+        'Inside the reading loop: index[r.crew] = r.pod. Then answer each wake-list name with locate(crew, index[crew]) — zero further reads.'],
+  pq:['Arrival order lies this time. Before every wake, re-check EVERYONE waiting for the highest critOf().',
+        'Drain the relay into an array. Linear-scan it for the index of the max criticality (chapter 4\'s move), wake that pod, splice it out. Repeat.'],
+  bfs:['Ripples: the queue explores everything 1 hop out, then 2, then 3. The first ripple to touch a tile is the shortest way there.',
+        'Only queue tiles that are NOT already in cameFrom. Afterwards walk cur = cameFrom[key(cur)] from goal() back to null, reverse the list, plotRoute it.'],
+  dijkstra:['BFS\'s blind spot: it treats a 9-rad tile exactly like a 1-rad tile. Take the CHEAPEST-known tile next, not the oldest.',
+        'Linear-scan todo for the smallest dist and splice it out. Then relax: nd = dist[key(cur)] + costOf(n.x, n.y); keep it if n is unseen or nd beats dist[key(n)].'],
+  topo:['Sweep the list: anything whose dependsOn() systems are ALL up can start right now. Then sweep again. And again.',
+        'Track up[s] = true in an object. Check every d in dependsOn(s) against it; restart(s) only when all pass. The outer while re-sweeps until all nine are up.'],
+  quad:['One probe answers: is it inside THIS rectangle? Split the square into four quadrants and ask each one.',
+        'Base case first: when x1 === x2 && y1 === y2, digAt(x1, y1). Otherwise compute mx and my, probe each quadrant, and call search() again on the one that returns true.'],
+  dp:['Greedy dies here — the cheapest next gate can force two expensive gates later. Compute the best cost TO each gate, in order.',
+        'best[i] = toll[i] + the smallest of best[i-1], best[i-2], best[i-3]. Fill the array left to right, record from[i], then walk from[] backwards from gate 25 and reverse.'],
+  parse:['Letters copy straight to the output. A digit announces a bracket block: decode what is INSIDE the block first, then repeat it.',
+        'Inside a block there can be more blocks — so decode the slice with the SAME function: out += decode(s.slice(i + 2, close)) repeated Number(c) times, then i = close + 1.'],
+};
+
+/* ============================================================
+   UI
+   ============================================================ */
+const $=(s)=>document.querySelector(s);
+const gridEl=$('#grid'),consoleEl=$('#console'),editor=$('#editor'),overlay=$('#overlay');
+let cur=0,unlocked=+(localStorage.getItem('cs_unlocked')||0),running=false;
+let failCounts={};
+let viewWorld=null,robotEl=null,tileEls=[];
+const SPEEDS=[1,2,4];let speedIdx=0;
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+const delay=(base)=>CS.instant?0:base/SPEEDS[speedIdx];
+
+/* ---------- console ---------- */
+function cline(msg,cls='c-info'){
+  const d=document.createElement('div');d.className=cls;d.textContent=msg;
+  consoleEl.appendChild(d);
+  while(consoleEl.children.length>250)consoleEl.removeChild(consoleEl.firstChild);
+  consoleEl.scrollTop=consoleEl.scrollHeight;
+}
+const cclear=()=>{consoleEl.innerHTML='';};
+
+/* ---------- world rendering ---------- */
+function tileClasses(t){
+  let c='tile t-'+t.type;
+  if(t.revealed)c+=' revealed';
+  if(t.revealCls)c+=' '+t.revealCls;
+  if(t.fixed)c+=' fixed';
+  if(t.opened==='ok')c+=' open-ok';
+  if(t.opened==='bad')c+=' open-bad';
+  if(t.sorted)c+=' sorted';
+  if(t.corrupt)c+=' corrupt';
+  if(t.type==='rad'&&t.cost!=null)c+=' rad-'+(t.cost>=7?'h':t.cost>=4?'m':'l');
+  if(t.goal)c+=' goalcell';
+  if(t.mark)c+=' mark-'+t.mark;
+  return c;
+}
+function renderTile(x,y){
+  const t=viewWorld.tiles[y][x],el=tileEls[y][x];
+  el.className=tileClasses(t);
+  let lbl='';
+  if(t.type==='cell'||t.type==='cabinet'||t.type==='crate'||t.type==='seal'||t.type==='record')lbl=t.revealed?t.label:'?';
+  if(t.type==='pod')lbl=t.revealed?t.label:(t.pid??'?');
+  if(t.type==='node')lbl=String(t.pid);
+  if(t.type==='rad')lbl=String(t.cost);
+  if(t.type==='sys')lbl=t.pid;
+  el.querySelector('.tlabel').textContent=lbl;
+}
+function updateRobot(){
+  if(!viewWorld.robot){robotEl.style.display='none';return;}
+  robotEl.style.display='block';
+  const r=viewWorld.robot;
+  robotEl.style.transform=`translate(${r.x*PITCH}px,${r.y*PITCH}px)`;
+  robotEl.querySelector('.body').style.transform=`rotate(${r.dir*90}deg)`;
+}
+function renderWorld(world){
+  viewWorld=world;
+  gridEl.innerHTML='';
+  gridEl.style.gridTemplateColumns=`repeat(${world.w},${TILE}px)`;
+  tileEls=[];
+  for(let y=0;y<world.h;y++){
+    tileEls.push([]);
+    for(let x=0;x<world.w;x++){
+      const el=document.createElement('div');
+      const lb=document.createElement('span');lb.className='tlabel';
+      el.appendChild(lb);gridEl.appendChild(el);tileEls[y].push(el);
+    }
+  }
+  robotEl=document.createElement('div');robotEl.id='robot';
+  robotEl.innerHTML='<div class="body"></div>';
+  gridEl.appendChild(robotEl);
+  for(let y=0;y<world.h;y++)for(let x=0;x<world.w;x++){
+    const t=world.tiles[y][x];
+    if(t.idx!==undefined||t.type==='cabinet'||t.type==='crate'){
+      const ix=document.createElement('span');ix.className='tidx';
+      ix.textContent=String(t.idx!==undefined?t.idx:x-1);tileEls[y][x].appendChild(ix);
+    }
+    renderTile(x,y);
+  }
+  updateRobot();
+}
+
+/* ---------- action replay ---------- */
+async function applyAction(a){
+  switch(a.t){
+    case 'move':viewWorld.robot.x=a.x;viewWorld.robot.y=a.y;updateRobot();SFX.move();await sleep(delay(130));break;
+    case 'turn':viewWorld.robot.dir=a.dir;updateRobot();SFX.turn();await sleep(delay(110));break;
+    case 'bump':robotEl.classList.add('bump');cline('· clunk — that\'s a wall.','c-warn');SFX.bump();
+      await sleep(delay(200));robotEl.classList.remove('bump');break;
+    case 'ping':{const el=tileEls[a.y]?.[a.x];if(el){el.classList.add('ping');SFX.ping();await sleep(delay(90));el.classList.remove('ping');}break;}
+    case 'pingRect':{const els=[];
+      for(let y=a.y1;y<=a.y2;y++)for(let x=a.x1;x<=a.x2;x++){const el=tileEls[y]?.[x];if(el){el.classList.add('ping');els.push(el);}}
+      SFX.ping();await sleep(delay(320));
+      for(const el of els)el.classList.remove('ping');
+      await sleep(delay(80));break;}
+    case 'reveal':{const t=viewWorld.tiles[a.y][a.x];t.revealed=true;t.label=a.label;if(a.cls)t.revealCls=a.cls;
+      renderTile(a.x,a.y);SFX.reveal();await sleep(delay(220));break;}
+    case 'fix':{const t=viewWorld.tiles[a.y][a.x];t.fixed=true;renderTile(a.x,a.y);
+      cline('» replacement cell seated. voltage nominal.','c-ok');SFX.ok();await sleep(delay(300));break;}
+    case 'open':{const t=viewWorld.tiles[a.y][a.x];t.opened=a.ok?'ok':'bad';renderTile(a.x,a.y);
+      (a.ok?SFX.ok:SFX.bad)();await sleep(delay(300));break;}
+    case 'swap':{const A=viewWorld.tiles[1][a.i+1],B=viewWorld.tiles[1][a.j+1];
+      [A.weight,B.weight]=[B.weight,A.weight];
+      [A.label,B.label]=[B.label,A.label];
+      [A.revealed,B.revealed]=[B.revealed,A.revealed];
+      renderTile(a.i+1,1);renderTile(a.j+1,1);await sleep(delay(240));break;}
+    case 'report':cline('» '+a.msg,'c-report');await sleep(delay(60));break;
+    case 'note':cline('· '+a.msg,'c-info');await sleep(delay(90));break;
+    case 'mark':{const t=viewWorld.tiles[a.y][a.x];t.mark=a.cls;renderTile(a.x,a.y);
+      if(a.cls==='ok')SFX.mark();if(a.cls==='bad')SFX.bad();await sleep(delay(220));break;}
+    case 'win':if(viewWorld.robot){robotEl.classList.add('win');}
+      SFX.win();
+      for(let y=0;y<viewWorld.h;y++)for(let x=0;x<viewWorld.w;x++){
+        const t=viewWorld.tiles[y][x];
+        if(t.type==='crate'){t.sorted=true;renderTile(x,y);}
+        if(t.type==='node'&&!t.corrupt){t.mark='ok';renderTile(x,y);}
+      }
+      await sleep(delay(350));break;
+  }
+}
+async function replayTrial(level,seed,actions,ti){
+  renderWorld(level.build(mulberry32(seed),ti||0));
+  await sleep(delay(300));
+  for(const a of actions)await applyAction(a);
+}
+
+/* ---------- run flow ---------- */
+function countCodeLines(code){
+  return code.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('//')).length;
+}
+function statsOf(sim){
+  const parts=[];
+  for(const[k,v]of Object.entries(sim.counts))parts.push(`${k}: ${v}`);
+  return parts.join(', ');
+}
+async function runProgram(){
+  if(running)return false;
+  running=true;$('#runBtn').disabled=true;
+  try{
+    cclear();
+    const level=LEVELS[cur],code=editor.value;
+    localStorage.setItem('cs_code_'+level.id,code);
+    if(level.lineBudget){
+      const n=countCodeLines(code);
+      if(n>level.lineBudget){
+        cline(`✗ Uplink buffer overflow: your program is ${n} lines; the buffer holds ${level.lineBudget}.`,'c-err');
+        cline('  Byte: "The stairwell repeats itself. Perhaps your code should too — with a loop."','c-warn');
+        return false;
+      }
+    }
+    const sims=level.seeds.map((s,i)=>runTrial(level,s,code,i));
+    if(sims[0].compileError){cline('✗ '+sims[0].failed,'c-err');return false;}
+    const failIdx=sims.findIndex(s=>!s.won);
+    const showIdx=failIdx===-1?0:failIdx;
+    cline(`▶ Uploading program… running ${sims.length} trial${sims.length>1?'s':''}. Replaying trial ${showIdx+1}.`);
+    await replayTrial(level,level.seeds[showIdx],sims[showIdx].actions,showIdx);
+    sims.forEach((s,i)=>{
+      if(s.won)cline(`✓ Trial ${i+1}: objective complete${statsOf(s)?'  ('+statsOf(s)+')':''}`,'c-ok');
+      else cline(`✗ Trial ${i+1}: ${s.failed||'program ended before the objective was met.'}`,'c-err');
+    });
+    if(failIdx===-1){
+      cline('',''); cline('✓ CHAPTER COMPLETE — '+level.success,'c-ok');
+      failCounts[level.id]=0;
+      if(cur>=unlocked){unlocked=cur+1;localStorage.setItem('cs_unlocked',unlocked);}
+      renderChips();
+      if(!CS.instant){await sleep(700);showCard(level);}
+      return true;
+    }
+    SFX.bad();
+    const fails=failCounts[level.id]=(failCounts[level.id]||0)+1;
+    const hints=HINTS[level.id];
+    if(hints&&(fails===2||fails===4)){
+      cline('','');
+      cline('◈ HALCYON — recovered fragment: '+(fails===2?hints[0]:hints[1]),'c-warn');
+    }
+    return false;
+  }finally{running=false;$('#runBtn').disabled=false;}
+}
+
+/* ---------- modal ---------- */
+let modalNext=null;
+function openModal(kicker,title,bodyHtml,btnLabel,next){
+  $('#m-kicker').textContent=kicker;
+  $('#m-title').textContent=title;
+  $('#m-body').innerHTML=bodyHtml;
+  $('#m-btn').textContent=btnLabel;
+  modalNext=next;overlay.classList.add('show');$('#m-btn').focus();
+}
+function closeModal(){overlay.classList.remove('show');const f=modalNext;modalNext=null;if(f)f();}
+$('#m-btn').addEventListener('click',closeModal);
+overlay.addEventListener('click',(e)=>{if(e.target===overlay)closeModal();});
+
+function showCard(level){
+  let btn='Next chapter ▸',next=()=>loadLevel(cur+1);
+  if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
+  if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
+  if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
+  if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
+  openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
+}
+function showS1End(){
+  openModal('Season 1 complete · Signal Lost','Signal restored. The crew is not.',`
+    <p>HALCYON is back online, and you — six weeks into the job — just debugged a starship with five classic algorithms:</p>
+    <ul>
+      <li><b>Sequences, loops, conditionals</b> — the three moves every program is made of.</li>
+      <li><b>Linear search</b> — O(n): check everything, works anywhere.</li>
+      <li><b>Binary search</b> — O(log n): sorted data turns a million checks into twenty.</li>
+      <li><b>Sorting</b> — O(n²) by hand: the price you pay so search can be cheap.</li>
+      <li><b>Pathfinding</b> — your first graph algorithm, three lines of wall-hugging logic.</li>
+    </ul>
+    <p>But 30 crew members are still frozen behind the cryo bay hatch, and waking them safely is not an algorithms problem. It's about <em>how you hold the data</em>: piles, lines, chains, tables.</p>
+    <div class="real"><div class="bt">Season 2 · Cold Storage</div>Stacks, queues, linked lists, hash maps, priority queues — the five containers that, with Season 1's algorithms, make up most of an engineer's daily toolkit.</div>`,
+    'Begin Season 2: Cold Storage ▸',()=>loadLevel(7));
+}
+function showS2End(){
+  openModal('Season 2 complete · Cold Storage','All hands awake.',`
+    <p>The Captain reads the repair log twice. Here's the toolkit you shipped in Season 2 — the five containers that hold everything else up:</p>
+    <ul>
+      <li><b>Stack</b> — last in, first out: undo, backtracking, the call stack.</li>
+      <li><b>Queue</b> — first in, first out: buffering fast producers for slow consumers.</li>
+      <li><b>Linked list</b> — the chain is the data: cheap splices, two-pointer walks.</li>
+      <li><b>Hash map</b> — pay one pass, answer in O(1) forever. The workhorse.</li>
+      <li><b>Priority queue</b> — the most urgent thing, always; heaps make it fast.</li>
+    </ul>
+    <p>Then the comms officer sits down at her console, and her face falls. The Meridian is fixed — but the sector's relay network is dark, and seventeen other ships are stranded in the same storm wreckage.</p>
+    <div class="real"><div class="bt">Season 3 · The Relay Network</div>Everything out there — debris fields, power routing, restart dependencies — is a <b>graph</b>. And you already own every part these algorithms are built from.</div>`,
+    'Begin Season 3: The Relay Network ▸',()=>loadLevel(12));
+}
+function showS3End(){
+  openModal('Season 3 complete · The Relay Network','Sector clear, Chief Engineer.',`
+    <p>Seventeen ships lock nav within the minute, and the Captain makes it official: field promotion. Season 3's graph toolkit, for the log:</p>
+    <ul>
+      <li><b>BFS</b> — a queue walking a graph; first arrival is the shortest path.</li>
+      <li><b>Dijkstra</b> — same walk, priority queue instead: weighted shortest paths.</li>
+      <li><b>Topological sort</b> — when arrows mean "needs", order is an algorithm.</li>
+    </ul>
+    <p>Then the newly-woken relay network delivers its first message. It repeats on all frequencies, in no human encoding — and it is aimed at the Meridian.</p>
+    <div class="real"><div class="bt">Season 4 · First Contact</div>Recursion, dynamic programming, parsing — the <em>techniques</em> tier: not new problems, but new ways of thinking that make hard problems fold. One last trip out.</div>`,
+    'Begin Season 4: First Contact ▸',()=>loadLevel(15));
+}
+function showS4Intro(){
+  openModal('Season 4 · First Contact','The signal is aimed at you.',`
+    <p>Something under the ice of moon LV-227 has been transmitting since the relay network woke — patiently, structurally, deliberately. Command's orders are one line: <em>"Meridian: investigate. Send the engineer."</em></p>
+    <p>This season is the techniques tier. No new machines — new <b>shapes of thought</b>: functions that call themselves, tables that remember subanswers, grammars that nest. Each one built openly from parts you've already earned.</p>
+    <ul>
+      <li>These chapters lean harder on the starters. Read them — they're half the lesson.</li>
+      <li>Byte's loop guard now watches recursion too. It has opinions about brute force.</li>
+    </ul>`,
+    'Break orbit ▸',null);
+}
+function showFinale(){
+  openModal('Transmission · to whom it may concern','WE ARE THE STORM AND WE ARE SORRY.',`
+    <p>The "debris storm" that crippled the Meridian was a wake — the turbulence of something vast arriving, and it has spent the whole story trying to say sorry. First contact, made by a career-switcher with a maintenance robot and eighteen chapters of fundamentals:</p>
+    <ul>
+      <li><b>Season 1 · algorithms</b> — sequences, loops, conditionals, search, sorting, pathfinding.</li>
+      <li><b>Season 2 · data structures</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
+      <li><b>Season 3 · graphs</b> — BFS, Dijkstra, topological sort.</li>
+      <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
+    </ul>
+    <p>That is a genuine CS-fundamentals curriculum, end to end — and nearly the entire technical-interview canon. You didn't read about it. You <em>shipped</em> it, against randomized trials, eighteen times.</p>
+    <div class="real"><div class="bt">Your real Season 5</div>(1) Re-implement binary search, BFS, and the toll-road DP from memory, in JavaScript or Python. (2) Take a set of "easy"-tier interview problems — you will recognize almost every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, and finally in shapes that fold.</em></p>
+    <p>Replay any chapter from the bar above. The universe reshuffles; your programs won't mind.</p>`,
+    'End transmission',null);
+}
+function showS3Intro(){
+  openModal('Season 3 · The Relay Network','Seventeen ships are waiting on you.',`
+    <p>The Meridian flies and the crew is awake — but the storm killed the sector's relay network, and every other ship out here is blind. Command's orders: restore it. Debris fields, radiation zones, dependency-locked stations.</p>
+    <p>Season 1 gave you algorithms; Season 2 gave you structures. Season 3 is where they combine: every problem this season is a <b>graph</b>, and every solution is built from parts you already own — a queue, a hash map, a min-scan.</p>
+    <ul>
+      <li>These are the hardest chapters. The starters scaffold more; the ideas are worth it.</li>
+      <li>Same rules: randomized trials. Compute answers, don't memorize them.</li>
+    </ul>`,
+    'Plot the first jump ▸',null);
+}
+function showS2Intro(){
+  openModal('Season 2 · Cold Storage','30 crew. 3% oxygen margin. Your move.',`
+    <p>The ship flies, but the crew is still frozen — and cryo revival is not a "clever algorithm" problem. Seals must come off in reverse, alarms must be answered in order, fluid chains must be spliced, manifests must be searched <em>fast</em>.</p>
+    <p>Season 1 taught you how to <b>compute on</b> data. Season 2 is about how to <b>hold</b> it: this season, the JavaScript you already know — arrays and objects — turns out to secretly be every data structure you need.</p>
+    <ul>
+      <li>Same rules: randomized trials, real constraints, no memorized answers.</li>
+      <li>New this season: no robot to drive — you work the ship's systems directly.</li>
+    </ul>`,
+    'Open the cryo deck ▸',null);
+}
+function showIntro(){
+  openModal('Incoming transmission','You are the only engineer awake.',`
+    <p>The deep-space freighter <b>Meridian</b> hit a debris storm. The ship's AI, HALCYON, is fragmented. The crew is in cryo. You — the newest engineer aboard, first job after switching careers — are awake.</p>
+    <p>Your one tool: <b>Byte</b>, a maintenance robot that executes any JavaScript you upload. Each chapter, you'll write a small program; the ship will test it on <em>randomized</em> layouts, so memorized answers fail and real algorithms win.</p>
+    <ul>
+      <li>Write code in the editor, then press <b>▶ Run</b> (or Ctrl/Cmd + Enter).</li>
+      <li>Byte's command set for each chapter is listed on the left.</li>
+      <li>Stuck? The starter code and HALCYON's fragments always contain the idea.</li>
+    </ul>`,
+    'Wake up Byte ▸',null);
+}
+
+/* ---------- level loading / chrome ---------- */
+function renderChips(){
+  const nav=$('#chips');nav.innerHTML='';
+  LEVELS.forEach((lv,i)=>{
+    if(i===7||i===12||i===15){
+      const s=document.createElement('span');s.className='sdiv';
+      s.textContent={7:'S2',12:'S3',15:'S4'}[i];
+      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact'}[i];
+      nav.appendChild(s);
+    }
+    const b=document.createElement('button');
+    b.className='chip'+(i===cur?' cur':'')+(i<unlocked?' done':'');
+    b.textContent=String(i+1);
+    b.title=`Chapter ${i+1}: ${lv.title} — ${lv.concept}`;
+    b.disabled=i>unlocked;
+    b.addEventListener('click',()=>loadLevel(i));
+    nav.appendChild(b);
+  });
+}
+function loadLevel(i){
+  cur=i;
+  const lv=LEVELS[i];
+  const season=i<7?1:i<12?2:i<15?3:4;
+  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT'][season-1];
+  $('#lv-kicker').textContent=`Season ${season} · Chapter ${i+1} of ${LEVELS.length}`;
+  $('#lv-title').textContent=lv.title;
+  $('#lv-concept').textContent=lv.concept;
+  $('#fname').textContent=`chapter_${i+1}.js`;
+  const comms=$('#lv-comms');comms.innerHTML='';
+  for(const [who,say] of lv.brief){
+    const d=document.createElement('div');
+    d.className=who.toLowerCase();
+    const w=document.createElement('div');w.className='who';w.textContent=who;
+    const s=document.createElement('div');s.className='say';s.textContent=say;
+    d.appendChild(w);d.appendChild(s);comms.appendChild(d);
+  }
+  $('#lv-objective').textContent=lv.objective;
+  $('#lv-budget').textContent=lv.lineBudget?`⚠ Uplink buffer: max ${lv.lineBudget} lines of code.`:'';
+  const apiEl=$('#lv-api');apiEl.innerHTML='';
+  for(const [sig,doc] of lv.api){
+    const d=document.createElement('div');d.className='fn';
+    const s=document.createElement('div');s.className='sig';s.textContent=sig;
+    const dd=document.createElement('div');dd.className='doc';dd.textContent=doc;
+    d.appendChild(s);d.appendChild(dd);apiEl.appendChild(d);
+  }
+  $('#hud').innerHTML=`DECK ${i+1} · <b>${lv.title.toUpperCase()}</b> · TRIALS: ${lv.seeds.length}`;
+  editor.value=localStorage.getItem('cs_code_'+lv.id)??lv.starter;
+  cclear();
+  cline(`— Chapter ${i+1}: ${lv.title} —`);
+  cline('Byte is standing by. Press ▶ Run to upload your program.');
+  renderWorld(lv.build(mulberry32(lv.seeds[0])));
+  renderChips();
+  if(i===7&&!localStorage.getItem('cs_seen_s2')&&!CS.instant){
+    localStorage.setItem('cs_seen_s2','1');
+    showS2Intro();
+  }
+  if(i===12&&!localStorage.getItem('cs_seen_s3')&&!CS.instant){
+    localStorage.setItem('cs_seen_s3','1');
+    showS3Intro();
+  }
+  if(i===15&&!localStorage.getItem('cs_seen_s4')&&!CS.instant){
+    localStorage.setItem('cs_seen_s4','1');
+    showS4Intro();
+  }
+}
+
+function showShipLog(){
+  const seasons=[
+    {name:'Season 1 · Signal Lost — algorithms',from:0,to:6},
+    {name:'Season 2 · Cold Storage — data structures',from:7,to:11},
+    {name:'Season 3 · The Relay Network — graphs',from:12,to:14},
+    {name:'Season 4 · First Contact — techniques',from:15,to:17},
+  ];
+  let html='<p>Every concept this ship has taught you, and where you are. This list doubles as a syllabus — screenshot it.</p>';
+  for(const s of seasons){
+    html+=`<p style="margin-bottom:4px"><b>${s.name}</b></p><ul>`;
+    for(let i=s.from;i<=s.to;i++){
+      const lv=LEVELS[i],done=i<unlocked;
+      html+=`<li style="list-style:none;margin-left:-20px">`+
+        `<code>${done?'✓':'—'}</code> Ch ${String(i+1).padStart(2,'0')} · ${lv.title} — <b>${lv.concept}</b></li>`;
+    }
+    html+='</ul>';
+  }
+  const doneCount=Math.min(unlocked,LEVELS.length);
+  html+=`<div class="real"><div class="bt">Status</div>${doneCount} of ${LEVELS.length} chapters complete.`+
+    (doneCount===LEVELS.length?' Curriculum clear — your real Season 5 runs outside this game.':' The layouts reshuffle on every run; your programs won\'t mind.')+'</div>';
+  openModal('Ship log · Meridian','What you\'ve learned so far',html,'Close',null);
+}
+
+/* ---------- wiring ---------- */
+$('#runBtn').addEventListener('click',runProgram);
+$('#logBtn').addEventListener('click',showShipLog);
+$('#sndBtn').addEventListener('click',()=>{
+  soundOn=!soundOn;
+  localStorage.setItem('cs_sound',soundOn?'1':'0');
+  $('#sndBtn').textContent=soundOn?'SND ✓':'SND ✗';
+  if(soundOn)SFX.ok();
+});
+$('#sndBtn').textContent=soundOn?'SND ✓':'SND ✗';
+$('#resetBtn').addEventListener('click',()=>{
+  editor.value=LEVELS[cur].starter;
+  localStorage.removeItem('cs_code_'+LEVELS[cur].id);
+  cline('· starter code restored.','c-warn');
+});
+$('#speed').addEventListener('click',()=>{
+  speedIdx=(speedIdx+1)%SPEEDS.length;
+  $('#speed').textContent='SPEED '+SPEEDS[speedIdx]+'×';
+});
+editor.addEventListener('keydown',(e)=>{
+  if(e.key==='Tab'){e.preventDefault();
+    const s=editor.selectionStart,en=editor.selectionEnd;
+    editor.value=editor.value.slice(0,s)+'  '+editor.value.slice(en);
+    editor.selectionStart=editor.selectionEnd=s+2;}
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runProgram();}
+});
+
+/* debug / test hooks */
+const CS={levels:LEVELS,load:loadLevel,run:runProgram,instant:false,
+  runCode:async(code)=>{editor.value=code;return runProgram();},
+  get cur(){return cur;},get unlocked(){return unlocked;}};
+window.CS=CS;
+
+/* boot */
+loadLevel(Math.min(unlocked,LEVELS.length-1));
+if(!localStorage.getItem('cs_seen_intro')){
+  localStorage.setItem('cs_seen_intro','1');
+  showIntro();
+}
+</script>
+<!-- ARTIFACT-END -->
+</body>
+</html>
