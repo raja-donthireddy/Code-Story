@@ -173,14 +173,46 @@ career-switcher's inner monologue, doing the conceptual connective work).
   their parent chapters — lower-bound binary search, bracket matching,
   frequency counting, flood fill, and take-or-skip DP. One rep per concept is
   never enough; these add the second rep where it counts most.
+- **JS Primer:** five skippable lessons (calling a function, variables,
+  numbers vs. text, if/else, for loops) for players with zero prior syntax,
+  offered as a fork in the first-visit intro modal ("New to JavaScript? Start
+  here (5 min)") and reachable anytime via a header button. Built on the
+  exact same level shape as a chapter (build/makeApi/win/card) — no new
+  engine, just a plain terminal instead of a grid, so it inherits randomized
+  trials, hints, and sound for free. One deliberate technique: a level's
+  `win(sim)` function may set `sim.failed` as a side effect before returning
+  false, giving a pure end-state check the same tailored diagnostic power as
+  an in-flight `throw` (used for primer step 2's "you concatenated strings
+  instead of adding numbers" message).
+- **Step-through replay:** a STEP toggle that pauses after every action and
+  highlights the exact source line that fired it, turning the replay into a
+  debugger. Implemented via one hook point rather than touching every
+  level's dozens of `sim.actions.push(...)` call sites: `opTick()` resolves
+  the calling line by parsing `new Error().stack` for the `new Function`
+  constructor's synthetic frame (the same trick `describeError` already used
+  for uncaught exceptions — factored into a shared `stackLine()` helper),
+  and `runTrial` wraps `sim.actions.push` once to tag every pushed action
+  with that line. The editor's syntax-highlight overlay renders one
+  `<span class="ln" data-ln="N">` per line (`display:block` — the
+  `inline-block; width:100%` line-wrap trick silently fails under the
+  parent's `white-space:pre`, which was caught only by inspecting actual
+  paint geometry via screenshot, not by DOM-state assertions).
+- **Solution share links:** a Share button base64-encodes the current
+  chapter/side-mission/primer id and editor contents into the URL hash;
+  loading that URL drops the player straight into that level with the code
+  pre-filled. Works for locked chapters too — a share link is explicit
+  consent to view that level, bypassing the chip-based progress gate without
+  mutating `unlocked` state.
 
 ## Roadmap
 
-The curriculum is complete at four seasons — algorithms, data structures,
-graphs, techniques (plus five practice side missions). Remaining ideas:
+The curriculum and tooling are both complete: four seasons (algorithms, data
+structures, graphs, techniques), five practice side missions, a JS primer,
+step-through debugging, and share links. Remaining ideas are smaller polish:
 
-- Solution playback share-links.
-- A "Chapter 0" interactive JS primer for players with zero prior syntax.
-- Step-through execution mode (replay one action at a time, source line
-  highlighted) — the debugger as a teaching tool.
 - Localization of story text (the level logic is already data-driven).
+- Efficiency stars, revisited only if playtesting shows the trial gates
+  aren't sufficient signal on their own (see above — currently judged
+  unnecessary).
+- A printable/exportable "ship's certificate" summarizing mastered concepts,
+  for players who want a portfolio artifact from finishing the game.

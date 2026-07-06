@@ -67,21 +67,40 @@ chapter unlocks an optional practice variant: lower-bound binary search
 (ch 5), bracket matching (ch 8), frequency counting (ch 11), flood fill
 (ch 13), and take-or-skip DP, a.k.a. House Robber (ch 17).
 
+**JS Primer** — five skippable lessons (calling a function, variables,
+numbers vs. text, if/else, for loops) for players with zero prior
+JavaScript. Offered as a fork on first visit, or anytime via the header.
+
 After each chapter a **concept card** names what you just did, gives the
 big-O intuition, and maps it to real-world engineering (and interviews).
+
+## Other tools
+
+- **Step-through replay** (STEP toggle) pauses after every command and
+  highlights the exact source line that fired it — a debugger, not just an
+  animation.
+- **Share links** (🔗 Share) encode your current chapter and code into the
+  URL, so a solution can be pasted to someone and opens exactly as written.
+- Runtime errors report the offending line (`[line 7: cut(...)]`); syntax
+  errors get a bracket-balance hint.
 
 ## For developers
 
 - Everything lives in `index.html`: level definitions, a tiny sandboxed
-  interpreter (`new Function` + loop-guard injection so infinite loops halt
-  gracefully), a deterministic seeded RNG for fair trials, and the renderer.
+  interpreter (`new Function` + loop/recursion-guard injection so infinite
+  loops and runaway recursion halt gracefully), a deterministic seeded RNG
+  for fair trials, and the renderer.
 - User programs run headlessly against a simulated world; the recorded action
-  log is then replayed as animation. Sensors work because simulation is
-  synchronous.
+  log — tagged with the source line that produced each action — is then
+  replayed as animation (instant, or paused per-step in STEP mode). Sensors
+  work because simulation is synchronous.
+- The editor overlay (line numbers + syntax highlighting) is dependency-free:
+  a `<pre>` rendered behind a transparent `<textarea>`, kept in scroll sync.
 - Debug/test hooks are exposed on `window.CS` (`load(i)`, `runCode(src)`,
-  `instant`). The Playwright test suite drives every chapter's intended
-  solution and asserts the failure gates (line budget, battery limit,
-  infinite-loop guard) fire correctly.
+  `loadSide(i)`, `loadPrimer(i)`, `instant`, `stepMode`). The Playwright test
+  suite drives every chapter's, side mission's, and primer lesson's intended
+  solution, asserts every failure gate fires correctly, and exercises
+  step-mode pausing and share-link round-tripping.
 - Progress and per-chapter code persist in `localStorage`.
 
 See [DESIGN.md](DESIGN.md) for the full game design document, including the
