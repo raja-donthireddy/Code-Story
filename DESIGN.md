@@ -137,11 +137,22 @@ theme. Three voices carry the story: HALCYON (broken, amber, cryptic hints),
 BYTE (dry, literal — the embodiment of how computers read code), YOU (the
 career-switcher's inner monologue, doing the conceptual connective work).
 
+## Shipped polish
+
+- **Hint system:** two-tier HALCYON "recovered fragments" per chapter,
+  transmitted automatically after 2 and 4 failed runs (strategy first, then
+  near-solution); the counter resets on completion so replays stay clean.
+- **Sound:** a ~30-line WebAudio bleep engine (no assets) — moves, pings,
+  reveals, error buzz, win fanfare — with a persisted header toggle.
+- **Ship log:** a syllabus modal mapping all 15 chapters to their concepts
+  with completion state; designed to be screenshot as a "what I learned" map.
+- Efficiency stars were considered and deliberately skipped: the trial gates
+  already force the efficient algorithm where it matters (battery, budget,
+  fuel), so stars would add chrome without teaching.
+
 ## Roadmap
 
-- **Polish pass:** hint system (HALCYON fragments on repeated failure),
-  efficiency stars (beat par on scans/swaps/cycles), solution playback
-  share-links, sound.
+- Solution playback share-links.
 - **Possible Season 4 — "First Contact" (composition):** recursion &
   divide-and-conquer (merge sort as a fleet-repair montage), dynamic
   programming (fuel planning), regular expressions / parsing (decoding the

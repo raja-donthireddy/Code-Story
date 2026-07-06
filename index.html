@@ -32,8 +32,9 @@
   .chip.cur{border-color:var(--accent);color:var(--accent)}
   .chip.done::after{content:" ✓";color:var(--good)}
   .chip:disabled{opacity:.35;cursor:not-allowed}
-  #speed{margin-left:auto;background:none;border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.08em;border-radius:2px}
-  #speed:hover{color:var(--text);border-color:var(--accent-dim)}
+  .hbtn{background:none;border:1px solid var(--line2);color:var(--muted);padding:4px 10px;font-size:12px;letter-spacing:.08em;border-radius:2px}
+  .hbtn:hover{color:var(--text);border-color:var(--accent-dim)}
+  #hright{margin-left:auto;display:flex;gap:6px}
 
   /* ---------- layout ---------- */
   main{display:grid;grid-template-columns:310px minmax(0,1fr) 430px;gap:0;min-height:calc(100vh - 49px)}
@@ -180,7 +181,11 @@
 <header>
   <div class="brand">CODE STORY <span class="dot">//</span> <span class="sub">SIGNAL LOST</span></div>
   <nav id="chips" aria-label="Chapters"></nav>
-  <button id="speed" title="Replay speed">SPEED 1×</button>
+  <div id="hright">
+    <button class="hbtn" id="logBtn" title="Ship log — everything you've learned">LOG</button>
+    <button class="hbtn" id="sndBtn" title="Sound effects">SND</button>
+    <button class="hbtn" id="speed" title="Replay speed">SPEED 1×</button>
+  </div>
 </header>
 
 <main>
@@ -1501,11 +1506,78 @@ while (started < all.length) {
 ];
 
 /* ============================================================
+   SOUND — tiny WebAudio bleep engine, no assets
+   ============================================================ */
+let audioCtx=null;
+let soundOn=localStorage.getItem('cs_sound')!=='0';
+function blip(freq,dur=0.06,type='square',gain=0.03,when=0){
+  if(!soundOn||CS.instant)return;
+  try{
+    audioCtx??=new (window.AudioContext||window.webkitAudioContext)();
+    const t=audioCtx.currentTime+when;
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(gain,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g);g.connect(audioCtx.destination);
+    o.start(t);o.stop(t+dur+0.02);
+  }catch(e){/* audio unavailable — play on in silence */}
+}
+const SFX={
+  move:()=>blip(220,0.035,'square',0.018),
+  turn:()=>blip(170,0.03,'square',0.012),
+  ping:()=>blip(880,0.05,'sine',0.022),
+  reveal:()=>blip(660,0.06,'triangle',0.028),
+  ok:()=>{blip(523,0.07,'triangle',0.04);blip(784,0.09,'triangle',0.04,0.07);},
+  bad:()=>blip(110,0.28,'sawtooth',0.05),
+  bump:()=>blip(90,0.08,'square',0.04),
+  win:()=>[523,659,784,1047].forEach((f,i)=>blip(f,0.13,'triangle',0.045,i*0.09)),
+  mark:()=>blip(523,0.05,'triangle',0.03),
+};
+
+/* ============================================================
+   HINTS — HALCYON fragments, transmitted after 2 and 4 failed runs
+   ============================================================ */
+const HINTS={
+  seq:['The console is south-east of Byte: four tiles east, then two south.',
+       'Exact sequence: move() four times, turnRight() once, move() twice. Byte only turns when told.'],
+  loop:['One flight is: move, move, turnRight, move, turnLeft. Count the flights — four.',
+        'Wrap the five commands in for (let i = 0; i < 4; i++) { … }, then two more move() for the final stretch.'],
+  cond:['Byte cannot see the corridor — but scan() sees one tile. Only move when it reports "clear".',
+        'Loop while scan() !== "console". Clear ahead → move(). Blocked → turnLeft(); if STILL blocked, turnRight() twice to face the other way. One last move() after the loop.'],
+  lsearch:['A healthy cell reads about 240. The dead one reads 0. inspect() reads whatever Byte is parked on.',
+        'while (inspect() > 0) { move(); } stops exactly on the dead cell. Then replaceCell().'],
+  bsearch:['Fifteen cabinets, four scans: 15 → 7 → 3 → 1. Scan the MIDDLE, discard the half that cannot contain the target.',
+        'Keep lo and hi. mid = Math.floor((lo + hi) / 2). idAt(mid) too small → lo = mid + 1. Too big → hi = mid - 1. Equal → open(mid).'],
+  sort:['For slot 0: find the lightest of all 8 crates and swap it in. For slot 1: the lightest of the remaining 7. And so on.',
+        'Nested loops: outer i over slots; inner j from i+1 tracking the index of the lightest seen. After the inner loop, swap(i, lightest).'],
+  maze:['Trail your right hand along the wall and never let go. In Byte terms: check scanRight() before anything else, every single step.',
+        'Priority per step: right side open → turnRight() then move(). Ahead open → move(). Otherwise → turnLeft(). Let while (true) run — Byte stops itself at the airlock.'],
+  stack:['The log streams oldest→newest. The hatch wants newest→oldest. Store everything, then read it backwards.',
+        'push() each entry into an array. Then: while (stack.length > 0) { cut(stack.pop()); } — pop hands you the newest remaining seal.'],
+  queue:['The relay holds three. The bursts come faster than you can wake. Move alerts somewhere unlimited EVERY cycle.',
+        'Each pass of the loop: while (commCount() > 0) queue.push(readComm()); then wake(queue.shift()) — or standby() if your queue is empty.'],
+  list:['Two markers: prev (last good coupler) and cur (the one being inspected). When cur is corroded, prev should point PAST it.',
+        'setNext(prev, nextOf(cur)) splices cur out. Advance prev only when cur is ok; advance cur = nextOf(cur) every time.'],
+  map:['Thirty reads, twenty-four records: exactly one full pass, with change — IF you remember everything you read.',
+        'Inside the reading loop: index[r.crew] = r.pod. Then answer each wake-list name with locate(crew, index[crew]) — zero further reads.'],
+  pq:['Arrival order lies this time. Before every wake, re-check EVERYONE waiting for the highest critOf().',
+        'Drain the relay into an array. Linear-scan it for the index of the max criticality (chapter 4\'s move), wake that pod, splice it out. Repeat.'],
+  bfs:['Ripples: the queue explores everything 1 hop out, then 2, then 3. The first ripple to touch a tile is the shortest way there.',
+        'Only queue tiles that are NOT already in cameFrom. Afterwards walk cur = cameFrom[key(cur)] from goal() back to null, reverse the list, plotRoute it.'],
+  dijkstra:['BFS\'s blind spot: it treats a 9-rad tile exactly like a 1-rad tile. Take the CHEAPEST-known tile next, not the oldest.',
+        'Linear-scan todo for the smallest dist and splice it out. Then relax: nd = dist[key(cur)] + costOf(n.x, n.y); keep it if n is unseen or nd beats dist[key(n)].'],
+  topo:['Sweep the list: anything whose dependsOn() systems are ALL up can start right now. Then sweep again. And again.',
+        'Track up[s] = true in an object. Check every d in dependsOn(s) against it; restart(s) only when all pass. The outer while re-sweeps until all nine are up.'],
+};
+
+/* ============================================================
    UI
    ============================================================ */
 const $=(s)=>document.querySelector(s);
 const gridEl=$('#grid'),consoleEl=$('#console'),editor=$('#editor'),overlay=$('#overlay');
 let cur=0,unlocked=+(localStorage.getItem('cs_unlocked')||0),running=false;
+let failCounts={};
 let viewWorld=null,robotEl=null,tileEls=[];
 const SPEEDS=[1,2,4];let speedIdx=0;
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
@@ -1583,16 +1655,17 @@ function renderWorld(world){
 /* ---------- action replay ---------- */
 async function applyAction(a){
   switch(a.t){
-    case 'move':viewWorld.robot.x=a.x;viewWorld.robot.y=a.y;updateRobot();await sleep(delay(130));break;
-    case 'turn':viewWorld.robot.dir=a.dir;updateRobot();await sleep(delay(110));break;
-    case 'bump':robotEl.classList.add('bump');cline('· clunk — that\'s a wall.','c-warn');
+    case 'move':viewWorld.robot.x=a.x;viewWorld.robot.y=a.y;updateRobot();SFX.move();await sleep(delay(130));break;
+    case 'turn':viewWorld.robot.dir=a.dir;updateRobot();SFX.turn();await sleep(delay(110));break;
+    case 'bump':robotEl.classList.add('bump');cline('· clunk — that\'s a wall.','c-warn');SFX.bump();
       await sleep(delay(200));robotEl.classList.remove('bump');break;
-    case 'ping':{const el=tileEls[a.y]?.[a.x];if(el){el.classList.add('ping');await sleep(delay(90));el.classList.remove('ping');}break;}
+    case 'ping':{const el=tileEls[a.y]?.[a.x];if(el){el.classList.add('ping');SFX.ping();await sleep(delay(90));el.classList.remove('ping');}break;}
     case 'reveal':{const t=viewWorld.tiles[a.y][a.x];t.revealed=true;t.label=a.label;if(a.cls)t.revealCls=a.cls;
-      renderTile(a.x,a.y);await sleep(delay(220));break;}
+      renderTile(a.x,a.y);SFX.reveal();await sleep(delay(220));break;}
     case 'fix':{const t=viewWorld.tiles[a.y][a.x];t.fixed=true;renderTile(a.x,a.y);
-      cline('» replacement cell seated. voltage nominal.','c-ok');await sleep(delay(300));break;}
-    case 'open':{const t=viewWorld.tiles[a.y][a.x];t.opened=a.ok?'ok':'bad';renderTile(a.x,a.y);await sleep(delay(300));break;}
+      cline('» replacement cell seated. voltage nominal.','c-ok');SFX.ok();await sleep(delay(300));break;}
+    case 'open':{const t=viewWorld.tiles[a.y][a.x];t.opened=a.ok?'ok':'bad';renderTile(a.x,a.y);
+      (a.ok?SFX.ok:SFX.bad)();await sleep(delay(300));break;}
     case 'swap':{const A=viewWorld.tiles[1][a.i+1],B=viewWorld.tiles[1][a.j+1];
       [A.weight,B.weight]=[B.weight,A.weight];
       [A.label,B.label]=[B.label,A.label];
@@ -1600,8 +1673,10 @@ async function applyAction(a){
       renderTile(a.i+1,1);renderTile(a.j+1,1);await sleep(delay(240));break;}
     case 'report':cline('» '+a.msg,'c-report');await sleep(delay(60));break;
     case 'note':cline('· '+a.msg,'c-info');await sleep(delay(90));break;
-    case 'mark':{const t=viewWorld.tiles[a.y][a.x];t.mark=a.cls;renderTile(a.x,a.y);await sleep(delay(220));break;}
+    case 'mark':{const t=viewWorld.tiles[a.y][a.x];t.mark=a.cls;renderTile(a.x,a.y);
+      if(a.cls==='ok')SFX.mark();if(a.cls==='bad')SFX.bad();await sleep(delay(220));break;}
     case 'win':if(viewWorld.robot){robotEl.classList.add('win');}
+      SFX.win();
       for(let y=0;y<viewWorld.h;y++)for(let x=0;x<viewWorld.w;x++){
         const t=viewWorld.tiles[y][x];
         if(t.type==='crate'){t.sorted=true;renderTile(x,y);}
@@ -1652,10 +1727,18 @@ async function runProgram(){
     });
     if(failIdx===-1){
       cline('',''); cline('✓ CHAPTER COMPLETE — '+level.success,'c-ok');
+      failCounts[level.id]=0;
       if(cur>=unlocked){unlocked=cur+1;localStorage.setItem('cs_unlocked',unlocked);}
       renderChips();
       if(!CS.instant){await sleep(700);showCard(level);}
       return true;
+    }
+    SFX.bad();
+    const fails=failCounts[level.id]=(failCounts[level.id]||0)+1;
+    const hints=HINTS[level.id];
+    if(hints&&(fails===2||fails===4)){
+      cline('','');
+      cline('◈ HALCYON — recovered fragment: '+(fails===2?hints[0]:hints[1]),'c-warn');
     }
     return false;
   }finally{running=false;$('#runBtn').disabled=false;}
@@ -1816,8 +1899,38 @@ function loadLevel(i){
   }
 }
 
+function showShipLog(){
+  const seasons=[
+    {name:'Season 1 · Signal Lost — algorithms',from:0,to:6},
+    {name:'Season 2 · Cold Storage — data structures',from:7,to:11},
+    {name:'Season 3 · The Relay Network — graphs',from:12,to:14},
+  ];
+  let html='<p>Every concept this ship has taught you, and where you are. This list doubles as a syllabus — screenshot it.</p>';
+  for(const s of seasons){
+    html+=`<p style="margin-bottom:4px"><b>${s.name}</b></p><ul>`;
+    for(let i=s.from;i<=s.to;i++){
+      const lv=LEVELS[i],done=i<unlocked;
+      html+=`<li style="list-style:none;margin-left:-20px">`+
+        `<code>${done?'✓':'—'}</code> Ch ${String(i+1).padStart(2,'0')} · ${lv.title} — <b>${lv.concept}</b></li>`;
+    }
+    html+='</ul>';
+  }
+  const doneCount=Math.min(unlocked,LEVELS.length);
+  html+=`<div class="real"><div class="bt">Status</div>${doneCount} of ${LEVELS.length} chapters complete.`+
+    (doneCount===LEVELS.length?' Curriculum clear — your real Season 4 runs outside this game.':' The layouts reshuffle on every run; your programs won\'t mind.')+'</div>';
+  openModal('Ship log · Meridian','What you\'ve learned so far',html,'Close',null);
+}
+
 /* ---------- wiring ---------- */
 $('#runBtn').addEventListener('click',runProgram);
+$('#logBtn').addEventListener('click',showShipLog);
+$('#sndBtn').addEventListener('click',()=>{
+  soundOn=!soundOn;
+  localStorage.setItem('cs_sound',soundOn?'1':'0');
+  $('#sndBtn').textContent=soundOn?'SND ✓':'SND ✗';
+  if(soundOn)SFX.ok();
+});
+$('#sndBtn').textContent=soundOn?'SND ✓':'SND ✗';
 $('#resetBtn').addEventListener('click',()=>{
   editor.value=LEVELS[cur].starter;
   localStorage.removeItem('cs_code_'+LEVELS[cur].id);
