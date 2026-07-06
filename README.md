@@ -1,8 +1,9 @@
-# Code Story — Signal Lost
+# Code Story
 
-A story-driven browser game that teaches **algorithms** by making you program a
-robot to save a crippled starship. Built for adult career-switchers: real
-JavaScript from chapter one, no drag-and-drop blocks.
+A story-driven browser game that teaches **algorithms and data structures** by
+making you program a robot to save a crippled starship. Built for adult
+career-switchers: real JavaScript from chapter one, no drag-and-drop blocks.
+Two seasons, twelve chapters.
 
 **Play it:** open `index.html` in any browser. No build step, no dependencies,
 no network — the whole game is one self-contained file.
@@ -20,6 +21,8 @@ Each chapter is a mission that quietly *is* a classic algorithm. Later
 chapters run your program against **randomized trials**, so memorized command
 lists fail and only general algorithms pass — the core lesson of the game.
 
+**Season 1 — Signal Lost** (algorithms):
+
 | Ch | Mission | Concept | The teeth |
 |----|-------------------|--------------------------|-----------|
 | 1 | Wake-Up Call | Sequences | Byte does exactly what you wrote — nothing else |
@@ -29,6 +32,16 @@ lists fail and only general algorithms pass — the core lesson of the game.
 | 5 | The Archive | Binary search — O(log n) | 15 cabinets, only 4 scanner charges |
 | 6 | Cargo Shuffle | Sorting — O(n²) | Order is verified when your program ends |
 | 7 | Escape Route | Pathfinding | Unmapped maze, local sensors only |
+
+**Season 2 — Cold Storage** (data structures — wake the frozen crew):
+
+| Ch | Mission | Concept | The teeth |
+|----|--------------------|--------------------------|-----------|
+| 8 | Pressure Seals | Stacks — LIFO | One-way weld log; seals come off newest-first |
+| 9 | Wake Order | Queues — FIFO | 3-slot comm relay overflows unless you buffer |
+| 10 | The Conveyor Chain | Linked lists | No master list — the chain IS the data; splice around corrosion |
+| 11 | The Manifest | Hash maps — O(1) | 8 lookups, 24 records, 30-read budget: build an index |
+| 12 | The Critical List | Priority queues | Most-critical pod always wakes first, alerts keep arriving |
 
 After each chapter a **concept card** names what you just did, gives the
 big-O intuition, and maps it to real-world engineering (and interviews).

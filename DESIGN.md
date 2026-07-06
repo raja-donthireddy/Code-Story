@@ -47,7 +47,7 @@ read mission brief  →  write JS in the editor  →  ▶ Run
                                                          concept card → next chapter
 ```
 
-## Curriculum map (Season 1: Signal Lost)
+## Curriculum map — Season 1: Signal Lost (algorithms)
 
 | Ch | Mission | Concept | Mechanic that forces the concept | Trials |
 |----|---------|---------|----------------------------------|--------|
@@ -63,6 +63,28 @@ Deliberate arc: chapters 4→5→6 form a single argument. Linear search works
 (4), sorted data makes search exponentially cheaper (5), and sorting is the
 price you pay for that speed (6). Chapter 7 opens the door to graphs and
 points at BFS/A* as the next thing to learn.
+
+## Curriculum map — Season 2: Cold Storage (data structures)
+
+The ship flies; the crew is still frozen. Season 1 taught *computing on*
+data — Season 2 teaches *holding* it. Deliberate framing for career-switchers:
+the JavaScript they already know (arrays and objects) turns out to secretly be
+every structure they need. No robot this season — the player works ship
+systems directly through per-chapter APIs.
+
+| Ch | Mission | Concept | Mechanic that forces the concept | Trials |
+|----|---------|---------|----------------------------------|--------|
+| 8 | Pressure Seals | Stack (LIFO) | One-way weld-log stream must be replayed in reverse; wrong cut order buckles the hatch | 3 |
+| 9 | Wake Order | Queue (FIFO) | Alerts arrive faster than pods can wake; the 3-slot comm relay overflows unless drained into an unbounded queue every cycle | 2 |
+| 10 | The Conveyor Chain | Linked list | No master list — only `head()`/`nextOf(id)`; corroded nodes removed by re-pointing (`prev`/`cur` two-pointer walk) | 3 |
+| 11 | The Manifest | Hash map | 8 lookups over 24 records with a 30-read budget; wake-list targets are placed deep so per-query rescans always exceed it | 2 |
+| 12 | The Critical List | Priority queue | Highest-criticality pod must always wake next; first two arrivals ascend in criticality so FIFO fails immediately | 2 |
+
+Season 2's paired arc mirrors Season 1's: 8↔9 contrast LIFO with FIFO, 11
+echoes chapter 5 (an index beats rescanning, without even needing sorted
+data), and 12 is a capstone that composes chapter 4's linear max-scan with
+chapter 9's buffering — then names the result (priority queue) and points at
+heaps and Dijkstra.
 
 ## Systems
 
@@ -97,14 +119,12 @@ career-switcher's inner monologue, doing the conceptual connective work).
 
 ## Roadmap
 
-- **Season 1.5 (polish):** hint system (HALCYON fragments on repeated
-  failure), efficiency stars (beat par on scans/swaps/moves), solution
-  playback share-links, sound.
-- **Season 2 — "Cold Storage" (data structures):** stacks (airlock cycling),
-  queues (cryo-pod wake order), hash maps (crew manifest lookup), linked
-  lists (repairing a broken conveyor chain).
+- **Polish pass:** hint system (HALCYON fragments on repeated failure),
+  efficiency stars (beat par on scans/swaps/cycles), solution playback
+  share-links, sound.
 - **Season 3 — "The Relay Network" (graphs):** BFS (shortest route through
-  the wreck), Dijkstra (power routing with costs), topological sort
-  (repair-dependency order).
+  the wreck — a queue walking a graph, planted in chapter 9's card),
+  Dijkstra (power routing with costs — planted in chapter 12's card),
+  topological sort (repair-dependency order).
 - **Meta-progression:** a "ship systems" board that fills in as concepts are
   mastered, doubling as a syllabus map the player can screenshot.
