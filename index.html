@@ -110,6 +110,17 @@
   .t-record{background:#0d1626;border:1px solid #22304a}
   .t-record::before{content:"▤";color:#41546e;font-size:12px}
   .t-record.revealed::before{color:var(--accent)}
+  .t-rad{background:#0d1420;border:1px solid #1c2939}
+  .t-rad .tlabel{font-size:11px;margin-top:0}
+  .rad-l{background:#0b1a14;border-color:#1e3a2b}
+  .rad-l .tlabel{color:#7fd9a0}
+  .rad-m{background:#181409;border-color:#3a2f18}
+  .rad-m .tlabel{color:#e0c078}
+  .rad-h{background:#1d0e10;border-color:#4a2028}
+  .rad-h .tlabel{color:#e58a92}
+  .t-sys{background:#0d1626;border:1px solid #22304a}
+  .t-sys::before{content:"◈";color:#5b6d85;font-size:13px}
+  .goalcell{border-color:var(--accent-dim);animation:pulse 1.6s ease-in-out infinite}
   .tile.mark-ok{border-color:var(--good);background:#0c1f16}
   .tile.mark-ok::before{color:var(--good)}
   .tile.mark-bad{border-color:var(--bad);background:#241014}
@@ -351,6 +362,55 @@ function movementApi(sim,opts={}){
 function checkIndex(i,n,fname){
   if(!Number.isInteger(i)||i<0||i>=n)
     throw new Error(`${fname}(${i}) — there is no slot ${i}. Valid indices run from 0 to ${n-1}. (Programmers count from zero.)`);
+}
+
+/* ---------- grid-graph helpers (used by Season 3 builders) ---------- */
+function gridSolve(world,s,g,costFn){
+  // Dijkstra over open tiles; costFn(x,y) = cost of ENTERING a tile
+  // (1 everywhere = BFS). Returns {cost, route} or null if unreachable.
+  const key=(x,y)=>x+','+y;
+  const dist={},prev={};
+  dist[key(s.x,s.y)]=0;
+  const todo=[{x:s.x,y:s.y}];
+  while(todo.length){
+    let bi=0;
+    for(let i=1;i<todo.length;i++)
+      if(dist[key(todo[i].x,todo[i].y)]<dist[key(todo[bi].x,todo[bi].y)])bi=i;
+    const cur=todo.splice(bi,1)[0];
+    for(const [dx,dy] of DIRS){
+      const nx=cur.x+dx,ny=cur.y+dy;
+      if(tileAt(world,nx,ny).type==='wall')continue;
+      const nd=dist[key(cur.x,cur.y)]+costFn(nx,ny);
+      if(!(key(nx,ny) in dist)||nd<dist[key(nx,ny)]){
+        dist[key(nx,ny)]=nd;prev[key(nx,ny)]={x:cur.x,y:cur.y};
+        todo.push({x:nx,y:ny});
+      }
+    }
+  }
+  if(!(key(g.x,g.y) in dist))return null;
+  const route=[];let cur={x:g.x,y:g.y};
+  while(cur){route.push(cur);cur=prev[key(cur.x,cur.y)];}
+  route.reverse();
+  return {cost:dist[key(g.x,g.y)],route};
+}
+function validateRoute(world,route,s,g,fname){
+  if(!Array.isArray(route)||route.length<2)
+    throw new Error(`${fname}(route) expects an array of at least two {x, y} points.`);
+  for(const p of route)
+    if(!p||!Number.isInteger(p.x)||!Number.isInteger(p.y))
+      throw new Error(`${fname}: every waypoint must be an object like {x: 3, y: 5}.`);
+  if(route[0].x!==s.x||route[0].y!==s.y)
+    throw new Error(`${fname}: the route must begin at the start (${s.x}, ${s.y}).`);
+  const last=route[route.length-1];
+  if(last.x!==g.x||last.y!==g.y)
+    throw new Error(`${fname}: the route must end at the goal (${g.x}, ${g.y}).`);
+  for(let i=1;i<route.length;i++){
+    const a=route[i-1],b=route[i];
+    if(Math.abs(a.x-b.x)+Math.abs(a.y-b.y)!==1)
+      throw new Error(`${fname}: waypoint ${i} (${b.x}, ${b.y}) is not adjacent to (${a.x}, ${a.y}) — one step up/down/left/right at a time.`);
+    if(tileAt(world,b.x,b.y).type==='wall')
+      throw new Error(`${fname}: waypoint ${i} (${b.x}, ${b.y}) is inside debris. The drone disagrees.`);
+  }
 }
 
 /* ============================================================
@@ -1156,6 +1216,288 @@ while (!allAwake()) {
     <p>That scan is O(n) per wake — fine for 10 pods. At scale, a <b>heap</b> keeps the max on top and does it in O(log n). Same idea, faster furniture — that's usually how data structures level up.</p>
     <div class="real"><div class="bt">In the wild</div>Operating-system schedulers, hospital triage software, event loops firing the soonest timer, and Dijkstra's shortest-path algorithm — which is Season 3's opening move.</div>`},
 },
+
+/* ============ SEASON 3 — THE RELAY NETWORK ============ */
+
+/* ---- 13 · BFS ---- */
+{
+  id:'bfs',title:'The Debris Field',concept:'Breadth-first search',
+  seeds:[19,66,93],
+  brief:[
+    ['HALCYON','The whole sector relay network is dark, engineer — every ship out here is as blind as we were. First task: thread a survey drone through the debris field to the relay hub.'],
+    ['BYTE','The drone carries fuel for EXACTLY the shortest route — command deemed anything more "wasteful". Chapter 7\'s wall-hugging finds A route. We need THE route.'],
+    ['YOU','Explore in ripples: check everything 1 step away, then 2, then 3 — with a queue, like the cryo alerts. The first ripple to touch the hub IS the shortest path. Remember where each ripple came from, and walk it backwards.'],
+  ],
+  objective:'Compute the SHORTEST route from the drone (▲) to the hub (▣) and submit it with plotRoute([{x,y}, …]). The drone has fuel for exactly the minimum number of hops — any longer route fails. Works on all 3 randomized fields.',
+  api:[
+    ['isOpen(x, y)','true if that tile is inside the field and free of debris.'],
+    ['start() / goal()','{x, y} of the drone and the hub.'],
+    ['plotRoute(route)','Submit an array of {x, y} waypoints from start to goal, one step apart.'],
+    ['Keys trick','Objects can\'t be object keys — use strings: let k = p.x + "," + p.y;'],
+  ],
+  starter:`// Breadth-first search:
+// a queue of tiles to visit (oldest first), and a
+// 'cameFrom' map so you can walk the route backwards.
+
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+const key = (p) => p.x + "," + p.y;
+
+let s = start(), g = goal();
+let queue = [s];
+let cameFrom = {};
+cameFrom[key(s)] = null;
+
+while (queue.length > 0) {
+  let cur = queue.shift();
+  for (const [dx, dy] of DIRS) {
+    let n = { x: cur.x + dx, y: cur.y + dy };
+    // if n is open AND not already in cameFrom:
+    //   record where it came from, add it to the queue
+  }
+}
+
+// then: walk backwards from goal() via cameFrom,
+// reverse the list, plotRoute(...) it.
+`,
+  build(rng){
+    for(let tries=0;tries<80;tries++){
+      const world=emptyWorld(13,9);
+      for(let y=1;y<8;y++)for(let x=1;x<12;x++)
+        world.tiles[y][x].type=rng()<0.30?'wall':'floor';
+      const s={x:1,y:7},g={x:11,y:1};
+      world.tiles[s.y][s.x].type='floor';
+      world.tiles[g.y][g.x].type='console';
+      const sol=gridSolve(world,s,g,()=>1);
+      if(!sol||sol.cost<14)continue;
+      world.robot={x:s.x,y:s.y,dir:0};
+      world.meta={s,g,best:sol.cost,routed:false};
+      return world;
+    }
+    throw new Error('field generation failed'); // never with these seeds
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      isOpen:(x,y)=>{opTick(sim);return tileAt(sim.world,x,y).type!=='wall';},
+      start:()=>{opTick(sim);return {x:m.s.x,y:m.s.y};},
+      goal:()=>{opTick(sim);return {x:m.g.x,y:m.g.y};},
+      plotRoute:(route)=>{opTick(sim);
+        validateRoute(sim.world,route,m.s,m.g,'plotRoute');
+        const hops=route.length-1;
+        if(hops>m.best)throw new Error(`Route is ${hops} hops — the drone has fuel for exactly ${m.best}. A shorter path exists; ripple out with a queue and take the FIRST arrival. Trial failed.`);
+        bump(sim,'hops');sim.counts.hops=hops;
+        for(let i=1;i<route.length;i++)sim.actions.push({t:'mark',x:route[i].x,y:route[i].y,cls:'ok'});
+        m.routed=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.routed===true;},
+  success:'The drone slips through the field with dry tanks and a perfect line. Relay hub: docked.',
+  card:{title:'BFS: ripples find the shortest path',body:`
+    <p><b>Breadth-first search</b> is chapter 9's queue walking a graph: explore everything 1 step away, then 2, then 3. Because you expand in rings, <em>the first time you reach a tile is provably the shortest way to it</em>.</p>
+    <p>The <code>cameFrom</code> map is the other half of the trick — chapter 11's hash map remembering each ripple's origin, so the route can be rebuilt backwards. Compare chapter 7: the wall-follower found <em>a</em> path with no memory; BFS finds <em>the</em> path by remembering everything.</p>
+    <div class="real"><div class="bt">In the wild</div>"Degrees of separation" in social graphs, web crawlers, solving puzzle games, network broadcast — and the fact that it visits every node and edge just once, O(V+E), is why it scales to graphs with billions of edges.</div>`},
+},
+
+/* ---- 14 · Dijkstra ---- */
+{
+  id:'dijkstra',title:'The Hot Zone',concept:'Dijkstra — weighted paths',
+  seeds:[26,71],
+  brief:[
+    ['HALCYON','The hub is powered but its uplink mast is across a radiation zone. Every tile reads 1 to 9 rads. The repair crawler survives ONE route: the minimum-total-radiation route.'],
+    ['BYTE','Careful, engineer: fewest tiles is NOT least radiation. A three-tile shortcut through a 9-rad pocket loses to a long corridor of 1s. Steps are no longer equal.'],
+    ['YOU','So BFS breaks — its ripples count hops, not rads. New rule: always expand the CHEAPEST tile found so far. My chapter-12 max-scan, flipped to min. Queue out, priority queue in.'],
+  ],
+  objective:'Submit the route from the crawler (▲) to the pulsing mast tile with the minimum TOTAL radiation (sum of every tile you enter; the start tile is free). Any hotter route kills the crawler. Tile costs are printed on the map. Both trials.',
+  api:[
+    ['isOpen(x, y) / start() / goal()','As before.'],
+    ['costOf(x, y)','Radiation absorbed by entering that tile (1–9).'],
+    ['plotRoute(route)','Submit the route, one step at a time.'],
+    ['The one-line upgrade','BFS takes the OLDEST queued tile; Dijkstra takes the CHEAPEST-so-far. Everything else is the same shape.'],
+  ],
+  starter:`// Dijkstra = BFS with a priority queue.
+// dist[k] = least radiation found so far to reach k.
+// Each round: take the CHEAPEST tile in 'todo'
+// (linear min-scan — chapter 12), then try to improve
+// its neighbours.
+
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+const key = (p) => p.x + "," + p.y;
+
+let s = start(), g = goal();
+let dist = {}, cameFrom = {};
+dist[key(s)] = 0;
+let todo = [s];
+
+while (todo.length > 0) {
+  // 1. find index of the tile in 'todo' with the
+  //    smallest dist, and splice it out as 'cur'
+  // 2. for each neighbour n of cur that isOpen:
+  //      let nd = dist[key(cur)] + costOf(n.x, n.y);
+  //      if nd beats dist[key(n)] (or n is unseen):
+  //        record nd, cameFrom, push n onto todo
+}
+
+// walk cameFrom backwards from goal(), reverse,
+// plotRoute(...).
+`,
+  build(rng){
+    for(let tries=0;tries<200;tries++){
+      const world=emptyWorld(11,7);
+      for(let y=1;y<6;y++)for(let x=1;x<10;x++){
+        const t=world.tiles[y][x];
+        if(rng()<0.10){t.type='wall';continue;}
+        t.type='rad';t.cost=ri(rng,1,9);
+      }
+      const s={x:1,y:5},g={x:9,y:1};
+      const st=world.tiles[s.y][s.x],gt=world.tiles[g.y][g.x];
+      st.type='rad';st.cost=1;gt.type='rad';gt.cost=ri(rng,1,3);gt.goal=true;
+      const costFn=(x,y)=>world.tiles[y][x].cost;
+      const best=gridSolve(world,s,g,costFn);
+      if(!best)continue;
+      // cheapest cost achievable by ANY fewest-hops route, via
+      // layered BFS DP — must be strictly worse than optimal, so
+      // "just reuse BFS" fails on every trial
+      const hop=gridSolve(world,s,g,()=>1);
+      if(!hop)continue;
+      const K=(x,y)=>x+','+y;
+      const hd={},mc={};hd[K(s.x,s.y)]=0;mc[K(s.x,s.y)]=0;
+      const q=[{x:s.x,y:s.y}];
+      while(q.length){
+        const c=q.shift();
+        for(const [dx,dy] of DIRS){
+          const nx=c.x+dx,ny=c.y+dy;
+          if(tileAt(world,nx,ny).type==='wall')continue;
+          if(!(K(nx,ny) in hd)){hd[K(nx,ny)]=hd[K(c.x,c.y)]+1;q.push({x:nx,y:ny});}
+        }
+      }
+      const cells=Object.keys(hd).sort((a,b)=>hd[a]-hd[b]);
+      for(const ck of cells){
+        const [cx,cy]=ck.split(',').map(Number);
+        for(const [dx,dy] of DIRS){
+          const nx=cx+dx,ny=cy+dy,nk=K(nx,ny);
+          if(!(nk in hd)||hd[nk]!==hd[ck]+1)continue;
+          const nd=mc[ck]+costFn(nx,ny);
+          if(!(nk in mc)||nd<mc[nk])mc[nk]=nd;
+        }
+      }
+      if(!(K(g.x,g.y) in mc)||mc[K(g.x,g.y)]<=best.cost)continue;
+      world.robot={x:s.x,y:s.y,dir:0};
+      world.meta={s,g,best:best.cost,routed:false};
+      return world;
+    }
+    throw new Error('zone generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      isOpen:(x,y)=>{opTick(sim);const t=tileAt(sim.world,x,y);return t.type!=='wall';},
+      costOf:(x,y)=>{opTick(sim);const t=tileAt(sim.world,x,y);
+        if(t.type!=='rad')throw new Error(`costOf(${x}, ${y}) — that tile is debris or outside the zone. Check isOpen first.`);
+        return t.cost;},
+      start:()=>{opTick(sim);return {x:m.s.x,y:m.s.y};},
+      goal:()=>{opTick(sim);return {x:m.g.x,y:m.g.y};},
+      plotRoute:(route)=>{opTick(sim);
+        validateRoute(sim.world,route,m.s,m.g,'plotRoute');
+        let total=0;
+        for(let i=1;i<route.length;i++)total+=sim.world.tiles[route[i].y][route[i].x].cost;
+        if(total>m.best)throw new Error(`That route absorbs ${total} rads — a ${m.best}-rad route exists. Fewest tiles is not least radiation: expand the CHEAPEST tile first, not the oldest. Trial failed.`);
+        sim.counts.rads=total;
+        for(let i=1;i<route.length;i++)sim.actions.push({t:'mark',x:route[i].x,y:route[i].y,cls:'ok'});
+        m.routed=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.routed===true;},
+  success:'The crawler reaches the mast with dosimeter to spare and the uplink blinks alive. Halfway there.',
+  card:{title:'Dijkstra: when steps aren\'t equal',body:`
+    <p>You changed ONE decision — take the <em>cheapest-known</em> tile instead of the <em>oldest</em> — and BFS became <b>Dijkstra's algorithm</b>, the foundation of routing on weighted graphs. Swap the queue for a priority queue; the rest of the shape survives.</p>
+    <p>Your linear min-scan makes each pick O(n); a heap makes it O(log n). And if you add a "roughly how far to the goal?" hunch to the priority, Dijkstra becomes <b>A*</b> — the version games and robots use.</p>
+    <div class="real"><div class="bt">In the wild</div>GPS with traffic (time as weight, not distance), internet packet routing (OSPF literally runs Dijkstra), flight-price searches, power-grid planning. Arguably the most economically valuable 30 lines of code ever written.</div>`},
+},
+
+/* ---- 15 · topological sort ---- */
+{
+  id:'topo',title:'Restart Sequence',concept:'Topological sort',
+  seeds:[38,74,97],
+  brief:[
+    ['HALCYON','Last step, engineer: the relay station itself. Nine systems, all dark, and every one refuses to start before the systems it depends on. NAV before COM, power before everything…'],
+    ['BYTE','The dependency list is honest but unordered. Start a system too early and the cascade trips every breaker on the station. There is no partial credit on this one.'],
+    ['YOU','It\'s a graph again — arrows meaning "needs". Keep sweeping the list: anything whose dependencies are all up, start it. Repeat until nothing is dark. If a sweep starts nothing… that would mean a dependency loop. Let\'s hope command didn\'t build one.'],
+  ],
+  objective:'Restart all 9 systems in a valid dependency order: restart(id) fails if any of its dependsOn(id) systems is still down. The dependency graph reshuffles every trial — compute the order, don\'t memorize it. (Each system\'s requirements are printed in the console.)',
+  api:[
+    ['systemsList()','The 9 system codes, in no useful order.'],
+    ['dependsOn(id)','Codes that must be up BEFORE id can start (possibly none).'],
+    ['restart(id)','Start a system. Any dependency still down = station-wide cascade.'],
+    ['report(msg)','Print a message.'],
+  ],
+  starter:`// Sweep the list repeatedly:
+// start anything whose dependencies are ALL up,
+// until everything is up. (Track what's up in an
+// object — chapter 11's trick.)
+
+const all = systemsList();
+let up = {};
+let started = 0;
+
+while (started < all.length) {
+  for (const s of all) {
+    if (up[s]) continue;
+    // is every code in dependsOn(s) already up?
+    // if yes: restart(s); up[s] = true; started++;
+  }
+}
+`,
+  build(rng){
+    const world=emptyWorld(11,3);
+    const codes=['RCT','NAV','COM','LIF','SHD','SEN','DOK','GRV','BCN'];
+    const topo=[...codes];
+    for(let i=topo.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[topo[i],topo[j]]=[topo[j],topo[i]];}
+    const deps={};deps[topo[0]]=[];
+    for(let i=1;i<topo.length;i++){
+      const n=Math.min(i,ri(rng,1,2)),pick=new Set();
+      while(pick.size<n)pick.add(topo[ri(rng,0,i-1)]);
+      deps[topo[i]]=[...pick];
+    }
+    // display order must NOT itself be a valid restart order,
+    // so "just restart them in list order" fails every trial
+    let display;
+    do{
+      display=[...codes];
+      for(let i=display.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[display[i],display[j]]=[display[j],display[i]];}
+    }while(display.every((s,i)=>deps[s].every(d=>display.indexOf(d)<i)));
+    for(let x=1;x<=9;x++){const t=world.tiles[1][x];t.type='sys';t.pid=display[x-1];}
+    world.meta={display,deps,up:new Set()};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    for(const s of m.display)
+      if(m.deps[s].length)
+        sim.actions.push({t:'note',msg:`${s} requires: ${m.deps[s].join(', ')}`});
+    const posOf=(id)=>m.display.indexOf(id)+1;
+    return {
+      systemsList:()=>{opTick(sim);return [...m.display];},
+      dependsOn:(id)=>{opTick(sim);
+        if(!(id in m.deps))throw new Error(`dependsOn(${JSON.stringify(id)}) — no system has that code.`);
+        return [...m.deps[id]];},
+      restart:(id)=>{opTick(sim);
+        if(!(id in m.deps))throw new Error(`restart(${JSON.stringify(id)}) — no system has that code.`);
+        if(m.up.has(id))throw new Error(`restart("${id}") — it is already up.`);
+        for(const d of m.deps[id])
+          if(!m.up.has(d))throw new Error(`CASCADE. ${id} drew power before ${d} was up, and every breaker on the station just tripped. Trial failed.`);
+        m.up.add(id);bump(sim,'restarts');
+        sim.actions.push({t:'mark',x:posOf(id),y:1,cls:'ok'});
+        sim.actions.push({t:'note',msg:`${id} online  (${m.up.size}/9)`});
+        maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.up.size===9;},
+  success:'BCN lights last, and the relay network ripples awake across the sector — seventeen stranded ships pick up nav-lock within the minute.',
+  card:{title:'Topological sort: dependency order',body:`
+    <p>A graph where arrows mean "needs" is a <b>dependency graph</b>, and an order that satisfies every arrow is a <b>topological sort</b>. Your repeated sweep is the honest version of <b>Kahn's algorithm</b>: start what's unblocked, repeat.</p>
+    <p>And your worry was correct: if a sweep ever starts nothing while systems are still down, the graph has a <em>cycle</em> — A needs B needs A — and no valid order exists at all. You'll meet that in real life as "circular dependency detected".</p>
+    <div class="real"><div class="bt">In the wild</div>Build systems (make, Gradle, cargo) deciding compile order, package managers resolving installs, spreadsheets recalculating cells, CI pipelines, course prerequisites — any "this before that" problem is this exact graph.</div>`},
+},
 ];
 
 /* ============================================================
@@ -1188,6 +1530,8 @@ function tileClasses(t){
   if(t.opened==='bad')c+=' open-bad';
   if(t.sorted)c+=' sorted';
   if(t.corrupt)c+=' corrupt';
+  if(t.type==='rad'&&t.cost!=null)c+=' rad-'+(t.cost>=7?'h':t.cost>=4?'m':'l');
+  if(t.goal)c+=' goalcell';
   if(t.mark)c+=' mark-'+t.mark;
   return c;
 }
@@ -1198,6 +1542,8 @@ function renderTile(x,y){
   if(t.type==='cell'||t.type==='cabinet'||t.type==='crate'||t.type==='seal'||t.type==='record')lbl=t.revealed?t.label:'?';
   if(t.type==='pod')lbl=t.revealed?t.label:(t.pid??'?');
   if(t.type==='node')lbl=String(t.pid);
+  if(t.type==='rad')lbl=String(t.cost);
+  if(t.type==='sys')lbl=t.pid;
   el.querySelector('.tlabel').textContent=lbl;
 }
 function updateRobot(){
@@ -1331,6 +1677,7 @@ overlay.addEventListener('click',(e)=>{if(e.target===overlay)closeModal();});
 function showCard(level){
   let btn='Next chapter ▸',next=()=>loadLevel(cur+1);
   if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
+  if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
   if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
   openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
 }
@@ -1348,9 +1695,9 @@ function showS1End(){
     <div class="real"><div class="bt">Season 2 · Cold Storage</div>Stacks, queues, linked lists, hash maps, priority queues — the five containers that, with Season 1's algorithms, make up most of an engineer's daily toolkit.</div>`,
     'Begin Season 2: Cold Storage ▸',()=>loadLevel(7));
 }
-function showFinale(){
-  openModal('Transmission · Meridian to home','All hands awake.',`
-    <p>The Captain reads the repair log twice, then makes it official: field promotion. Here's the toolkit you shipped in Season 2 — the five containers that hold everything else up:</p>
+function showS2End(){
+  openModal('Season 2 complete · Cold Storage','All hands awake.',`
+    <p>The Captain reads the repair log twice. Here's the toolkit you shipped in Season 2 — the five containers that hold everything else up:</p>
     <ul>
       <li><b>Stack</b> — last in, first out: undo, backtracking, the call stack.</li>
       <li><b>Queue</b> — first in, first out: buffering fast producers for slow consumers.</li>
@@ -1358,9 +1705,32 @@ function showFinale(){
       <li><b>Hash map</b> — pay one pass, answer in O(1) forever. The workhorse.</li>
       <li><b>Priority queue</b> — the most urgent thing, always; heaps make it fast.</li>
     </ul>
-    <div class="real"><div class="bt">Your next mission</div>Data structures + algorithms is the entire foundation. Re-build a stack, queue, and hash-map-based counter from scratch in JavaScript or Python without looking. Then learn <em>breadth-first search</em> — a queue walking a graph — because Season 3, <b>The Relay Network</b>, is all graphs: BFS, Dijkstra, topological sort.</div>
+    <p>Then the comms officer sits down at her console, and her face falls. The Meridian is fixed — but the sector's relay network is dark, and seventeen other ships are stranded in the same storm wreckage.</p>
+    <div class="real"><div class="bt">Season 3 · The Relay Network</div>Everything out there — debris fields, power routing, restart dependencies — is a <b>graph</b>. And you already own every part these algorithms are built from.</div>`,
+    'Begin Season 3: The Relay Network ▸',()=>loadLevel(12));
+}
+function showFinale(){
+  openModal('Transmission · Sector Command','Sector clear, Chief Engineer.',`
+    <p>Seventeen ships lock nav within the minute. The Captain makes it official on the spot: field promotion, effective immediately. Fifteen chapters ago you were six weeks into your first engineering job. Look at the log you shipped:</p>
+    <ul>
+      <li><b>Season 1</b> — sequences, loops, conditionals, linear &amp; binary search, sorting, pathfinding.</li>
+      <li><b>Season 2</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
+      <li><b>Season 3</b> — BFS, Dijkstra, topological sort: the graph algorithms, each built from Season 1 + 2 parts.</li>
+    </ul>
+    <p>That's not a game curriculum — that's the core of a CS fundamentals semester and the overwhelming majority of what technical interviews test.</p>
+    <div class="real"><div class="bt">Your real Season 4</div>It runs outside this game: (1) re-implement BFS and a hash-map word counter from memory in JavaScript or Python; (2) work through a set of "easy" interview problems — you'll recognize almost every one; (3) build something real and small, end to end. HALCYON's last fragment, for the road: <em>you were never learning to program a robot — the robot was how you learned to think in steps, structures, and graphs.</em></p>
     <p>Replay any chapter from the bar above. The layouts reshuffle; your programs won't mind.</p>`,
-    'Back to the ship',null);
+    'End transmission',null);
+}
+function showS3Intro(){
+  openModal('Season 3 · The Relay Network','Seventeen ships are waiting on you.',`
+    <p>The Meridian flies and the crew is awake — but the storm killed the sector's relay network, and every other ship out here is blind. Command's orders: restore it. Debris fields, radiation zones, dependency-locked stations.</p>
+    <p>Season 1 gave you algorithms; Season 2 gave you structures. Season 3 is where they combine: every problem this season is a <b>graph</b>, and every solution is built from parts you already own — a queue, a hash map, a min-scan.</p>
+    <ul>
+      <li>These are the hardest chapters. The starters scaffold more; the ideas are worth it.</li>
+      <li>Same rules: randomized trials. Compute answers, don't memorize them.</li>
+    </ul>`,
+    'Plot the first jump ▸',null);
 }
 function showS2Intro(){
   openModal('Season 2 · Cold Storage','30 crew. 3% oxygen margin. Your move.',`
@@ -1388,9 +1758,10 @@ function showIntro(){
 function renderChips(){
   const nav=$('#chips');nav.innerHTML='';
   LEVELS.forEach((lv,i)=>{
-    if(i===7){
+    if(i===7||i===12){
       const s=document.createElement('span');s.className='sdiv';
-      s.textContent='S2';s.title='Season 2: Cold Storage';
+      s.textContent=i===7?'S2':'S3';
+      s.title=i===7?'Season 2: Cold Storage':'Season 3: The Relay Network';
       nav.appendChild(s);
     }
     const b=document.createElement('button');
@@ -1405,8 +1776,8 @@ function renderChips(){
 function loadLevel(i){
   cur=i;
   const lv=LEVELS[i];
-  const season=i<7?1:2;
-  document.querySelector('.brand .sub').textContent=season===1?'SIGNAL LOST':'COLD STORAGE';
+  const season=i<7?1:i<12?2:3;
+  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK'][season-1];
   $('#lv-kicker').textContent=`Season ${season} · Chapter ${i+1} of ${LEVELS.length}`;
   $('#lv-title').textContent=lv.title;
   $('#lv-concept').textContent=lv.concept;
@@ -1438,6 +1809,10 @@ function loadLevel(i){
   if(i===7&&!localStorage.getItem('cs_seen_s2')&&!CS.instant){
     localStorage.setItem('cs_seen_s2','1');
     showS2Intro();
+  }
+  if(i===12&&!localStorage.getItem('cs_seen_s3')&&!CS.instant){
+    localStorage.setItem('cs_seen_s3','1');
+    showS3Intro();
   }
 }
 

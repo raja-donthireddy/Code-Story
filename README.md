@@ -3,7 +3,7 @@
 A story-driven browser game that teaches **algorithms and data structures** by
 making you program a robot to save a crippled starship. Built for adult
 career-switchers: real JavaScript from chapter one, no drag-and-drop blocks.
-Two seasons, twelve chapters.
+Three seasons, fifteen chapters.
 
 **Play it:** open `index.html` in any browser. No build step, no dependencies,
 no network — the whole game is one self-contained file.
@@ -42,6 +42,14 @@ lists fail and only general algorithms pass — the core lesson of the game.
 | 10 | The Conveyor Chain | Linked lists | No master list — the chain IS the data; splice around corrosion |
 | 11 | The Manifest | Hash maps — O(1) | 8 lookups, 24 records, 30-read budget: build an index |
 | 12 | The Critical List | Priority queues | Most-critical pod always wakes first, alerts keep arriving |
+
+**Season 3 — The Relay Network** (graphs — restore the sector):
+
+| Ch | Mission | Concept | The teeth |
+|----|------------------|--------------------------|-----------|
+| 13 | The Debris Field | Breadth-first search | Fuel for exactly the shortest route — chapter 7's wall-follower won't cut it |
+| 14 | The Hot Zone | Dijkstra — weighted paths | Fewest tiles ≠ least radiation; grids are built so plain BFS always fails |
+| 15 | Restart Sequence | Topological sort | Dependency-locked systems; list order is never a valid restart order |
 
 After each chapter a **concept card** names what you just did, gives the
 big-O intuition, and maps it to real-world engineering (and interviews).

@@ -86,6 +86,26 @@ data), and 12 is a capstone that composes chapter 4's linear max-scan with
 chapter 9's buffering — then names the result (priority queue) and points at
 heaps and Dijkstra.
 
+## Curriculum map — Season 3: The Relay Network (graphs)
+
+The payoff season: every chapter is a graph problem whose solution is
+assembled from parts the player already owns. The recurring line — "a queue
+walking a graph", "swap the queue for a priority queue" — is the actual
+pedagogy: graph algorithms are not new magic, they are Seasons 1+2 composed.
+
+| Ch | Mission | Concept | Mechanic that forces the concept | Trials |
+|----|---------|---------|----------------------------------|--------|
+| 13 | The Debris Field | BFS | Fuel for exactly the shortest hop-count; any longer route fails. Queue (ch 9) + cameFrom hash map (ch 11) + string keys | 3 |
+| 14 | The Hot Zone | Dijkstra | Per-tile radiation costs; generators verify that the cheapest fewest-hops route is strictly hotter than optimal, so reusing BFS fails on every trial. Priority pick = ch 12's min-scan | 2 |
+| 15 | Restart Sequence | Topological sort | Random dependency DAG; display order is regenerated until it is NOT a valid restart order, so list-order restarting always cascades. Kahn's-style sweep with a hash map | 3 |
+
+Chapter 13→14 is the season's thesis in miniature: change one decision
+(oldest-first → cheapest-first) and BFS becomes Dijkstra. Chapter 15
+generalizes "graphs" beyond space: arrows can mean *needs*, not *adjacent*.
+The finale names the arc explicitly — three seasons ≈ a CS fundamentals
+semester — and hands the player their "real Season 4" (practice problems,
+building something real).
+
 ## Systems
 
 ### The interpreter
@@ -122,9 +142,9 @@ career-switcher's inner monologue, doing the conceptual connective work).
 - **Polish pass:** hint system (HALCYON fragments on repeated failure),
   efficiency stars (beat par on scans/swaps/cycles), solution playback
   share-links, sound.
-- **Season 3 — "The Relay Network" (graphs):** BFS (shortest route through
-  the wreck — a queue walking a graph, planted in chapter 9's card),
-  Dijkstra (power routing with costs — planted in chapter 12's card),
-  topological sort (repair-dependency order).
+- **Possible Season 4 — "First Contact" (composition):** recursion &
+  divide-and-conquer (merge sort as a fleet-repair montage), dynamic
+  programming (fuel planning), regular expressions / parsing (decoding the
+  alien signal) — or ship the polish pass and call the curriculum complete.
 - **Meta-progression:** a "ship systems" board that fills in as concepts are
   mastered, doubling as a syllabus map the player can screenshot.
