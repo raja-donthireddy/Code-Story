@@ -51,14 +51,28 @@
   #nextBtn.waiting{border-color:var(--amber);color:var(--amber);animation:pulse 1.2s ease-in-out infinite}
 
   /* ---------- layout ---------- */
-  main{display:grid;grid-template-columns:310px minmax(0,1fr) 430px;gap:0;min-height:calc(100vh - 49px)}
+  main{display:grid;grid-template-columns:var(--mission-w,310px) 7px minmax(0,1fr) 7px var(--right-w,430px);
+    gap:0;min-height:calc(100vh - 49px)}
   main>*{min-width:0}
   @media (max-width:1150px){
     main{grid-template-columns:1fr;min-height:0}
     #mission{border-right:none;border-bottom:1px solid var(--line)}
     #right{border-left:none;border-top:1px solid var(--line)}
     #edwrap{min-height:220px}
+    main>.resizer{display:none}
   }
+
+  /* ---------- drag-to-resize handles ---------- */
+  .resizer{position:relative;cursor:col-resize;touch-action:none;background:transparent;z-index:6}
+  .resizer::after{content:"";position:absolute;background:var(--line2)}
+  .resizer:hover::after,.resizer:focus-visible::after,.resizer.active::after{background:var(--accent)}
+  .resizer:not(.resizer-h)::after{top:0;bottom:0;left:3px;width:1px}
+  .resizer.resizer-h{cursor:row-resize;height:7px}
+  .resizer.resizer-h::after{left:0;right:0;top:3px;height:1px}
+  .resizer:focus-visible{outline:none}
+  .resizer:focus-visible::after{box-shadow:0 0 0 1px var(--accent)}
+  body.resizing-x,body.resizing-x *{cursor:col-resize!important;user-select:none!important}
+  body.resizing-y,body.resizing-y *{cursor:row-resize!important;user-select:none!important}
 
   /* ---------- mission panel ---------- */
   #mission{border-right:1px solid var(--line);padding:18px;overflow-y:auto;background:var(--panel2)}
@@ -194,7 +208,7 @@
   #hl .fn{color:#e2ecf5}
   #editor.err-flash{animation:errsh .18s linear 2}
   @keyframes errsh{25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
-  #console{height:210px;overflow-y:auto;border-top:1px solid var(--line);padding:10px 14px;background:#060a10;font-size:12.5px;line-height:1.7}
+  #console{height:var(--console-h,210px);flex:none;overflow-y:auto;border-top:1px solid var(--line);padding:10px 14px;background:#060a10;font-size:12.5px;line-height:1.7}
   #console div{white-space:pre-wrap;word-break:break-word}
   .c-info{color:var(--muted)} .c-err{color:var(--bad)} .c-ok{color:var(--good)}
   .c-report{color:var(--accent)} .c-warn{color:var(--amber)}
@@ -230,8 +244,8 @@
   .lv-head{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
   .lv-headtitle{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
   .lv-headtitle span{color:var(--muted);text-transform:none;letter-spacing:0;font-size:12.5px}
-  .lv-body{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr);overflow:hidden}
-  #lvNav{overflow-y:auto;border-right:1px solid var(--line);background:var(--panel2);padding:10px 0}
+  .lv-body{flex:1;display:grid;grid-template-columns:var(--lvnav-w,270px) 7px minmax(0,1fr);overflow:hidden}
+  #lvNav{overflow-y:auto;background:var(--panel2);padding:10px 0}
   .lv-season{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:14px 16px 6px}
   .lv-navitem{display:block;width:100%;text-align:left;background:none;border:none;border-left:2px solid transparent;
     color:var(--text);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer}
@@ -298,7 +312,8 @@
 
   @media (max-width:900px){
     .lv-body{grid-template-columns:1fr}
-    #lvNav{display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);white-space:nowrap;padding:8px}
+    .lv-body>.resizer{display:none}
+    #lvNav{display:flex;overflow-x:auto;border-bottom:1px solid var(--line);white-space:nowrap;padding:8px}
     .lv-season{padding:6px 10px 2px}
     .lv-navitem{display:inline-block;width:auto;border-left:none;border-bottom:2px solid transparent;padding:6px 10px}
     .lv-navitem.cur{border-left-color:transparent;border-bottom-color:var(--accent)}
@@ -335,10 +350,14 @@
     <div class="box"><div class="bt">Byte's command set</div><div id="lv-api"></div></div>
   </aside>
 
+  <div class="resizer" id="rzMission" role="separator" aria-orientation="vertical" aria-label="Resize mission panel" tabindex="0"></div>
+
   <section id="viewport">
     <div id="hud"></div>
     <div id="gridwrap"><div id="grid"></div></div>
   </section>
+
+  <div class="resizer" id="rzRight" role="separator" aria-orientation="vertical" aria-label="Resize editor panel" tabindex="0"></div>
 
   <section id="right">
     <div id="edhead">
@@ -356,6 +375,7 @@
         <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Code editor"></textarea>
       </div>
     </div>
+    <div class="resizer resizer-h" id="rzConsole" role="separator" aria-orientation="horizontal" aria-label="Resize console" tabindex="0"></div>
     <div id="console" aria-live="polite"></div>
   </section>
 </main>
@@ -379,6 +399,7 @@
   </div>
   <div class="lv-body">
     <nav id="lvNav" aria-label="Concepts"></nav>
+    <div class="resizer" id="rzLearnNav" role="separator" aria-orientation="vertical" aria-label="Resize concept list" tabindex="0"></div>
     <div id="lvDetail"></div>
   </div>
 </div>
@@ -3961,6 +3982,58 @@ function applyShareLink(){
   if(pm){loadPrimer(pm.idx);editor.value=code;refreshEditor();cline(msg,'c-warn');return true;}
   return false;
 }
+
+/* ---------- drag-to-resize panels ---------- */
+function makeResizer(handle,{axis,cssVar,min,max,def,direction=1,step=16}){
+  if(!handle)return;
+  const root=document.documentElement;
+  const storeKey='cs_rz_'+cssVar;
+  const stored=localStorage.getItem(storeKey);
+  if(stored)root.style.setProperty('--'+cssVar,stored+'px');
+  const getPx=()=>parseFloat(getComputedStyle(root).getPropertyValue('--'+cssVar))||def;
+  const setPx=(px)=>{
+    px=Math.max(min,Math.min(max,Math.round(px)));
+    root.style.setProperty('--'+cssVar,px+'px');
+    localStorage.setItem(storeKey,String(px));
+  };
+  let dragging=false,startPos=0,startSize=0;
+  const bodyCls='resizing-'+axis;
+  handle.addEventListener('pointerdown',(e)=>{
+    dragging=true;handle.classList.add('active');
+    handle.setPointerCapture?.(e.pointerId);
+    startPos=axis==='x'?e.clientX:e.clientY;
+    startSize=getPx();
+    document.body.classList.add(bodyCls);
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove',(e)=>{
+    if(!dragging)return;
+    const pos=axis==='x'?e.clientX:e.clientY;
+    setPx(startSize+(pos-startPos)*direction);
+  });
+  const end=(e)=>{
+    if(!dragging)return;
+    dragging=false;handle.classList.remove('active');
+    document.body.classList.remove(bodyCls);
+    if(handle.hasPointerCapture?.(e.pointerId))handle.releasePointerCapture(e.pointerId);
+  };
+  handle.addEventListener('pointerup',end);
+  handle.addEventListener('pointercancel',end);
+  handle.addEventListener('dblclick',()=>{
+    root.style.removeProperty('--'+cssVar);
+    localStorage.removeItem(storeKey);
+  });
+  handle.addEventListener('keydown',(e)=>{
+    const keys=axis==='x'?['ArrowLeft','ArrowRight']:['ArrowUp','ArrowDown'];
+    if(!keys.includes(e.key))return;
+    e.preventDefault();
+    setPx(getPx()+(e.key===keys[1]?1:-1)*direction*step);
+  });
+}
+makeResizer($('#rzMission'),{axis:'x',cssVar:'mission-w',min:220,max:480,def:310,direction:1});
+makeResizer($('#rzRight'),{axis:'x',cssVar:'right-w',min:320,max:640,def:430,direction:-1});
+makeResizer($('#rzConsole'),{axis:'y',cssVar:'console-h',min:80,max:500,def:210,direction:-1});
+makeResizer($('#rzLearnNav'),{axis:'x',cssVar:'lvnav-w',min:180,max:420,def:270,direction:1});
 
 /* ---------- wiring ---------- */
 $('#runBtn').addEventListener('click',runProgram);
