@@ -111,6 +111,11 @@ that drift out of sync.
   URL, so a solution can be pasted to someone and opens exactly as written.
 - Runtime errors report the offending line (`[line 7: cut(...)]`); syntax
   errors get a bracket-balance hint.
+- **Resizable panels** — drag the thin dividers between the mission panel,
+  viewport, and editor (and between the editor and console) to reflow the
+  layout to taste; the Reference Library's concept list is resizable too.
+  Sizes persist across sessions; double-click a divider to reset it, or
+  focus one and use the arrow keys.
 
 ## For developers
 
