@@ -74,6 +74,34 @@ JavaScript. Offered as a fork on first visit, or anytime via the header.
 After each chapter a **concept card** names what you just did, gives the
 big-O intuition, and maps it to real-world engineering (and interviews).
 
+## Reference Library
+
+Every chapter's mission panel now includes a **"How it actually works"** box:
+a plain-language explanation, separate from the story, plus complexity
+badges (O(log n), O(n²), …) and a link into the full **📚 LEARN** reference
+— reachable from that link, from the header anytime, or from the intro.
+
+The reference library has its own dedicated page per concept (18 total,
+covering every chapter — algorithms, data structures, graphs, and
+techniques), each with:
+
+- A plain-English explanation, independent of the story/robot framing.
+- Complexity badges and runnable pseudocode.
+- An **interactive visualization** — lo/mid/hi pointers narrowing on a
+  sorted array for binary search, ripple expansion for BFS, cost-based
+  expansion for Dijkstra, push/pop for stacks, splice-by-pointer for linked
+  lists, and so on — with Play/Step/Reset controls, modeled on the
+  step-through presentation style of sites like
+  [algorithm-visualizer.org](https://algorithm-visualizer.org/branch-and-bound/binary-search).
+- A "Try it yourself" link that jumps straight into that concept's chapter.
+
+The visualizations are not scripted animations — each one runs an actual
+(simplified) version of the algorithm on fixed sample data and records a
+frame at every meaningful step, the same "record what happened, replay it"
+pattern the game itself uses for chapter replays. That guarantees the demo
+always matches the real algorithm instead of risking hand-authored frames
+that drift out of sync.
+
 ## Other tools
 
 - **Step-through replay** (STEP toggle) pauses after every command and
@@ -96,11 +124,22 @@ big-O intuition, and maps it to real-world engineering (and interviews).
   work because simulation is synchronous.
 - The editor overlay (line numbers + syntax highlighting) is dependency-free:
   a `<pre>` rendered behind a transparent `<textarea>`, kept in scroll sync.
+- The reference library's `VizPlayer` class is a tiny, reusable playback
+  engine (goto/play/pause) over a plain `frames` array; two renderers
+  (`renderCellsFrame` for array/row-style demos, `renderGridFrame` for
+  grid/pathfinding demos) cover all 18 concepts. Each concept's frames come
+  from a small generator function (`genBinarySearchFrames()`, etc.) that
+  runs the real algorithm on fixed sample data and pushes a frame at each
+  step — the pathfinding/BFS generators reuse the actual chapter level
+  builders (`LEVELS.find(l=>l.id==='bfs').build(...)`) so the demo world is
+  always a genuine, solvable instance rather than a hand-authored one.
 - Debug/test hooks are exposed on `window.CS` (`load(i)`, `runCode(src)`,
-  `loadSide(i)`, `loadPrimer(i)`, `instant`, `stepMode`). The Playwright test
-  suite drives every chapter's, side mission's, and primer lesson's intended
-  solution, asserts every failure gate fires correctly, and exercises
-  step-mode pausing and share-link round-tripping.
+  `loadSide(i)`, `loadPrimer(i)`, `openLearn(id)`, `instant`, `stepMode`).
+  The Playwright test suite drives every chapter's, side mission's, and
+  primer lesson's intended solution, asserts every failure gate fires
+  correctly, exercises step-mode pausing and share-link round-tripping, and
+  opens + scrubs every concept's visualization to confirm it renders real
+  content and never gets stuck.
 - Progress and per-chapter code persist in `localStorage`.
 
 See [DESIGN.md](DESIGN.md) for the full game design document, including the

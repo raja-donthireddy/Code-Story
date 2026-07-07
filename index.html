@@ -213,6 +213,97 @@
   #modal .real{border-left:2px solid var(--amber);padding:8px 12px;margin:14px 0;background:rgba(224,164,88,.06)}
   #modal .real .bt{font-size:11px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:4px;font-family:var(--mono)}
   #modal .actions{display:flex;justify-content:flex-end;margin-top:18px;gap:10px}
+
+  /* ---------- "how it works" box (mission panel) ---------- */
+  .box.how{border-color:var(--accent-dim);background:rgba(83,214,198,.04)}
+  #lv-how-text{font-family:var(--sans);font-size:13px;color:var(--text);line-height:1.5}
+  #lv-how-complexity{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .cplx{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--accent);
+    border:1px solid var(--accent-dim);border-radius:2px;padding:2px 7px;background:rgba(83,214,198,.06)}
+  .learnlink{display:block;margin-top:10px;background:none;border:none;color:var(--accent);
+    font-family:var(--sans);font-size:12.5px;text-align:left;padding:0;cursor:pointer;letter-spacing:.01em}
+  .learnlink:hover{text-decoration:underline}
+
+  /* ---------- Learn reference library ---------- */
+  #learnView{position:fixed;inset:0;background:var(--bg);z-index:60;display:none;flex-direction:column}
+  #learnView.show{display:flex}
+  .lv-head{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
+  .lv-headtitle{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+  .lv-headtitle span{color:var(--muted);text-transform:none;letter-spacing:0;font-size:12.5px}
+  .lv-body{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr);overflow:hidden}
+  #lvNav{overflow-y:auto;border-right:1px solid var(--line);background:var(--panel2);padding:10px 0}
+  .lv-season{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:14px 16px 6px}
+  .lv-navitem{display:block;width:100%;text-align:left;background:none;border:none;border-left:2px solid transparent;
+    color:var(--text);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer}
+  .lv-navitem:hover{background:rgba(255,255,255,.03)}
+  .lv-navitem.cur{border-left-color:var(--accent);color:var(--accent);background:rgba(83,214,198,.06)}
+  .lv-navitem .k{display:block;font-size:10.5px;color:var(--muted);letter-spacing:.06em}
+  .lv-navitem.cur .k{color:var(--accent-dim)}
+  #lvDetail{overflow-y:auto;padding:28px 40px 60px}
+  .lv-eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+  .lv-h1{font-size:26px;font-weight:700;margin:6px 0 4px;text-wrap:balance}
+  .lv-oneliner{font-family:var(--sans);font-size:15px;color:var(--muted);max-width:64ch;margin-bottom:20px}
+  .lv-section{max-width:68ch;margin-bottom:22px}
+  .lv-section h3{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .lv-section p{font-family:var(--sans);font-size:14px;line-height:1.65;color:var(--text);margin:0 0 10px}
+  .lv-code{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:#080d15;border:1px solid var(--line);
+    border-radius:3px;padding:12px 16px;white-space:pre;overflow-x:auto;max-width:68ch;color:var(--text)}
+  .lv-code .kw{color:var(--accent)} .lv-code .cm{color:#4e5f70}
+  .lv-cplx-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+  .lv-cplx-item{border:1px solid var(--line2);border-radius:3px;padding:8px 14px}
+  .lv-cplx-item .lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .lv-cplx-item .val{font-family:var(--mono);font-size:18px;color:var(--accent)}
+  .lv-try{display:inline-block;margin-top:4px;border:1px solid var(--accent-dim);color:var(--accent);
+    border-radius:2px;padding:6px 14px;font-size:12.5px;text-decoration:none;letter-spacing:.03em}
+  .lv-try:hover{background:rgba(83,214,198,.08)}
+
+  /* ---------- visualization player ---------- */
+  .viz{border:1px solid var(--line);border-radius:4px;background:var(--panel2);padding:20px;max-width:74ch}
+  .viz-row{display:flex;align-items:flex-end;gap:4px;margin-bottom:6px;overflow-x:auto;padding-bottom:4px}
+  .viz-rowlabel{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+    width:70px;flex:none;align-self:center}
+  .vcell{flex:none;min-width:34px;display:flex;flex-direction:column;align-items:center}
+  .vtags{height:13px;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--amber);white-space:nowrap}
+  .vbox{min-width:34px;height:34px;padding:0 6px;border:1px solid var(--line2);border-radius:2px;background:#0d1626;
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--text);
+    transition:background .15s,border-color .15s,transform .15s}
+  .vsub{font-size:9px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+  .vcell.active .vbox{border-color:var(--accent);background:rgba(83,214,198,.14);box-shadow:0 0 8px rgba(83,214,198,.3)}
+  .vcell.good .vbox{border-color:var(--good);background:rgba(102,209,136,.14);color:var(--good)}
+  .vcell.bad .vbox{border-color:var(--bad);background:rgba(229,84,94,.12);color:var(--bad)}
+  .vcell.dim .vbox{opacity:.3}
+  .vcell.ghost .vbox{opacity:.15;border-style:dashed}
+  .vcell.picked .vbox{border-color:var(--amber);background:rgba(224,164,88,.14);color:var(--amber)}
+  .vcell.pop .vbox{transform:scale(1.12)}
+  .viz-caption{font-family:var(--sans);font-size:13.5px;color:var(--text);min-height:38px;padding:10px 0;border-top:1px solid var(--line)}
+  .viz-controls{display:flex;align-items:center;gap:8px;margin-top:4px}
+  .vbtn{background:var(--panel);border:1px solid var(--line2);color:var(--text);padding:5px 12px;
+    font-size:12px;border-radius:2px;font-family:var(--mono)}
+  .vbtn:hover{border-color:var(--accent-dim)}
+  .vbtn:disabled{opacity:.35}
+  .viz-frame{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+  .viz-arrow{flex:none;align-self:center;color:#41546e;font-size:14px;margin:0 -1px}
+
+  /* grid-style visualization (pathfinding/graphs/recursion) */
+  .vgrid{display:grid;gap:2px;margin-bottom:0}
+  .vgc{width:26px;height:26px;border-radius:2px;background:#0d1626;border:1px solid #1c2939;
+    display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);font-family:var(--mono)}
+  .vgc.wall{background:#1a2740;border-color:#2a3a58}
+  .vgc.visited{background:rgba(83,214,198,.10);border-color:var(--accent-dim)}
+  .vgc.frontier{background:rgba(224,164,88,.16);border-color:var(--amber)}
+  .vgc.current{background:var(--accent);border-color:var(--accent);color:#062521;font-weight:bold}
+  .vgc.path{background:rgba(102,209,136,.22);border-color:var(--good);color:var(--good)}
+  .vgc.start{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .vgc.goal{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
+
+  @media (max-width:900px){
+    .lv-body{grid-template-columns:1fr}
+    #lvNav{display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);white-space:nowrap;padding:8px}
+    .lv-season{padding:6px 10px 2px}
+    .lv-navitem{display:inline-block;width:auto;border-left:none;border-bottom:2px solid transparent;padding:6px 10px}
+    .lv-navitem.cur{border-left-color:transparent;border-bottom-color:var(--accent)}
+    #lvDetail{padding:22px 18px 50px}
+  }
 </style>
 
 <header>
@@ -220,6 +311,7 @@
   <nav id="chips" aria-label="Chapters"></nav>
   <div id="hright">
     <button class="hbtn" id="primerBtn" title="New to JavaScript? A 5-minute primer, anytime">JS PRIMER</button>
+    <button class="hbtn" id="learnBtn" title="Reference library: how every concept works, with visualizations">📚 LEARN</button>
     <button class="hbtn" id="logBtn" title="Ship log — everything you've learned">LOG</button>
     <button class="hbtn" id="sndBtn" title="Sound effects">SND</button>
     <button class="hbtn" id="stepToggle" title="Step-through replay: pause after every command, source line highlighted">STEP</button>
@@ -234,6 +326,11 @@
     <div id="lv-concept"></div>
     <div class="comms" id="lv-comms"></div>
     <div class="box"><div class="bt">Objective</div><div id="lv-objective"></div><div id="lv-budget"></div></div>
+    <div class="box how" id="lv-how"><div class="bt">How it actually works</div>
+      <div id="lv-how-text"></div>
+      <div id="lv-how-complexity"></div>
+      <button class="learnlink" id="lv-how-btn">📚 Full explanation + visualization ▸</button>
+    </div>
     <div id="lv-side"></div>
     <div class="box"><div class="bt">Byte's command set</div><div id="lv-api"></div></div>
   </aside>
@@ -272,6 +369,17 @@
       <button class="btn" id="m-btn2" style="display:none">Secondary</button>
       <button class="btn primary" id="m-btn">Continue</button>
     </div>
+  </div>
+</div>
+
+<div id="learnView" role="dialog" aria-modal="true" aria-label="Reference library">
+  <div class="lv-head">
+    <button class="hbtn" id="lvClose">◂ Back to the ship</button>
+    <div class="lv-headtitle">Reference Library <span>— how every concept actually works</span></div>
+  </div>
+  <div class="lv-body">
+    <nav id="lvNav" aria-label="Concepts"></nav>
+    <div id="lvDetail"></div>
   </div>
 </div>
 
@@ -2264,7 +2372,7 @@ for (let i = 2; i < n; i++) {
 },
 ];
 const SIDE_BY_PARENT={};
-for(const sm of SIDE_MISSIONS)SIDE_BY_PARENT[sm.parent]=sm;
+for(const sm of SIDE_MISSIONS){SIDE_BY_PARENT[sm.parent]=sm;sm.learnId=LEVELS[sm.parent].id;}
 
 /* ============================================================
    JS PRIMER — five skippable lessons for players with zero prior
@@ -2362,7 +2470,7 @@ let b = "5";
 },
 
 {
-  id:'p3',primer:true,winAtEnd:true,title:'Make a Decision',concept:'if / else',
+  id:'p3',primer:true,winAtEnd:true,learnId:'cond',title:'Make a Decision',concept:'if / else',
   seeds:[0,1,2],
   brief:[
     ['BYTE','fuel() reads different EVERY trial. A hardcoded answer fails at least one of them — the program has to actually check.'],
@@ -2394,7 +2502,7 @@ if (f < 10) {
 },
 
 {
-  id:'p4',primer:true,winAtEnd:true,title:'Repeat Yourself',concept:'for loops',
+  id:'p4',primer:true,winAtEnd:true,learnId:'loop',title:'Repeat Yourself',concept:'for loops',
   seeds:[1],
   brief:[
     ['BYTE','Last drill: report the numbers 1 through 5, in order, without writing report() five separate times.'],
@@ -2514,6 +2622,684 @@ const HINTS={
   p4:['for (let i = 1; i <= 5; i++) { ... } runs its body 5 times, with i taking each value 1 through 5 in turn.',
         'Inside the loop, just: report(i); — that alone reports 1, 2, 3, 4, 5 in order.'],
 };
+
+/* ============================================================
+   REFERENCE LIBRARY — plain-language explanations + interactive
+   visualizations for every concept, independent of the story.
+   Frame generators mostly RUN a real (simplified) version of the
+   algorithm and record a frame at each meaningful step, the same
+   "record what happened" pattern the game engine itself uses —
+   this guarantees the demo matches the real algorithm rather than
+   risking hand-typed frames that drift out of sync.
+   ============================================================ */
+
+/* ---------- frame generators: array/row demos ---------- */
+function genSeqFrames(){
+  const steps=['move()','move()','move()','move()','turnRight()','move()','move()'];
+  const frames=[];
+  for(let active=0;active<=steps.length;active++){
+    frames.push({rows:[{label:'program',cells:steps.map((s,i)=>({text:s,sub:String(i+1),
+      cls:i<active?'good':i===active?'active':''}))}],
+      caption: active<steps.length
+        ?`Executing step ${active+1} of ${steps.length}: ${steps[active]} — exactly this, nothing implied.`
+        :'Sequence complete. Byte performed exactly seven actions, in exactly this order — no more, no less.'});
+  }
+  return frames;
+}
+function genLoopFrames(){
+  const pattern=['move()','move()','turnRight()','move()','turnLeft()'];
+  const frames=[{rows:[{label:'pattern',cells:pattern.map((s,i)=>({text:s,sub:String(i+1)}))}],
+    caption:'One "flight" is this fixed 5-step pattern. Repeating it 4 times by hand means copy-pasting it 4 times — 20 lines for one idea.'}];
+  for(let i=0;i<4;i++){
+    frames.push({rows:[
+      {label:'for i in',cells:[0,1,2,3].map(v=>({text:String(v),cls:v===i?'active':v<i?'good':''}))},
+      {label:'runs',cells:pattern.map((s,j)=>({text:s,sub:String(j+1)}))},
+    ],caption:`i = ${i}: run the pattern once. Same 5 lines of code — i just counts which pass this is.`});
+  }
+  frames.push({rows:[{label:'for i in',cells:[0,1,2,3].map(v=>({text:String(v),cls:'good'}))}],
+    caption:'Loop finished after 4 passes — 5 lines of code did the work of 20.'});
+  return frames;
+}
+function genCondFrames(){
+  const frames=[];
+  for(const sc of [{v:'clear',take:0},{v:'wall',take:1}]){
+    frames.push({rows:[{label:'scan()',cells:[{text:sc.v,cls:'active'}]}],
+      caption:`scan() reports "${sc.v}". Byte must choose a branch based on THIS reading, not a guess.`});
+    frames.push({rows:[{label:'branches',cells:[
+      {text:'if clear → move()',cls:sc.take===0?'good':'dim'},
+      {text:'else → turn',cls:sc.take===1?'good':'dim'},
+    ]}],caption:sc.take===0?'Path was clear — Byte moves forward.':'Path was blocked — Byte turns instead. Same code, different outcome, because the CONDITION changed.'});
+  }
+  return frames;
+}
+function genLinearSearchFrames(){
+  const arr=[240,238,241,0,239,237];
+  const frames=[];
+  let i=0;
+  for(;i<arr.length;i++){
+    frames.push({rows:[{label:'cells',cells:arr.map((v,j)=>({
+      text:j<i?'✓':j===i?String(v)+'V':'?',cls:j<i?'dim':j===i?'active':'',sub:String(j)}))}],
+      caption:`Checking cell ${i}: reads ${arr[i]}V. ${arr[i]===0?'Zero — this is the dead cell.':'Healthy — move to the next cell.'}`});
+    if(arr[i]===0)break;
+  }
+  frames.push({rows:[{label:'cells',cells:arr.map((v,j)=>({text:j===i?'FIXED':j<i?'✓':'?',cls:j===i?'good':j<i?'dim':'',sub:String(j)}))}],
+    caption:`Found at cell ${i} after checking ${i+1} of ${arr.length} cells. Worst case is checking ALL of them — that's O(n).`});
+  return frames;
+}
+function genBinarySearchFrames(){
+  const arr=[3,7,12,19,26,31,38,44,52,60,67,75];
+  const target=44;
+  let lo=0,hi=arr.length-1;
+  const frames=[];
+  const snap=(extra,caption)=>({rows:[{label:'array',cells:arr.map((v,i)=>{
+    const tags=[];
+    if(extra&&extra.mid===i)tags.push('mid');
+    if(lo<=hi&&i===lo)tags.push('lo');
+    if(lo<=hi&&i===hi)tags.push('hi');
+    return {text:String(v),sub:String(i),tags,
+      cls: extra&&extra.found===i?'good':(i<lo||i>hi)?'dim':(extra&&extra.mid===i)?'active':''};
+  })}],caption});
+  frames.push(snap(null,`Searching for ${target} in a SORTED array of ${arr.length}. lo=0, hi=${arr.length-1}.`));
+  let step=0;
+  while(lo<=hi){
+    step++;
+    const mid=Math.floor((lo+hi)/2),midVal=arr[mid];
+    if(midVal===target){
+      frames.push(snap({mid,found:mid},`mid = ${mid}, value ${midVal} — MATCH. Found in ${step} check${step>1?'s':''} instead of up to ${arr.length}.`));
+      break;
+    }else if(midVal<target){
+      frames.push(snap({mid},`mid = ${mid}, value ${midVal} < ${target}. Target must be to the right — discard everything from lo through mid.`));
+      lo=mid+1;
+    }else{
+      frames.push(snap({mid},`mid = ${mid}, value ${midVal} > ${target}. Target must be to the left — discard everything from mid through hi.`));
+      hi=mid-1;
+    }
+    if(lo<=hi)frames.push(snap(null,`New range: lo=${lo}, hi=${hi} — half the remaining array just disappeared.`));
+  }
+  return frames;
+}
+function genSortFrames(){
+  const arr=[29,10,44,14,37,18];
+  const n=arr.length;
+  const frames=[{rows:[{label:'crates',cells:arr.map((v,i)=>({text:String(v),sub:String(i)}))}],
+    caption:'Unsorted. Selection sort: for each slot, find the SMALLEST remaining value and swap it in.'}];
+  for(let i=0;i<n;i++){
+    let min=i;
+    for(let j=i+1;j<n;j++){
+      frames.push({rows:[{label:'crates',cells:arr.map((v,k)=>({text:String(v),sub:String(k),
+        cls:k<i?'good':k===j?'active':k===min?'picked':''}))}],
+        caption:`Slot ${i}: comparing crate ${j} (${arr[j]}) to the lightest found so far, crate ${min} (${arr[min]}).`});
+      if(arr[j]<arr[min])min=j;
+    }
+    if(min!==i){[arr[i],arr[min]]=[arr[min],arr[i]];}
+    frames.push({rows:[{label:'crates',cells:arr.map((v,k)=>({text:String(v),sub:String(k),cls:k<=i?'good':''}))}],
+      caption:`Slot ${i} locked: ${arr[i]} is the lightest of the remaining crates.`});
+  }
+  frames.push({rows:[{label:'crates',cells:arr.map((v,k)=>({text:String(v),sub:String(k),cls:'good'}))}],
+    caption:'Fully sorted, lightest to heaviest — n² comparisons for n crates.'});
+  return frames;
+}
+function genStackFrames(){
+  const items=['S-27','S-64','S-92','S-15'];
+  const frames=[{rows:[{label:'weld log',cells:items.map((v,i)=>({text:v,sub:String(i)}))}],
+    caption:'The weld log streams oldest-first. To undo in reverse, stash each one as it arrives.'}];
+  const stack=[];
+  for(const it of items){
+    stack.push(it);
+    frames.push({rows:[{label:'stack',cells:stack.map((v,i)=>({text:v,
+      cls:i===stack.length-1?'active':'',tags:i===stack.length-1?['top']:[]}))}],
+      caption:`push("${it}") — it lands on TOP of the stack.`});
+  }
+  while(stack.length){
+    const top=stack[stack.length-1];
+    frames.push({rows:[{label:'stack',cells:stack.map((v,i)=>({text:v,
+      cls:i===stack.length-1?'picked':'',tags:i===stack.length-1?['top']:[]}))}],
+      caption:`pop() removes and returns "${top}" — the NEWEST item still on the stack.`});
+    stack.pop();
+  }
+  frames.push({rows:[{label:'stack',cells:[{text:'empty',cls:'dim'}]}],
+    caption:'All four seals cut in exactly reverse installation order — last in, first out.'});
+  return frames;
+}
+function genQueueFrames(){
+  const items=['P-11','P-42','P-73','P-88'];
+  const frames=[];
+  const q=[];
+  for(const it of items){
+    q.push(it);
+    frames.push({rows:[{label:'queue',cells:q.map((v,i)=>({text:v,
+      tags:i===0?['front']:i===q.length-1?['back']:[]}))}],caption:`push("${it}") joins the BACK of the line.`});
+  }
+  while(q.length){
+    const front=q[0];
+    frames.push({rows:[{label:'queue',cells:q.map((v,i)=>({text:v,cls:i===0?'picked':'',
+      tags:i===0?['front']:i===q.length-1?['back']:[]}))}],
+      caption:`shift() removes "${front}" — whoever has waited LONGEST, not whoever arrived last.`});
+    q.shift();
+  }
+  frames.push({rows:[{label:'queue',cells:[{text:'empty',cls:'dim'}]}],
+    caption:'Served in exactly arrival order — first in, first out.'});
+  return frames;
+}
+function genListFrames(){
+  const nodes=[101,205,309,417,528];
+  const bad=2;
+  const chain=(spliced)=>{
+    const cells=[];
+    nodes.forEach((v,i)=>{
+      cells.push({text:String(v),sub:i===bad?'corroded':'',cls:i===bad?(spliced?'ghost':'bad'):''});
+      if(i<nodes.length-1)cells.push({arrow:true});
+    });
+    return cells;
+  };
+  return [
+    {rows:[{label:'chain',cells:chain(false)}],caption:'Each coupler only knows the NEXT one. No master list — the chain IS the data.'},
+    {rows:[{label:'chain',cells:chain(false)}],caption:`prev = coupler ${nodes[bad-1]}, cur = coupler ${nodes[bad]} — corroded.`},
+    {rows:[{label:'chain',cells:chain(true)}],caption:`setNext(${nodes[bad-1]}, ${nodes[bad+1]}) — prev now points PAST the corroded coupler. No shifting, one pointer change.`},
+  ];
+}
+function genMapFrames(){
+  const records=[['K7',14],['B2',3],['R9',22],['M1',8]];
+  const built={};
+  const frames=[];
+  for(let i=0;i<records.length;i++){
+    frames.push({rows:[
+      {label:'manifest',cells:records.map(([k,v],j)=>({text:`${k}:${v}`,cls:j<i?'dim':j===i?'active':''}))},
+      {label:'index',cells:Object.keys(built).length?Object.entries(built).map(([k,v])=>({text:`${k}→${v}`,cls:'good'})):[{text:'(empty)',cls:'dim'}]},
+    ],caption:`Read record ${i} ONCE: index["${records[i][0]}"] = ${records[i][1]}.`});
+    built[records[i][0]]=records[i][1];
+  }
+  frames.push({rows:[{label:'index',cells:Object.entries(built).map(([k,v])=>({text:`${k}→${v}`,cls:'good'}))}],
+    caption:'Index built after exactly one pass over the manifest.'});
+  frames.push({rows:[{label:'index',cells:Object.entries(built).map(([k,v],j)=>({text:`${k}→${v}`,cls:j===1?'picked':'good'}))}],
+    caption:'locate("B2") reads index["B2"] directly. No rescanning — O(1), no matter how big the manifest gets.'});
+  return frames;
+}
+function genPQFrames(){
+  let waiting=[['P-1',22],['P-2',55],['P-3',18],['P-4',40]];
+  const frames=[{rows:[{label:'waiting',cells:waiting.map(([id,c])=>({text:`${id}:${c}`}))}],
+    caption:'All four alerts are in. Every round, wake the MOST critical pod waiting — not the oldest.'}];
+  while(waiting.length){
+    let bi=0;
+    for(let i=1;i<waiting.length;i++)if(waiting[i][1]>waiting[bi][1])bi=i;
+    frames.push({rows:[{label:'waiting',cells:waiting.map(([id,c],i)=>({text:`${id}:${c}`,cls:i===bi?'picked':''}))}],
+      caption:`Scan all waiting pods: ${waiting[bi][0]} is the highest criticality (${waiting[bi][1]}) — wake it next.`});
+    waiting=waiting.filter((_,i)=>i!==bi);
+  }
+  frames.push({rows:[{label:'waiting',cells:[{text:'empty',cls:'dim'}]}],
+    caption:'All woken, most-critical-first — a full re-scan every round is the cost of not using a heap.'});
+  return frames;
+}
+function genTopoFrames(){
+  const systems=['RCT','NAV','COM','LIF'];
+  const deps={RCT:[],NAV:['RCT'],COM:['NAV'],LIF:['RCT','NAV']};
+  const up=new Set(),order=[];
+  const snap=(caption,readyId)=>({rows:[
+    {label:'systems',cells:systems.map(s=>({text:s,cls:up.has(s)?'good':s===readyId?'active':'',
+      sub:deps[s].length?'needs '+deps[s].join(','):'no deps'}))},
+    {label:'started',cells:order.length?order.map(s=>({text:s,cls:'good'})):[{text:'—',cls:'dim'}]},
+  ],caption});
+  const frames=[snap('Arrows mean "needs". A system can only start once everything it needs is already up.')];
+  while(up.size<systems.length){
+    let progressed=false;
+    for(const s of systems){
+      if(up.has(s))continue;
+      if(deps[s].every(d=>up.has(d))){
+        frames.push(snap(`${s} needs [${deps[s].join(', ')||'nothing'}] — all satisfied. Start it.`,s));
+        up.add(s);order.push(s);progressed=true;
+      }
+    }
+    if(!progressed)break;
+  }
+  frames.push(snap('Every system started, in an order that never violated a dependency — this repeated sweep is Kahn\'s algorithm.'));
+  return frames;
+}
+function genDPFrames(){
+  const toll=[0,4,8,2,9,3,6,1,5,7,4];
+  const n=toll.length;
+  const best=[0];
+  const snap=(i,cands,caption)=>({rows:[
+    {label:'toll',cells:toll.map((v,k)=>({text:String(v),sub:String(k),
+      cls:k===i?'active':(cands&&cands.includes(k))?'picked':''}))},
+    {label:'best[]',cells:best.map((v,k)=>({text:String(v),sub:String(k),cls:'good'}))
+      .concat(Array.from({length:n-best.length},(_,j)=>({text:'?',sub:String(best.length+j),cls:'dim'})))},
+  ],caption});
+  const frames=[snap(0,null,'best[0] = 0 — the dock is free. Every later best[i] is built from up to three EARLIER answers.')];
+  for(let i=1;i<n;i++){
+    const cands=[];
+    for(let k=1;k<=3;k++)if(i-k>=0)cands.push(i-k);
+    frames.push(snap(i,cands,`Gate ${i}: look back at best[${cands.join('], best[')}] — jumps of 1, 2, or 3 gates land here.`));
+    let b=Infinity;
+    for(const k of cands)if(best[k]+toll[i]<b)b=best[k]+toll[i];
+    best.push(b);
+    frames.push(snap(i,cands,`best[${i}] = toll[${i}] (${toll[i]}) + the cheapest of those = ${b}. Never recomputed again.`));
+  }
+  frames.push(snap(n-1,null,`best[${n-1}] = ${best[n-1]} — the minimum total toll, computed once per gate instead of exponentially many times.`));
+  return frames;
+}
+function genParseFrames(){
+  const enc='2[AB3[C]]D';
+  const frames=[{rows:[{label:'signal',cells:[...enc].map((ch,j)=>({text:ch,sub:String(j)}))}],
+    caption:`Encoded signal: "${enc}". A digit means "repeat the following [block]". Blocks can nest.`}];
+  function decode(s,depth){
+    let out='',i=0;
+    while(i<s.length){
+      const c=s[i];
+      if(c>='1'&&c<='9'){
+        let k=i+1,d=0;
+        do{if(s[k]==='[')d++;else if(s[k]===']')d--;k++;}while(d>0);
+        const inner=s.slice(i+2,k-1);
+        frames.push({rows:[{label:'reading',cells:[...s].map((ch,j)=>({text:ch,sub:String(j),
+          cls:j>=i&&j<k?'active':j<i?'good':''}))}],
+          caption:`Digit "${c}" at depth ${depth}: repeat the block "${inner}" ${c} time${c>'1'?'s':''}. Decode the INSIDE first — same function, smaller string.`});
+        const decoded=decode(inner,depth+1);
+        for(let r=0;r<Number(c);r++)out+=decoded;
+        i=k;
+      }else{out+=c;i++;}
+    }
+    return out;
+  }
+  const result=decode(enc,0);
+  frames.push({rows:[{label:'decoded',cells:[...result].map(ch=>({text:ch,cls:'good'}))}],
+    caption:`Fully decoded: "${result}". Nested blocks needed a decoder that calls itself.`});
+  return frames;
+}
+
+/* ---------- frame generators: grid demos ---------- */
+function genMazeFrames(){
+  const lvl=LEVELS.find(l=>l.id==='maze');
+  const world=lvl.build(mulberry32(29),0);
+  const r={x:world.robot.x,y:world.robot.y,dir:world.robot.dir};
+  const startPos={x:r.x,y:r.y};
+  const trail=new Set([r.x+','+r.y]);
+  const snap=(caption)=>({grid:world.tiles.map((row,y)=>row.map((t,x)=>{
+    let cls=t.type==='wall'?'wall':'';
+    if(t.type==='airlock')cls+=' goal';
+    if(x===startPos.x&&y===startPos.y)cls+=' start';
+    if(x===r.x&&y===r.y)cls+=' current';
+    else if(trail.has(x+','+y)&&t.type!=='wall')cls+=' path';
+    return {cls:cls.trim(),text:''};
+  })),caption});
+  const frames=[snap('Byte has no map — only local sensors: ahead, left, right. Right-hand rule: keep the wall on the right hand and never let go.')];
+  const ahead=(turn)=>{const d=(r.dir+turn+4)%4;return {x:r.x+DIRS[d][0],y:r.y+DIRS[d][1]};};
+  const openAt=(p)=>tileAt(world,p.x,p.y).type!=='wall';
+  let guard=0;
+  while(tileAt(world,r.x,r.y).type!=='airlock'&&guard++<250){
+    const right=ahead(1),fwd=ahead(0);
+    let caption;
+    if(openAt(right)){r.dir=(r.dir+1)%4;caption='Right side is open — turn right, then step.';}
+    else if(openAt(fwd)){caption='Right is blocked, ahead is open — step forward.';}
+    else{r.dir=(r.dir+3)%4;frames.push(snap('Boxed in on this side — turn left and re-check.'));continue;}
+    const p=ahead(0);r.x=p.x;r.y=p.y;trail.add(r.x+','+r.y);
+    frames.push(snap(caption));
+  }
+  frames.push(snap('Airlock reached. The right-hand rule explores every corridor of a simply-connected maze — using only local sensing and zero memory of the map.'));
+  return frames;
+}
+function genBfsFrames(){
+  const lvl=LEVELS.find(l=>l.id==='bfs');
+  const world=lvl.build(mulberry32(19),0);
+  const s=world.meta.s,g=world.meta.g;
+  const key=(x,y)=>x+','+y;
+  const dist={};dist[key(s.x,s.y)]=0;
+  const cameFrom={};
+  let frontier=[s];
+  const snap=(caption,path)=>({grid:world.tiles.map((row,y)=>row.map((t,x)=>{
+    let cls=t.type==='wall'?'wall':'';
+    if(key(x,y) in dist)cls+=' visited';
+    if(frontier.some(p=>p.x===x&&p.y===y))cls+=' frontier';
+    if(x===s.x&&y===s.y)cls+=' start';
+    if(x===g.x&&y===g.y)cls+=' goal';
+    if(path&&path.some(p=>p.x===x&&p.y===y))cls+=' path';
+    return {cls:cls.trim(),text:''};
+  })),caption});
+  const frames=[snap('BFS explores in RIPPLES: everything 1 step away, then 2, then 3 — using a queue.')];
+  let ring=0,guard=0;
+  while(frontier.length&&!(key(g.x,g.y) in dist)&&guard++<40){
+    ring++;
+    const next=[];
+    for(const c of frontier)for(const [dx,dy] of DIRS){
+      const nx=c.x+dx,ny=c.y+dy,k=key(nx,ny);
+      if(tileAt(world,nx,ny).type==='wall'||k in dist)continue;
+      dist[k]=ring;cameFrom[k]=c;next.push({x:nx,y:ny});
+    }
+    frontier=next;
+    frames.push(snap(`Ring ${ring}: every tile exactly ${ring} step${ring>1?'s':''} from the start lights up at once.`));
+  }
+  let cur={x:g.x,y:g.y};const path=[cur];
+  while(!(cur.x===s.x&&cur.y===s.y)){cur=cameFrom[key(cur.x,cur.y)];path.push(cur);}
+  frontier=[];
+  frames.push(snap('Goal reached first via the ripple that got there earliest — walking cameFrom backwards recovers the shortest path.',path));
+  return frames;
+}
+function genDijkstraFrames(){
+  const costs=[[1,1,1,9,1],[1,9,1,9,1],[1,9,1,9,1],[1,9,1,1,1],[1,1,1,9,1]];
+  const w=5,h=5,s={x:0,y:0},g={x:4,y:0};
+  const key=(x,y)=>x+','+y;
+  const dist={};dist[key(s.x,s.y)]=0;
+  const cameFrom={};
+  let todo=[s];
+  const inb=(x,y)=>x>=0&&y>=0&&x<w&&y<h;
+  const snap=(caption,cur,path)=>({grid:Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>{
+    let cls='';
+    const k=key(x,y);
+    if(k in dist)cls+=' visited';
+    if(todo.some(p=>p.x===x&&p.y===y))cls+=' frontier';
+    if(cur&&cur.x===x&&cur.y===y)cls+=' current';
+    if(x===s.x&&y===s.y)cls+=' start';
+    if(x===g.x&&y===g.y)cls+=' goal';
+    if(path&&path.some(p=>p.x===x&&p.y===y))cls+=' path';
+    return {cls:cls.trim(),text:String(costs[y][x])};
+  })),caption});
+  const frames=[snap('Every tile costs 1–9 to enter (shown). BFS would treat them all equally; Dijkstra always expands the CHEAPEST known tile next.')];
+  let guard=0;
+  while(todo.length&&guard++<60){
+    let bi=0;
+    for(let i=1;i<todo.length;i++)if(dist[key(todo[i].x,todo[i].y)]<dist[key(todo[bi].x,todo[bi].y)])bi=i;
+    const cur=todo.splice(bi,1)[0];
+    if(cur.x===g.x&&cur.y===g.y){frames.push(snap(`Goal reached — total cost ${dist[key(cur.x,cur.y)]}.`,cur));break;}
+    frames.push(snap(`Expand (${cur.x},${cur.y}) — cheapest unexplored tile, cost ${dist[key(cur.x,cur.y)]} so far.`,cur));
+    for(const [dx,dy] of DIRS){
+      const nx=cur.x+dx,ny=cur.y+dy;
+      if(!inb(nx,ny))continue;
+      const k=key(nx,ny),nd=dist[key(cur.x,cur.y)]+costs[ny][nx];
+      if(!(k in dist)||nd<dist[k]){dist[k]=nd;cameFrom[k]=cur;todo.push({x:nx,y:ny});}
+    }
+  }
+  let cur={x:g.x,y:g.y};const path=[cur];
+  while(!(cur.x===s.x&&cur.y===s.y)){cur=cameFrom[key(cur.x,cur.y)];path.push(cur);}
+  const straight=costs[0][1]+costs[0][2]+costs[0][3]+costs[0][4];
+  todo=[];
+  frames.push(snap(`Cheapest total: ${dist[key(g.x,g.y)]} (the straight top row would cost ${straight} — worse, since it crosses an expensive 9). Fewest tiles is not the goal here; least total cost is.`,null,path));
+  return frames;
+}
+function genRecursionFrames(){
+  const n=4,beacon={x:3,y:1};
+  const inRect=(x,y,r)=>x>=r.x1&&x<=r.x2&&y>=r.y1&&y<=r.y2;
+  const snap=(rect,caption)=>({grid:Array.from({length:n},(_,y)=>Array.from({length:n},(_,x)=>{
+    let cls=rect&&inRect(x,y,rect)?'frontier':'dim';
+    if(x===beacon.x&&y===beacon.y)cls+=' goal';
+    return {cls:cls.trim(),text:x===beacon.x&&y===beacon.y?'◆':''};
+  })),caption});
+  const frames=[snap(null,'The same idea as binary search, in two dimensions: ask "is it in THIS quarter?" and recurse into the one that says yes.')];
+  function search(rect){
+    if(rect.x1===rect.x2&&rect.y1===rect.y2){
+      frames.push(snap(rect,'1×1 — this must be the beacon\'s cell. Base case: dig here.'));
+      return;
+    }
+    const mx=Math.floor((rect.x1+rect.x2)/2),my=Math.floor((rect.y1+rect.y2)/2);
+    const quads=[
+      {x1:rect.x1,y1:rect.y1,x2:mx,y2:my},{x1:mx+1,y1:rect.y1,x2:rect.x2,y2:my},
+      {x1:rect.x1,y1:my+1,x2:mx,y2:rect.y2},{x1:mx+1,y1:my+1,x2:rect.x2,y2:rect.y2},
+    ];
+    frames.push(snap(rect,'Quarter the square and probe each of the 4 quadrants.'));
+    for(const q of quads){
+      const hit=inRect(beacon.x,beacon.y,q);
+      frames.push(snap(q,`probe(${q.x1},${q.y1},${q.x2},${q.y2}) → ${hit?'YES — it\'s in here':'no'}.`));
+      if(hit){search(q);return;}
+    }
+  }
+  search({x1:0,y1:0,x2:n-1,y2:n-1});
+  return frames;
+}
+
+/* ---------- concept data ---------- */
+const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse'];
+const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4};
+const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques'};
+const CONCEPTS={
+  seq:{title:'Sequences',demoType:'cells',frames:genSeqFrames,
+    oneLiner:'A program is a precise, ordered list of instructions — the computer does exactly what\'s written, never what\'s implied.',
+    explanation:[
+      'Every program is built from three basic moves: doing things in order (sequence), doing things repeatedly (loops), and choosing between paths (conditionals). Sequence is the simplest, and every other move is built on top of it.',
+      'The computer has no common sense and no intuition. If a step is missing, wrong, or out of order, that is exactly what runs. Debugging lives entirely in the gap between what you MEANT to write and what you actually wrote.'],
+    complexity:[],pseudocode:'move()\nmove()\nmove()\nmove()\nturnRight()\nmove()\nmove()'},
+  loop:{title:'Loops',demoType:'cells',frames:genLoopFrames,
+    oneLiner:'Describe a repeating pattern once, and say how many times to run it — instead of writing it out by hand.',
+    explanation:[
+      'A loop pairs a block of code with a repeat condition. for loops repeat a countable number of times; while loops repeat as long as a condition stays true. Either way the SAME instructions run multiple times, usually varying a counter or some changing state.',
+      'Loops are also how programs scale. Code that handles 4 items with a loop handles 4,000 items with the exact same code — only the data grows, not the program.'],
+    complexity:[{label:'Typical cost',val:'O(n) per loop'}],
+    pseudocode:'for (let i = 0; i < 4; i++) {\n  // repeated body\n}'},
+  cond:{title:'Conditionals',demoType:'cells',frames:genCondFrames,
+    oneLiner:'if / else lets a program choose between paths based on what it senses right now, instead of following one fixed script.',
+    explanation:[
+      'A conditional evaluates something true-or-false and runs one branch or the other — never both. This is what turns a program from a fixed recording into something that reacts to its actual input.',
+      'Correctness for a conditional means covering every case that can really occur, not just the case you happened to test. A branch that silently does the wrong thing for an untested input is one of the most common real bugs.'],
+    complexity:[],pseudocode:'if (condition) {\n  // path A\n} else {\n  // path B\n}'},
+  lsearch:{title:'Linear Search',demoType:'cells',frames:genLinearSearchFrames,
+    oneLiner:'Check every item, one at a time, until you find what you\'re looking for — or run out of items.',
+    explanation:[
+      'Linear search is the most direct way to find something: start at the beginning and check each element in turn. It needs no preparation and works on ANY list, sorted or not.',
+      'Its cost scales directly with the size of the data — to find an item that could be anywhere among n elements, you may need to check all n of them. That\'s O(n): linear in the input size.'],
+    complexity:[{label:'Best case',val:'O(1)'},{label:'Worst case',val:'O(n)'},{label:'Needs sorted data?',val:'No'}],
+    pseudocode:'while (inspect() !== target) {\n  move()\n}'},
+  bsearch:{title:'Binary Search',demoType:'cells',frames:genBinarySearchFrames,
+    oneLiner:'On SORTED data, check the middle element and throw away the half that can\'t contain the target — repeat until found.',
+    explanation:[
+      'Binary search exploits one fact: if the data is sorted, comparing the target to the MIDDLE element tells you which half it must be in (if it\'s there at all) — so the other half can be discarded without ever being examined.',
+      'Each comparison eliminates half of what\'s left, so the number of comparisons needed grows only as the LOGARITHM of the input size. A sorted list of a million items needs about 20 comparisons; a billion needs about 30.',
+      'The requirement is strict: the data MUST already be sorted, or binary search can silently return a wrong answer instead of failing loudly. Always check that precondition first.'],
+    complexity:[{label:'Time',val:'O(log n)'},{label:'Space',val:'O(1)'},{label:'Needs sorted data?',val:'Yes'}],
+    pseudocode:'let lo = 0, hi = n - 1\nwhile (lo <= hi) {\n  mid = floor((lo + hi) / 2)\n  if (a[mid] === target) return mid\n  else if (a[mid] < target) lo = mid + 1\n  else hi = mid - 1\n}\nreturn "not found"'},
+  sort:{title:'Sorting (Selection Sort)',demoType:'cells',frames:genSortFrames,
+    oneLiner:'Repeatedly find the smallest remaining item and move it into place — pay the sorting cost once so every future search is fast.',
+    explanation:[
+      'Selection sort builds the sorted result one position at a time: for each slot, scan the entire unsorted remainder for the smallest value, then swap it into that slot.',
+      'It\'s simple and needs no extra memory, but scanning "the rest of the list" for every one of the n slots costs roughly n × n operations — O(n²). General-purpose sorts (merge sort, quicksort) bring that down to O(n log n) with a divide-and-conquer structure instead.',
+      'The payoff for sorting once is that everything downstream — binary search, deduplication, range queries — gets dramatically cheaper afterward.'],
+    complexity:[{label:'Time',val:'O(n²)'},{label:'Space',val:'O(1)'}],
+    pseudocode:'for i in 0..n:\n  min = i\n  for j in i+1..n:\n    if a[j] < a[min]: min = j\n  swap(a[i], a[min])'},
+  maze:{title:'Pathfinding (Wall-Following)',demoType:'grid',frames:genMazeFrames,
+    oneLiner:'With no map, keep one hand on the wall and never let go — it explores every corridor of a simple maze, including the exit.',
+    explanation:[
+      'The right-hand rule is a LOCAL strategy: at each step, prefer turning right if that side is open, otherwise go straight, otherwise turn left. It needs no memory of where it\'s been and no global map.',
+      'It guarantees finding an exit in any simply-connected maze — but it finds A path, not necessarily the SHORTEST one. Finding the shortest path needs a different technique entirely: breadth-first search, which remembers everything it has seen.'],
+    complexity:[{label:'Memory used',val:'O(1)'},{label:'Finds shortest path?',val:'No'}],
+    pseudocode:'loop:\n  if right is open: turnRight(); move()\n  else if ahead is open: move()\n  else: turnLeft()'},
+  stack:{title:'Stacks',demoType:'cells',frames:genStackFrames,
+    oneLiner:'Last in, first out. You can only add to or remove from the TOP — like a pile of plates.',
+    explanation:[
+      'A stack supports two operations: push (add to the top) and pop (remove from the top). Whatever was added most recently comes off first — Last In, First Out.',
+      'Stacks are how computers naturally "remember what to come back to": every function call in every running program pushes a frame onto a call stack, and returning pops it off. That\'s also why runaway recursion produces a "stack overflow".'],
+    complexity:[{label:'Push',val:'O(1)'},{label:'Pop',val:'O(1)'},{label:'Order',val:'LIFO'}],
+    pseudocode:'stack.push(x)\nlast = stack.pop()  // removes the most recently pushed item'},
+  queue:{title:'Queues',demoType:'cells',frames:genQueueFrames,
+    oneLiner:'First in, first out. Add at the back, remove from the front — fairness as a data structure.',
+    explanation:[
+      'A queue supports enqueue (add to the back) and dequeue (remove from the front). Whoever has been waiting longest is served first — the opposite ordering from a stack.',
+      'Queues are the standard buffer between a fast producer and a slower consumer: incoming requests, print jobs, or messages waiting to be handled all pile up in a queue rather than being dropped.'],
+    complexity:[{label:'Enqueue',val:'O(1)'},{label:'Dequeue',val:'O(1)'},{label:'Order',val:'FIFO'}],
+    pseudocode:'queue.push(x)          // enqueue at the back\nfirst = queue.shift()  // dequeue from the front'},
+  list:{title:'Linked Lists',demoType:'cells',frames:genListFrames,
+    oneLiner:'Instead of one big array, each item just points to the next — so removing something in the middle is one pointer change, not a shift.',
+    explanation:[
+      'A linked list is a chain of nodes where each node stores a value and a pointer to the NEXT node. There\'s no master array — the chain itself IS the data structure.',
+      'The signature move is deletion in the middle: to remove a node, point the PREVIOUS node past it. No need to shift every following element down, unlike an array.',
+      'The trade-off: arrays are faster for "give me item #500" (instant, by index); linked lists are faster for insert/remove once you\'re already at that position.'],
+    complexity:[{label:'Access by index',val:'O(n)'},{label:'Insert/remove here',val:'O(1)'}],
+    pseudocode:'setNext(prev, nextOf(cur))  // splices cur out of the chain'},
+  map:{title:'Hash Maps',demoType:'cells',frames:genMapFrames,
+    oneLiner:'Read the data once, remember it by key — every lookup after that is instant, no matter how much data there is.',
+    explanation:[
+      'A hash map stores values under keys so that looking one up doesn\'t require scanning anything — it computes where the value lives directly from the key.',
+      'The classic pattern: build the index once (one full pass over the data), then answer every future question in constant time. Compare that to re-scanning the whole dataset for every query, which costs O(n) EVERY time.',
+      'This is arguably the single most broadly useful trick in practical programming — caches, database indexes, and de-duplication are all hash maps underneath.'],
+    complexity:[{label:'Lookup',val:'O(1) average'},{label:'Build the index',val:'O(n), once'}],
+    pseudocode:'index[key] = value      // build, once\nindex[key]              // lookup, O(1), forever after'},
+  pq:{title:'Priority Queues',demoType:'cells',frames:genPQFrames,
+    oneLiner:'Always serve whoever is most urgent — not whoever arrived first or has waited longest.',
+    explanation:[
+      'A priority queue is like a regular queue, but every removal returns the highest- (or lowest-) priority item currently waiting, whatever else has arrived since.',
+      'A simple implementation rescans the whole waiting list for the max every time — O(n) per pick. A specialized structure called a HEAP keeps the max near the top and picks it in O(log n), which matters once the queue gets large.',
+      'This structure is the missing piece for Dijkstra\'s algorithm: "always expand the cheapest known option next" is a priority queue in disguise.'],
+    complexity:[{label:'Pick max (scan)',val:'O(n)'},{label:'Pick max (heap)',val:'O(log n)'}],
+    pseudocode:'best = index of the highest-priority waiting item\nremove and return waiting[best]'},
+  bfs:{title:'Breadth-First Search',demoType:'grid',frames:genBfsFrames,
+    oneLiner:'Explore a graph in ripples — everything 1 step away, then 2, then 3 — using a queue. The first time you reach something is the shortest way there.',
+    explanation:[
+      'BFS explores a graph outward from a start point one "ring" at a time, using a queue to track what to visit next. Because it expands in rings, the very first time it reaches any node is guaranteed to be via the shortest path, measured in steps.',
+      'A visited-set (often a hash map) prevents revisiting the same node twice — without it, BFS can loop forever on a graph with cycles.',
+      'It visits every node and edge at most once, so its cost is O(V + E) — proportional to the whole graph\'s size, which is why it scales even to graphs with billions of edges.'],
+    complexity:[{label:'Time',val:'O(V + E)'},{label:'Finds shortest path?',val:'Yes (unweighted)'}],
+    pseudocode:'queue = [start]\nseen = {start}\nwhile queue not empty:\n  cur = queue.shift()\n  for each neighbor of cur not in seen:\n    seen.add(neighbor); queue.push(neighbor)'},
+  dijkstra:{title:'Dijkstra\'s Algorithm',demoType:'grid',frames:genDijkstraFrames,
+    oneLiner:'Same ripple idea as BFS, but always expand the CHEAPEST known option next — for when steps don\'t cost the same.',
+    explanation:[
+      'Dijkstra\'s algorithm solves shortest paths when edges have different weights. Swap BFS\'s plain queue for a priority queue that always pops the cheapest-known-so-far option, and the same ripple structure now correctly handles unequal costs.',
+      'This one change matters: with weights, fewest STEPS is no longer the same as least total COST — a short path through expensive terrain can lose to a longer path through cheap terrain.',
+      'Add a "roughly how far is the goal?" estimate to the priority, and Dijkstra becomes A* — the algorithm most games and robots actually use for pathfinding.'],
+    complexity:[{label:'Time',val:'O((V+E) log V)'},{label:'Handles negative weights?',val:'No'}],
+    pseudocode:'dist = {start: 0}\ntodo = [start]\nwhile todo not empty:\n  cur = item in todo with smallest dist\n  for each neighbor of cur:\n    newDist = dist[cur] + cost(cur, neighbor)\n    if newDist beats dist[neighbor]: update it, add neighbor to todo'},
+  topo:{title:'Topological Sort',demoType:'cells',frames:genTopoFrames,
+    oneLiner:'When some things must happen before others, repeatedly start whatever has no unmet dependencies left.',
+    explanation:[
+      'A topological sort orders the nodes of a dependency graph (arrows meaning "needs") so every arrow points from earlier to later in the final order. It only exists for graphs with NO cycles.',
+      'Kahn\'s algorithm computes it with repeated sweeps: find every node whose dependencies are all satisfied, process them, and repeat. If a sweep ever finds nothing to process while nodes remain, the graph has a cycle and no valid order exists.',
+      'This shows up everywhere outside of graphs specifically: build systems deciding compile order, package managers resolving installs, spreadsheets recalculating formulas.'],
+    complexity:[{label:'Time',val:'O(V + E)'},{label:'Requires',val:'No cycles (a DAG)'}],
+    pseudocode:'while any node remains unstarted:\n  for each unstarted node n:\n    if every dependency of n has started: start n'},
+  quad:{title:'Recursion & Divide-and-Conquer',demoType:'grid',frames:genRecursionFrames,
+    oneLiner:'Solve a big problem by handing smaller copies of the same problem to yourself, down to a base case simple enough to answer directly.',
+    explanation:[
+      'A recursive function calls itself on a SMALLER version of the same problem, plus a base case that can be answered directly without recursing further. Every unfinished call waits on the call stack while its smaller self runs — recursion depends on the stack.',
+      'Divide-and-conquer is a specific recursive pattern: split the problem into pieces, solve each piece recursively, then combine the results. Binary search is divide-and-conquer in one dimension; this quadrant search is the same idea in two.',
+      'Recursion is a tool, not magic — anything recursive can also be written with an explicit loop and a manual stack. It\'s usually chosen because it mirrors the problem\'s own structure.'],
+    complexity:[{label:'This search',val:'O(log(area))'},{label:'Needs',val:'A base case + shrinking input'}],
+    pseudocode:'function search(region):\n  if region is 1 cell: return region\n  split region into 4 quadrants\n  probe each; recurse into the one containing the target'},
+  dp:{title:'Dynamic Programming',demoType:'cells',frames:genDPFrames,
+    oneLiner:'Answer every sub-question exactly once, and build bigger answers out of the small answers you already have stored.',
+    explanation:[
+      'Plain recursion can re-solve the exact same sub-problem many times over — for "cheapest way to reach gate i"-style problems, that duplication grows exponentially. Dynamic programming stores each sub-answer the first time it\'s computed and reuses it forever after.',
+      'The "bottom-up" style fills a table in order, as shown here: each entry is built from a few earlier entries. The equivalent "top-down" style keeps the natural recursion but adds a cache (memoization) so no sub-problem is solved twice.',
+      'Either way, the effect is the same: an exponential brute force collapses into something polynomial — usually linear or close to it.'],
+    complexity:[{label:'This example',val:'O(n) time, O(n) space'},{label:'Naive recursion',val:'Exponential'}],
+    pseudocode:'best[0] = 0\nfor i in 1..n:\n  best[i] = min(best[i-1], best[i-2], best[i-3]) + cost[i]'},
+  parse:{title:'Parsing (Recursive Descent)',demoType:'cells',frames:genParseFrames,
+    oneLiner:'When the input\'s structure can nest inside itself, the code that reads it has to be able to call itself too.',
+    explanation:[
+      'Recursive descent parsing reads text left to right, and whenever it meets something that can contain a nested structure, it calls the SAME reading function on the inner piece before continuing.',
+      'Flat tools like plain find-and-replace, or many regular expressions, can\'t handle arbitrary nesting because they have no way to track "how deep am I right now" — that bookkeeping is exactly what the call stack gives recursion for free.',
+      'This is the same technique, at a larger scale, that reads JSON, compiles programming languages, and renders nested markup.'],
+    complexity:[{label:'Time',val:'O(n) in input length'},{label:'Handles nesting?',val:'Yes, natively'}],
+    pseudocode:'function decode(s):\n  if s starts with a digit:\n    decode the bracketed block that follows (recurse)\n    repeat it that many times\n  else: copy the character through'},
+};
+
+/* ---------- viz player: generic playback + two renderers ---------- */
+function renderCellsFrame(container,frame){
+  container.innerHTML='';
+  for(const row of frame.rows){
+    const rowEl=document.createElement('div');rowEl.className='viz-row';
+    if(row.label){const lbl=document.createElement('div');lbl.className='viz-rowlabel';lbl.textContent=row.label;rowEl.appendChild(lbl);}
+    for(const c of row.cells){
+      if(c.arrow){const a=document.createElement('div');a.className='viz-arrow';a.textContent='→';rowEl.appendChild(a);continue;}
+      const cell=document.createElement('div');cell.className='vcell'+(c.cls?' '+c.cls:'');
+      const tags=document.createElement('div');tags.className='vtags';tags.textContent=(c.tags&&c.tags.length)?c.tags.join(','):'';
+      const box=document.createElement('div');box.className='vbox';box.textContent=c.text;
+      cell.appendChild(tags);cell.appendChild(box);
+      const sub=document.createElement('div');sub.className='vsub';sub.textContent=c.sub||'';cell.appendChild(sub);
+      rowEl.appendChild(cell);
+    }
+    container.appendChild(rowEl);
+  }
+}
+function renderGridFrame(container,frame){
+  container.innerHTML='';
+  const grid=document.createElement('div');grid.className='vgrid';
+  const w=frame.grid[0].length;
+  grid.style.gridTemplateColumns=`repeat(${w},26px)`;
+  for(const row of frame.grid)for(const c of row){
+    const el=document.createElement('div');el.className='vgc'+(c.cls?' '+c.cls:'');el.textContent=c.text||'';
+    grid.appendChild(el);
+  }
+  container.appendChild(grid);
+}
+class VizPlayer{
+  constructor(host,type,frames){
+    this.type=type;this.frames=frames;this.i=0;this.playing=false;this.timer=null;
+    host.innerHTML=`<div class="viz">
+      <div class="viz-content"></div>
+      <div class="viz-caption"></div>
+      <div class="viz-controls">
+        <button class="vbtn" data-a="reset" title="Restart">⏮</button>
+        <button class="vbtn" data-a="prev" title="Previous step">◂</button>
+        <button class="vbtn" data-a="play" title="Play/pause">▶ Play</button>
+        <button class="vbtn" data-a="next" title="Next step">▸</button>
+        <span class="viz-frame"></span>
+      </div></div>`;
+    this.content=host.querySelector('.viz-content');
+    this.caption=host.querySelector('.viz-caption');
+    this.frameLbl=host.querySelector('.viz-frame');
+    this.playBtn=host.querySelector('[data-a="play"]');
+    host.querySelector('[data-a="reset"]').addEventListener('click',()=>this.goto(0));
+    host.querySelector('[data-a="prev"]').addEventListener('click',()=>{this.stop();this.goto(this.i-1);});
+    host.querySelector('[data-a="next"]').addEventListener('click',()=>{this.stop();this.goto(this.i+1);});
+    this.playBtn.addEventListener('click',()=>this.togglePlay());
+    this.render();
+  }
+  goto(i){this.i=Math.max(0,Math.min(this.frames.length-1,i));this.render();}
+  render(){
+    const f=this.frames[this.i];
+    if(this.type==='grid')renderGridFrame(this.content,f);else renderCellsFrame(this.content,f);
+    this.caption.textContent=f.caption||'';
+    this.frameLbl.textContent=`Step ${this.i+1} / ${this.frames.length}`;
+  }
+  togglePlay(){
+    if(this.playing){this.stop();return;}
+    this.playing=true;this.playBtn.textContent='⏸ Pause';
+    const step=()=>{
+      if(this.i>=this.frames.length-1){this.stop();return;}
+      this.goto(this.i+1);
+      this.timer=setTimeout(step,1100);
+    };
+    this.timer=setTimeout(step,1100);
+  }
+  stop(){this.playing=false;if(this.playBtn)this.playBtn.textContent='▶ Play';if(this.timer)clearTimeout(this.timer);this.timer=null;}
+}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+let currentVizPlayer=null;
+function renderLearnNav(activeId){
+  const nav=$('#lvNav');nav.innerHTML='';
+  let lastSeason=null;
+  for(const id of CONCEPT_ORDER){
+    const season=SEASON_OF_CONCEPT[id];
+    if(season!==lastSeason){
+      const h=document.createElement('div');h.className='lv-season';h.textContent=SEASON_NAMES[season];nav.appendChild(h);
+      lastSeason=season;
+    }
+    const chNum=LEVELS.findIndex(l=>l.id===id)+1;
+    const b=document.createElement('button');
+    b.className='lv-navitem'+(id===activeId?' cur':'');
+    b.innerHTML=`<span class="k">${chNum?'Chapter '+chNum:''}</span>${CONCEPTS[id].title}`;
+    b.addEventListener('click',()=>openLearn(id));
+    nav.appendChild(b);
+  }
+}
+function openLearn(id){
+  if(!CONCEPTS[id])id=CONCEPT_ORDER[0];
+  const c=CONCEPTS[id];
+  renderLearnNav(id);
+  const chIdx=LEVELS.findIndex(l=>l.id===id);
+  const d=$('#lvDetail');
+  d.innerHTML=`
+    <div class="lv-eyebrow">${SEASON_NAMES[SEASON_OF_CONCEPT[id]]}</div>
+    <h1 class="lv-h1">${c.title}</h1>
+    <div class="lv-oneliner">${c.oneLiner}</div>
+    ${c.complexity.length?`<div class="lv-cplx-row">${c.complexity.map(x=>`<div class="lv-cplx-item"><div class="lbl">${x.label}</div><div class="val">${x.val}</div></div>`).join('')}</div>`:''}
+    <div class="lv-section"><h3>How it actually works</h3>${c.explanation.map(p=>`<p>${p}</p>`).join('')}</div>
+    <div class="lv-section"><h3>Pseudocode</h3><div class="lv-code">${escapeHtml(c.pseudocode)}</div></div>
+    <div class="lv-section"><h3>Visualize it</h3><div id="lvViz"></div></div>
+    ${chIdx>=0?`<a href="#" class="lv-try" id="lvTryLink">▸ Try it yourself: Chapter ${chIdx+1}</a>`:''}
+  `;
+  currentVizPlayer=new VizPlayer($('#lvViz'),c.demoType,c.frames());
+  const tryLink=$('#lvTryLink');
+  if(tryLink)tryLink.addEventListener('click',(e)=>{e.preventDefault();closeLearn();loadLevel(chIdx);});
+  $('#learnView').classList.add('show');
+}
+function closeLearn(){
+  $('#learnView').classList.remove('show');
+  if(currentVizPlayer){currentVizPlayer.stop();currentVizPlayer=null;}
+}
 
 /* ============================================================
    UI
@@ -2951,6 +3737,7 @@ function loadPrimer(i){
   }
   $('#lv-objective').textContent=lv.objective;
   $('#lv-budget').textContent='';
+  renderHowItWorks(lv);
   const side=$('#lv-side');side.innerHTML='';
   const b=document.createElement('button');
   b.className='sidebtn';
@@ -2972,6 +3759,21 @@ function loadPrimer(i){
   cline('No prior JavaScript needed. Press ▶ Run when ready.');
   renderWorld(lv.build(mulberry32(lv.seeds[0]),0));
   renderChips();
+}
+
+/* ---------- "how it works" box: plain-language link into the Learn library ---------- */
+function renderHowItWorks(level){
+  const key=level.learnId||level.id;
+  const c=CONCEPTS[key];
+  const box=$('#lv-how');
+  if(!c){box.style.display='none';return;}
+  box.style.display='';
+  $('#lv-how-text').textContent=c.oneLiner;
+  const cx=$('#lv-how-complexity');cx.innerHTML='';
+  (c.complexity||[]).forEach(x=>{
+    const s=document.createElement('span');s.className='cplx';s.textContent=`${x.label}: ${x.val}`;cx.appendChild(s);
+  });
+  $('#lv-how-btn').onclick=()=>openLearn(key);
 }
 
 /* ---------- side missions ---------- */
@@ -3007,6 +3809,7 @@ function loadSideMission(sm){
   }
   $('#lv-objective').textContent=sm.objective;
   $('#lv-budget').textContent='';
+  renderHowItWorks(sm);
   const apiEl=$('#lv-api');apiEl.innerHTML='';
   for(const [sig,doc] of sm.api){
     const d=document.createElement('div');d.className='fn';
@@ -3063,6 +3866,7 @@ function loadLevel(i){
   }
   $('#lv-objective').textContent=lv.objective;
   $('#lv-budget').textContent=lv.lineBudget?`⚠ Uplink buffer: max ${lv.lineBudget} lines of code.`:'';
+  renderHowItWorks(lv);
   const apiEl=$('#lv-api');apiEl.innerHTML='';
   for(const [sig,doc] of lv.api){
     const d=document.createElement('div');d.className='fn';
@@ -3189,6 +3993,11 @@ $('#stepToggle').classList.toggle('on',stepMode);
 $('#nextBtn').style.display=stepMode?'':'none';
 $('#nextBtn').addEventListener('click',()=>{if(stepResolve){const r=stepResolve;stepResolve=null;r();}});
 $('#primerBtn').addEventListener('click',()=>loadPrimer(0));
+$('#learnBtn').addEventListener('click',()=>{
+  const lv=activeLevel();
+  openLearn(lv.learnId||lv.id);
+});
+$('#lvClose').addEventListener('click',closeLearn);
 $('#shareBtn').addEventListener('click',async()=>{
   const lv=activeLevel();
   const url=buildShareUrl(lv,editor.value);
@@ -3208,10 +4017,12 @@ editor.addEventListener('input',refreshEditor);
 editor.addEventListener('scroll',syncEditorScroll);
 
 /* debug / test hooks */
-const CS={levels:LEVELS,sides:SIDE_MISSIONS,primer:PRIMER,load:loadLevel,run:runProgram,instant:false,
+const CS={levels:LEVELS,sides:SIDE_MISSIONS,primer:PRIMER,concepts:CONCEPTS,conceptOrder:CONCEPT_ORDER,
+  load:loadLevel,run:runProgram,instant:false,
   runCode:async(code)=>{editor.value=code;return runProgram();},
   loadSide:(i)=>loadSideMission(SIDE_MISSIONS[i]),
   loadPrimer:(i)=>loadPrimer(i),
+  openLearn:(id)=>openLearn(id),closeLearn:()=>closeLearn(),
   buildShareUrl,decodeShareCode,
   get cur(){return cur;},get unlocked(){return unlocked;},
   get stepMode(){return stepMode;},set stepMode(v){stepMode=v;$('#stepToggle').classList.toggle('on',v);$('#nextBtn').style.display=v?'':'none';}};

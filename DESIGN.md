@@ -203,12 +203,43 @@ career-switcher's inner monologue, doing the conceptual connective work).
   pre-filled. Works for locked chapters too — a share link is explicit
   consent to view that level, bypassing the chip-based progress gate without
   mutating `unlocked` state.
+- **Reference library ("📚 LEARN"):** the mission panel's story/API text
+  was clear on WHAT to do but thin on WHY it works. Two additions close
+  that gap without touching the story:
+  - A **"How it actually works" box** in the mission panel — a
+    plain-language one-liner plus complexity badges, separate from
+    HALCYON/BYTE/YOU's in-fiction dialogue, with a direct link into the
+    matching reference page. Side missions and two primer lessons
+    (if/else, for loops) link to their parent chapter's concept rather
+    than duplicating content.
+  - A **dedicated page per concept** (18 total, one per chapter — every
+    algorithm, data structure, and technique in the curriculum), each
+    with an explanation, a complexity table, runnable pseudocode, and an
+    **interactive visualization** with Play/Step/Reset controls. Binary
+    search's demo deliberately mirrors the lo/mid/hi-pointer,
+    eliminate-the-other-half presentation style of reference sites like
+    algorithm-visualizer.org, since that framing is the clearest way to
+    *see* why the algorithm is O(log n).
+  - Engine: one `VizPlayer` class (goto/play/pause over a plain `frames`
+    array) and two renderers — `renderCellsFrame` for array/row-based
+    demos (search, sort, stack, queue, linked list, hash map, priority
+    queue, DP table, parsing), `renderGridFrame` for grid-based demos
+    (pathfinding, BFS, Dijkstra, the quadrant-search recursion demo).
+    Every concept's frames come from a small generator function that
+    *runs* the (simplified) algorithm on fixed sample data and pushes a
+    frame at each meaningful step — the same "record what happened, then
+    replay it" pattern the game's own chapter engine already uses. The
+    pathfinding/BFS generators go one step further and reuse the actual
+    chapter level builders (`LEVELS.find(l=>l.id==='bfs').build(...)`)
+    rather than a hand-authored maze, so the demo world is guaranteed
+    solvable by construction instead of by manual verification.
 
 ## Roadmap
 
-The curriculum and tooling are both complete: four seasons (algorithms, data
-structures, graphs, techniques), five practice side missions, a JS primer,
-step-through debugging, and share links. Remaining ideas are smaller polish:
+The curriculum, tooling, and reference library are all complete: four
+seasons (algorithms, data structures, graphs, techniques), five practice
+side missions, a JS primer, step-through debugging, share links, and an
+18-page visualized reference library. Remaining ideas are smaller polish:
 
 - Localization of story text (the level logic is already data-driven).
 - Efficiency stars, revisited only if playtesting shows the trial gates
@@ -216,3 +247,6 @@ step-through debugging, and share links. Remaining ideas are smaller polish:
   unnecessary).
 - A printable/exportable "ship's certificate" summarizing mastered concepts,
   for players who want a portfolio artifact from finishing the game.
+- More reference-library visualizations per concept (e.g. a heap-based
+  priority queue alongside the current linear-scan one) if playtesting
+  shows the single canned example per concept leaves gaps.
