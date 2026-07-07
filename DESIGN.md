@@ -121,6 +121,30 @@ bodies and arrow-function blocks, so *unbounded recursion and exponential
 brute force* halt with a friendly message instead of freezing the tab — which
 is itself the chapter 17 teaching gate.
 
+## Curriculum map — Season 5: The Deep Archive (interview-staple techniques)
+
+Narratively a gift, not a threat: the visitors who spent Season 4 apologizing
+hand over an archive built from the same fundamentals the player already
+owns. Mechanically, five of the most-asked technical-interview topics that
+Seasons 1–4 hadn't yet covered explicitly, each still assembled from parts
+already in the player's toolkit.
+
+| Ch | Mission | Concept | Mechanic that forces the concept | Trials |
+|----|--------------------|--------------------------|-----------|--------|
+| 19 | The Index Tree | Binary search trees | 15-node array-indexed tree built by IN-ORDER assignment (not index order, which would silently violate the BST property) — `keyOf`/`leftOf`/`rightOf` walk, wrong comparison direction fails immediately | 3 |
+| 20 | The Sift | Binary heaps | A valid min-heap array; must extract-min and sift-down repeatedly until output is fully sorted — skipping the sift-down is checked by validating the exact reported sequence, not just the final state | 2 |
+| 21 | The Broadcast Window | Greedy algorithms | 7 overlapping windows; generator regenerates until greedy-by-end-time strictly beats BOTH greedy-by-duration and greedy-by-start-time, so the "obviously reasonable" alternatives are provably wrong on every trial | 2 |
+| 22 | The Shortest Span | Two pointers / sliding window | Shortest sum-threshold span; generator verifies the true answer is short (2–5) so "report the first span that works" is distinguishable from "report the shortest" | 2 |
+| 23 | The Sentry Grid | Backtracking | 5×5 N-queens with 2 damaged cells; generator verifies solvability first. `isSafe`/`place`/`remove` API makes the commit-discover-undo shape explicit rather than implicit in a recursive return value | 2 |
+
+Deliberate choices: heaps make explicit the machine chapter 12's priority
+queue left implicit (`O(n)` linear-scan vs. `O(log n)` sift), and the BST
+chapter's build function is a case study in a subtle correctness bug —
+assigning sorted values by ARRAY INDEX rather than by IN-ORDER TRAVERSAL
+looks plausible but produces a tree with no valid ordering at all; caught by
+running the chapter's own intended solution against it in testing, not by
+inspection.
+
 ## Systems
 
 ### The interpreter
@@ -212,10 +236,11 @@ career-switcher's inner monologue, doing the conceptual connective work).
     matching reference page. Side missions and two primer lessons
     (if/else, for loops) link to their parent chapter's concept rather
     than duplicating content.
-  - A **dedicated page per concept** (18 total, one per chapter — every
-    algorithm, data structure, and technique in the curriculum), each
-    with an explanation, a complexity table, runnable pseudocode, and an
-    **interactive visualization** with Play/Step/Reset controls. Binary
+  - A **dedicated page per concept** (23 total, one per chapter — every
+    algorithm, data structure, graph technique, and Season 5 topic in the
+    curriculum), each with an explanation, a complexity table, runnable
+    pseudocode, and an **interactive visualization** with Play/Step/Reset
+    controls. Binary
     search's demo deliberately mirrors the lo/mid/hi-pointer,
     eliminate-the-other-half presentation style of reference sites like
     algorithm-visualizer.org, since that framing is the clearest way to
@@ -254,6 +279,18 @@ career-switcher's inner monologue, doing the conceptual connective work).
   live (e.g. the sort-stability caption branches on the real post-sort
   order) rather than asserting a scripted one, so it can't drift out of
   sync with the code that produces it.
+- **A third example for the six flagship concepts.** "More the better, at
+  least two per algorithm" was the brief; binary search, sorting, BFS,
+  Dijkstra, dynamic programming, and recursion/divide-and-conquer each
+  picked up a genuine third angle rather than a third re-skin of the same
+  idea: binary search on a rotated sorted array, merge sort as the
+  O(n log n) counterpoint to selection sort, multi-source BFS, a uniform-
+  weight Dijkstra run that visibly reduces to BFS (same visited order, same
+  distances — "BFS is Dijkstra with every weight fixed at 1"), House
+  Robber as a second DP recurrence next to the toll-road table, and fast
+  exponentiation as a non-grid divide-and-conquer example. Every one is a
+  real simulation of the actual algorithm on fixed sample data, same as the
+  first two examples — none of these are hand-authored animations.
 - **Resizable panels:** the fixed 310px/430px mission and editor columns
   became `var(--mission-w,310px)`/`var(--game-w,430px)` grid tracks with
   a thin `.resizer` div dropped between them (and between the editor and
@@ -281,10 +318,13 @@ career-switcher's inner monologue, doing the conceptual connective work).
 
 ## Roadmap
 
-The curriculum, tooling, and reference library are all complete: four
-seasons (algorithms, data structures, graphs, techniques), five practice
-side missions, a JS primer, step-through debugging, share links, and an
-18-page visualized reference library. Remaining ideas are smaller polish:
+The curriculum, tooling, and reference library are all complete: five
+seasons (algorithms, data structures, graphs, techniques, and a fifth
+covering trees/heaps/greedy/two-pointers/backtracking), five practice side
+missions, a JS primer, step-through debugging, share links, and a 23-page
+visualized reference library where every concept has at least two worked
+examples and six flagship concepts have three. Remaining ideas are smaller
+polish:
 
 - Localization of story text (the level logic is already data-driven).
 - Efficiency stars, revisited only if playtesting shows the trial gates
@@ -292,6 +332,9 @@ side missions, a JS primer, step-through debugging, share links, and an
   unnecessary).
 - A printable/exportable "ship's certificate" summarizing mastered concepts,
   for players who want a portfolio artifact from finishing the game.
-- More reference-library visualizations per concept (e.g. a heap-based
-  priority queue alongside the current linear-scan one) if playtesting
-  shows the single canned example per concept leaves gaps.
+- A third (or further) example for the remaining concepts beyond the six
+  flagship ones, if playtesting shows two worked examples per concept still
+  leaves gaps for a given topic.
+- A Season 6, if the curriculum needs to grow further — tries/trie search,
+  union-find, or bit manipulation would be natural next additions on the
+  same "one chapter, one concept, randomized trials" template.
