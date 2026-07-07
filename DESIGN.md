@@ -178,6 +178,27 @@ career-switcher's inner monologue, doing the conceptual connective work).
 
 ## Shipped polish
 
+- **Guided tour:** a first-visit onboarding overlay addressing blank-page
+  syndrome — four steps (Objective panel, editor, ▶ Run, console), each
+  requiring a genuine interaction with the real element (click the objective
+  box, focus the editor, click Run) rather than a passive "Next" click,
+  so the first few actions double as muscle memory instead of a slideshow.
+  Engine: a single reusable spotlight built from a fixed backdrop `<div>`
+  whose `clip-path` is recomputed every step as an evenodd polygon with a
+  "keyhole" cutout around the live target's `getBoundingClientRect()` (the
+  standard technique for a functional, not just visual, cutout — clip-path
+  affects hit-testing in modern browsers, so clicks pass through to the
+  real element everywhere the cutout is, and nowhere else) plus a
+  separately positioned glow border and tooltip card, all transitioned via
+  CSS. Each step attaches a `{once:true}` listener for its required event
+  (`click` or `focus`) directly to the real target element — the tour reacts
+  to genuine use of the UI, not a parallel simulated one — and tears the
+  listener down on Back/Skip/completion so nothing leaks. Gated by a
+  `cs_seen_tour` localStorage flag set on completion or skip, triggered
+  after the intro modal closes (from any of its three exit paths: straight
+  in, or via either JS Primer exit) and replayable anytime via a header
+  button, which is safe to fire from any chapter since none of the four
+  target elements are chapter-specific.
 - **Hint system:** two-tier HALCYON "recovered fragments" per chapter,
   transmitted automatically after 2 and 4 failed runs (strategy first, then
   near-solution); the counter resets on completion so replays stay clean.

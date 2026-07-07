@@ -328,7 +328,35 @@
   .vgc.start{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
   .vgc.goal{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
 
+  /* ---------- guided tour: first-visit "show and do" onboarding ---------- */
+  #tourBackdrop{position:fixed;inset:0;background:rgba(4,7,12,.82);z-index:90;display:none;
+    transition:clip-path .35s ease;}
+  #tourBackdrop.show{display:block}
+  #tourGlow{position:fixed;z-index:91;pointer-events:none;border:2px solid var(--accent);border-radius:8px;
+    box-shadow:0 0 0 4px rgba(83,214,198,.15),0 0 22px 2px rgba(83,214,198,.5);
+    transition:top .35s ease,left .35s ease,width .35s ease,height .35s ease;display:none;}
+  #tourGlow.show{display:block}
+  #tourCard{position:fixed;z-index:92;width:320px;background:var(--panel);border:1px solid var(--accent-dim);
+    border-radius:6px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.55);display:none;
+    transition:top .35s ease,left .35s ease;}
+  #tourCard.show{display:block}
+  .tour-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  #tourStepLbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  #tourSkipBtn{background:none;border:none;color:var(--muted);font-family:var(--sans);font-size:12px;
+    text-decoration:underline;padding:0}
+  #tourSkipBtn:hover{color:var(--text)}
+  #tourTitle{font-family:var(--sans);font-size:16px;font-weight:600;color:var(--text);margin:0 0 8px}
+  #tourBody{font-family:var(--sans);font-size:13.5px;line-height:1.55;color:var(--text);margin-bottom:8px}
+  #tourHint{font-family:var(--sans);font-size:11.5px;color:var(--amber);display:block;margin-bottom:12px;min-height:14px}
+  .tour-foot{display:flex;align-items:center;gap:8px}
+  .tour-foot .btn{padding:6px 14px;font-size:12.5px}
+  .tour-foot .spacer{flex:1}
+  #tourBackBtn.hidden{visibility:hidden}
+  #tourNextBtn:disabled{opacity:.35;cursor:default}
+
   @media (max-width:900px){
+    #tourCard{width:auto;left:16px!important;right:16px;top:auto!important;bottom:16px}
+    #tourGlow{border-radius:6px}
     .lv-body{grid-template-columns:1fr}
     .lv-body>.resizer{display:none}
     #lvNav{display:flex;overflow-x:auto;border-bottom:1px solid var(--line);white-space:nowrap;padding:8px}
@@ -343,6 +371,7 @@
   <div class="brand">CODE STORY <span class="dot">//</span> <span class="sub">SIGNAL LOST</span></div>
   <nav id="chips" aria-label="Chapters"></nav>
   <div id="hright">
+    <button class="hbtn" id="tourBtn" title="Replay the guided tour of the workspace">🧭 TOUR</button>
     <button class="hbtn" id="primerBtn" title="New to JavaScript? A 5-minute primer, anytime">JS PRIMER</button>
     <button class="hbtn" id="learnBtn" title="Reference library: how every concept works, with visualizations">📚 LEARN</button>
     <button class="hbtn" id="logBtn" title="Ship log — everything you've learned">LOG</button>
@@ -419,6 +448,23 @@
     <nav id="lvNav" aria-label="Concepts"></nav>
     <div class="resizer" id="rzLearnNav" role="separator" aria-orientation="vertical" aria-label="Resize concept list" tabindex="0"></div>
     <div id="lvDetail"></div>
+  </div>
+</div>
+
+<div id="tourBackdrop"></div>
+<div id="tourGlow"></div>
+<div id="tourCard" role="dialog" aria-live="polite" aria-label="Guided tour">
+  <div class="tour-head">
+    <span id="tourStepLbl">Step 1 of 4</span>
+    <button id="tourSkipBtn">Skip Tour</button>
+  </div>
+  <h3 id="tourTitle"></h3>
+  <div id="tourBody"></div>
+  <span id="tourHint"></span>
+  <div class="tour-foot">
+    <button class="btn" id="tourBackBtn">◂ Back</button>
+    <span class="spacer"></span>
+    <button class="btn primary" id="tourNextBtn">Next ▸</button>
   </div>
 </div>
 
@@ -4947,7 +4993,7 @@ function showCard(level){
   if(level.side){btn='Return to the ship ▸';next=()=>loadLevel(cur);}
   else if(level.primer){
     if(level.idx<PRIMER.length-1){btn='Next lesson ▸';next=()=>loadPrimer(level.idx+1);}
-    else{btn='Start Chapter 1 ▸';next=()=>loadLevel(0);}
+    else{btn='Start Chapter 1 ▸';next=()=>{loadLevel(0);startTour();};}
   }
   else{
     if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
@@ -5077,9 +5123,114 @@ function showIntro(){
       <li>Byte's command set for each chapter is listed on the left.</li>
       <li>Stuck? The starter code and HALCYON's fragments always contain the idea.</li>
     </ul>`,
-    'Wake up Byte ▸',null,
+    'Wake up Byte ▸',()=>startTour(),
     'New to JavaScript? Start here (5 min) ▸',()=>loadPrimer(0));
 }
+
+/* ---------- guided tour: "show and do" onboarding for first-time players ---------- */
+const TOUR_STEPS=[
+  {target:'#mission .box',title:'Your Objective',
+    body:'This panel holds your current mission. Read the story above for clues, then check the objective and Byte\'s command list below it.',
+    action:'click',hint:'👉 Click the Objective box to continue.'},
+  {target:'#editor',title:'The Command Deck',
+    body:'You write real JavaScript here. A starter template is already loaded — the comments show you where your commands go.',
+    action:'focus',hint:'👉 Click inside the editor to continue.'},
+  {target:'#runBtn',title:'Watch Byte Move',
+    body:'This uploads your program and replays exactly what happened in the viewport. Pass or fail, you\'ll see why — and STEP (top right) lets you pause after every single command.',
+    action:'click',hint:'👉 Click ▶ Run to continue.'},
+  {target:'#console',title:'Automated Quality Check',
+    body:'Every run is judged right here. Later chapters test your program against several randomized layouts too — proof it is a general solution, not a lucky guess on one map.',
+    action:'button',hint:''},
+];
+let tourActive=false,tourIdx=0,tourActionTarget=null,tourActionHandler=null,tourActionEvent=null;
+function startTour(force){
+  if(!force&&localStorage.getItem('cs_seen_tour'))return;
+  if(primerActive||sideActive)return;
+  tourActive=true;tourIdx=0;
+  $('#tourBackdrop').classList.add('show');
+  $('#tourGlow').classList.add('show');
+  $('#tourCard').classList.add('show');
+  window.addEventListener('resize',positionTourStep);
+  renderTourStep();
+}
+function endTour(){
+  tourActive=false;
+  localStorage.setItem('cs_seen_tour','1');
+  $('#tourBackdrop').classList.remove('show');
+  $('#tourGlow').classList.remove('show');
+  $('#tourCard').classList.remove('show');
+  window.removeEventListener('resize',positionTourStep);
+  detachTourAction();
+}
+function detachTourAction(){
+  if(tourActionTarget&&tourActionHandler)tourActionTarget.removeEventListener(tourActionEvent,tourActionHandler);
+  tourActionTarget=null;tourActionHandler=null;tourActionEvent=null;
+}
+function renderTourStep(){
+  detachTourAction();
+  const step=TOUR_STEPS[tourIdx];
+  const target=document.querySelector(step.target);
+  $('#tourStepLbl').textContent=`Step ${tourIdx+1} of ${TOUR_STEPS.length}`;
+  $('#tourTitle').textContent=step.title;
+  $('#tourBody').textContent=step.body;
+  $('#tourHint').textContent=step.hint;
+  $('#tourBackBtn').classList.toggle('hidden',tourIdx===0);
+  const nextBtn=$('#tourNextBtn');
+  if(step.action==='button'){
+    nextBtn.textContent="Let's Save the Ship! ▸";
+    nextBtn.disabled=false;
+    nextBtn.onclick=endTour;
+  }else{
+    nextBtn.textContent='Next ▸';
+    nextBtn.disabled=true;
+    nextBtn.onclick=null;
+    if(target){
+      tourActionTarget=target;
+      tourActionEvent=step.action;
+      tourActionHandler=()=>{
+        nextBtn.disabled=false;
+        setTimeout(()=>{if(tourActive&&TOUR_STEPS[tourIdx]===step)advanceTour();},380);
+      };
+      target.addEventListener(tourActionEvent,tourActionHandler,{once:true});
+    }
+  }
+  positionTourStep();
+}
+function advanceTour(){
+  if(tourIdx<TOUR_STEPS.length-1){tourIdx++;renderTourStep();}
+  else endTour();
+}
+function positionTourStep(){
+  if(!tourActive)return;
+  const step=TOUR_STEPS[tourIdx];
+  const target=document.querySelector(step.target);
+  if(!target){endTour();return;}
+  const r=target.getBoundingClientRect();
+  const pad=6;
+  const x1=Math.max(0,r.left-pad),y1=Math.max(0,r.top-pad);
+  const x2=Math.min(window.innerWidth,r.right+pad),y2=Math.min(window.innerHeight,r.bottom+pad);
+  $('#tourBackdrop').style.clipPath=
+    `polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 ${y1}px,${x2}px ${y1}px,${x2}px ${y2}px,${x1}px ${y2}px,${x1}px ${y1}px)`;
+  const glow=$('#tourGlow');
+  glow.style.left=x1+'px';glow.style.top=y1+'px';
+  glow.style.width=(x2-x1)+'px';glow.style.height=(y2-y1)+'px';
+  const card=$('#tourCard'),cw=320,margin=16;
+  const spaceBelow=window.innerHeight-y2,spaceAbove=y1;
+  let top;
+  if(spaceBelow>160)top=y2+14;
+  else if(spaceAbove>160)top=Math.max(margin,y1-14-260);
+  else top=Math.max(margin,Math.min(window.innerHeight-280,(y1+y2)/2-130));
+  const left=Math.min(window.innerWidth-cw-margin,Math.max(margin,r.left));
+  card.style.top=top+'px';
+  card.style.left=left+'px';
+}
+$('#tourBackBtn').addEventListener('click',()=>{if(tourIdx>0){tourIdx--;renderTourStep();}});
+$('#tourSkipBtn').addEventListener('click',endTour);
+$('#tourBtn').addEventListener('click',()=>{
+  if(overlay.classList.contains('show'))return;
+  if($('#learnView').classList.contains('show'))closeLearn();
+  startTour(true);
+});
 
 /* ---------- JS primer ---------- */
 function loadPrimer(i){
@@ -5103,7 +5254,7 @@ function loadPrimer(i){
   const b=document.createElement('button');
   b.className='sidebtn';
   b.innerHTML=`<span class="sb-k">◂ skip the primer</span>Go straight to Chapter 1`;
-  b.addEventListener('click',()=>loadLevel(0));
+  b.addEventListener('click',()=>{loadLevel(0);startTour();});
   side.appendChild(b);
   const apiEl=$('#lv-api');apiEl.innerHTML='';
   for(const [sig,doc] of lv.api){

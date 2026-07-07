@@ -130,6 +130,11 @@ report the actual computed numbers rather than an assumed outcome.
 
 ## Other tools
 
+- **Guided tour** — a first-visit, "show and do" walkthrough of the
+  workspace (Objective panel → editor → ▶ Run → the console) that spotlights
+  one real UI element at a time and requires an actual interaction with it
+  (not just clicking "Next") to advance. Replay it anytime via the 🧭 TOUR
+  header button.
 - **Step-through replay** (STEP toggle) pauses after every command and
   highlights the exact source line that fired it — a debugger, not just an
   animation.
