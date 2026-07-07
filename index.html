@@ -276,6 +276,16 @@
   .lv-try{display:inline-block;margin-top:4px;border:1px solid var(--accent-dim);color:var(--accent);
     border-radius:2px;padding:6px 14px;font-size:12.5px;text-decoration:none;letter-spacing:.03em}
   .lv-try:hover{background:rgba(83,214,198,.08)}
+  .lv-mistakes{margin:0;padding-left:0;max-width:68ch;list-style:none}
+  .lv-mistakes li{position:relative;padding:7px 0 7px 22px;font-family:var(--sans);font-size:14px;
+    line-height:1.6;color:var(--text);border-left:2px solid var(--amber);margin-bottom:2px;padding-left:14px}
+  .lv-mistakes li::before{content:"⚠";position:absolute;left:-13px;top:6px;font-size:11px;color:var(--amber);
+    background:var(--bg);line-height:1}
+  .lv-examples{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .lv-ex-tab{background:var(--panel);border:1px solid var(--line2);color:var(--muted);padding:6px 13px;
+    font-size:12.5px;font-family:var(--sans);border-radius:2px}
+  .lv-ex-tab:hover{border-color:var(--accent-dim);color:var(--text)}
+  .lv-ex-tab.cur{border-color:var(--accent);color:var(--accent);background:rgba(83,214,198,.06)}
 
   /* ---------- visualization player ---------- */
   .viz{border:1px solid var(--line);border-radius:4px;background:var(--panel2);padding:20px;max-width:74ch}
@@ -3070,144 +3080,484 @@ function genRecursionFrames(){
   return frames;
 }
 
+/* ---------- second examples: contrasting scenarios & common mistakes ---------- */
+function genSeqFrames2(){
+  const w=6,h=4,goal={x:3,y:1},start={x:0,y:2};
+  const D4=[[0,-1],[1,0],[0,1],[-1,0]];
+  let x=start.x,y=start.y,dir=1;
+  const snap=(caption)=>({grid:Array.from({length:h},(_,yy)=>Array.from({length:w},(_,xx)=>{
+    let cls='';
+    if(xx===goal.x&&yy===goal.y)cls+=' goal';
+    if(xx===x&&yy===y)cls+=' current';
+    return {cls:cls.trim(),text:''};
+  })),caption});
+  const frames=[snap('Same five commands as a working solution — move, move, turnLeft, move, move — but reordered.')];
+  for(const s of ['move','move','turnLeft','move','move']){
+    if(s==='turnLeft'){dir=(dir+3)%4;frames.push(snap('turnLeft()'));}
+    else{x+=D4[dir][0];y+=D4[dir][1];frames.push(snap('move()'));}
+  }
+  frames.push(snap((x===goal.x&&y===goal.y)?'Reached the console.':'NOT the console. The exact same five commands, correctly ordered, would have arrived — order alone was the entire bug.'));
+  return frames;
+}
+function genLoopFrames2(){
+  const pattern=['move()','move()','turnRight()','move()','turnLeft()'];
+  const frames=[{rows:[{label:'for(i=0;i<=4;i++)',cells:[0,1,2,3,4].map(v=>({text:String(v)}))}],
+    caption:'A classic typo: <= instead of <. This runs the loop 5 times, not 4 — one extra pass nobody asked for.'}];
+  for(let i=0;i<=4;i++){
+    frames.push({rows:[
+      {label:'for i in',cells:[0,1,2,3,4].map(v=>({text:String(v),cls:v===i?(v===4?'bad':'active'):v<i?'good':''}))},
+      {label:'runs',cells:pattern.map((s,j)=>({text:s,sub:String(j+1)}))},
+    ],caption:i<4?`i = ${i}: an intended pass.`:'i = 4: this pass was never supposed to happen — Byte walks into a fifth, nonexistent flight of stairs.'});
+  }
+  frames.push({rows:[{label:'for i in',cells:[0,1,2,3,4].map(v=>({text:String(v),cls:v===4?'bad':'good'}))}],
+    caption:'Off-by-one errors are the single most common loop bug — always check whether the bound should be < or <=, and whether counting starts at 0 or 1.'});
+  return frames;
+}
+function genCondFrames2(){
+  return [
+    {rows:[{label:'scan()',cells:[{text:'debris',cls:'bad'}]}],
+      caption:'scan() can actually return THREE values: "clear", "wall", or "debris" — but this code only ever checks for "wall".'},
+    {rows:[{label:'code handles',cells:[
+      {text:'if clear → move()',cls:'dim'},{text:'else → turn (assumes wall)',cls:'active'},
+    ]}],caption:'"debris" is neither case the code checks for — it falls into the else branch and gets treated exactly like a wall. Byte turns instead of stopping.'},
+    {rows:[{label:'the fix',cells:[
+      {text:'if clear → move()',cls:'good'},{text:'else if wall → turn',cls:'good'},{text:'else if debris → STOP',cls:'good'},
+    ]}],caption:'Enumerate every value the condition can actually take, not just the ones you expected while writing it.'},
+  ];
+}
+function genLinearSearchFrames2(){
+  const arr=[236,241,238,244,239];
+  const frames=[];
+  for(let i=0;i<arr.length;i++)
+    frames.push({rows:[{label:'cells',cells:arr.map((v,j)=>({text:j<i?'✓':j===i?v+'V':'?',cls:j<i?'dim':j===i?'active':'',sub:String(j)}))}],
+      caption:`Checking cell ${i}: reads ${arr[i]}V. Healthy — keep going.`});
+  frames.push({rows:[{label:'cells',cells:arr.map((v,j)=>({text:'✓',cls:'dim',sub:String(j)}))}],
+    caption:'Checked all 5 cells — none read 0V. The dead cell simply isn\'t on this row. A correct linear search has to handle "not found" as a real outcome, not assume the target always exists.'});
+  return frames;
+}
+function genBinarySearchFrames2(){
+  const arr=[3,7,12,19,26,31,38,44,52,60,67,75],target=30;
+  let lo=0,hi=arr.length-1;
+  const frames=[];
+  const snap=(extra,caption)=>({rows:[{label:'array',cells:arr.map((v,i)=>{
+    const tags=[];
+    if(extra&&extra.mid===i)tags.push('mid');
+    if(lo<=hi&&i===lo)tags.push('lo');
+    if(lo<=hi&&i===hi)tags.push('hi');
+    return {text:String(v),sub:String(i),tags,cls:(i<lo||i>hi)?'dim':(extra&&extra.mid===i)?'active':''};
+  })}],caption});
+  frames.push(snap(null,`Searching for ${target} — which isn't in this array at all. lo=0, hi=${arr.length-1}.`));
+  while(lo<=hi){
+    const mid=Math.floor((lo+hi)/2),midVal=arr[mid];
+    if(midVal===target){frames.push(snap({mid},'match'));break;}
+    else if(midVal<target){frames.push(snap({mid},`mid = ${mid}, value ${midVal} < ${target}. Go right.`));lo=mid+1;}
+    else{frames.push(snap({mid},`mid = ${mid}, value ${midVal} > ${target}. Go left.`));hi=mid-1;}
+    if(lo<=hi)frames.push(snap(null,`New range: lo=${lo}, hi=${hi}.`));
+  }
+  frames.push({rows:[{label:'array',cells:arr.map((v,i)=>({text:String(v),sub:String(i),cls:'dim'}))}],
+    caption:`lo (${lo}) > hi (${hi}) — the range is empty. ${target} genuinely isn't in this array. Returning "not found" here is the CORRECT answer, not a bug.`});
+  return frames;
+}
+function genSortFrames2(){
+  const arr=[{v:20,tag:'A'},{v:20,tag:'B'},{v:5,tag:'C'}];
+  const n=arr.length;
+  const frames=[{rows:[{label:'crates',cells:arr.map((c,i)=>({text:c.v+c.tag,sub:String(i)}))}],
+    caption:'Two crates tie at weight 20 (A and B, in that order) plus one light crate (C). Does sorting preserve which of the tied crates came first?'}];
+  for(let i=0;i<n;i++){
+    let min=i;
+    for(let j=i+1;j<n;j++){
+      frames.push({rows:[{label:'crates',cells:arr.map((c,k)=>({text:c.v+c.tag,sub:String(k),cls:k<i?'good':k===j?'active':k===min?'picked':''}))}],
+        caption:`Comparing crate ${j} (${arr[j].v}${arr[j].tag}) to lightest-so-far, crate ${min} (${arr[min].v}${arr[min].tag}).`});
+      if(arr[j].v<arr[min].v)min=j;
+    }
+    if(min!==i)[arr[i],arr[min]]=[arr[min],arr[i]];
+    frames.push({rows:[{label:'crates',cells:arr.map((c,k)=>({text:c.v+c.tag,sub:String(k),cls:k<=i?'good':''}))}],
+      caption:`Slot ${i} locked: ${arr[i].v}${arr[i].tag}.`});
+  }
+  const stable=arr.findIndex(c=>c.tag==='A')<arr.findIndex(c=>c.tag==='B');
+  frames.push({rows:[{label:'crates',cells:arr.map((c,k)=>({text:c.v+c.tag,sub:String(k),cls:'good'}))}],
+    caption:`Sorted — but look at the tied crates: ${stable?'A still comes before B, matching the input order — lucky, but not guaranteed.':'B ended up before A. Their original order got REVERSED by an unrelated swap.'} This selection-sort implementation is NOT guaranteed stable: never assume equal elements keep their relative order unless you've verified it.`});
+  return frames;
+}
+function genMazeFrames2(){
+  const rows=['#######','#.....#','#.###.#','#.#.#.#','#.###.#','#.....#','#######'];
+  const grid=rows.map(r=>[...r]);
+  const h=grid.length,w=grid[0].length;
+  const at=(x,y)=>(x<0||y<0||x>=w||y>=h)?'#':grid[y][x];
+  const r={x:1,y:1,dir:1};
+  const trail=new Set([r.x+','+r.y]);
+  const snap=(caption)=>({grid:grid.map((row,y)=>row.map((t,x)=>{
+    let cls=t==='#'?'wall':'';
+    if(x===r.x&&y===r.y)cls+=' current';else if(trail.has(x+','+y))cls+=' path';
+    return {cls:cls.trim(),text:''};
+  })),caption});
+  const frames=[snap('This loop of corridors is fully sealed — there is no exit anywhere on it. Watch what the right-hand rule does.')];
+  const ahead=(turn)=>{const d=(r.dir+turn+4)%4;return {x:r.x+DIRS[d][0],y:r.y+DIRS[d][1]};};
+  const openAt=(p)=>at(p.x,p.y)!=='#';
+  for(let step=0;step<16;step++){
+    const right=ahead(1),fwd=ahead(0);
+    if(openAt(right)){r.dir=(r.dir+1)%4;frames.push(snap('Right side open — turn right, step.'));}
+    else if(openAt(fwd)){frames.push(snap('Step forward.'));}
+    else{r.dir=(r.dir+3)%4;frames.push(snap('Boxed in — turn left.'));continue;}
+    const p=ahead(0);r.x=p.x;r.y=p.y;trail.add(r.x+','+r.y);
+  }
+  frames.push(snap('16 steps later, Byte is back where it started, having circled this loop with no exit ever found. The right-hand rule only guarantees success in a SIMPLY CONNECTED maze — one with no separate sealed loops like this one.'));
+  return frames;
+}
+function genStackFrames2(){
+  const frames=[{rows:[{label:'stack',cells:[{text:'empty',cls:'dim'}]}],caption:'Empty stack.'}];
+  frames.push({rows:[{label:'stack',cells:[{text:'X-1',cls:'active',tags:['top']}]}],caption:'push("X-1").'});
+  frames.push({rows:[{label:'stack',cells:[{text:'X-1',cls:'picked',tags:['top']}]}],caption:'pop() → "X-1". Correct — the stack had something to give.'});
+  frames.push({rows:[{label:'stack',cells:[{text:'empty',cls:'bad'}]}],
+    caption:'pop() is called AGAIN, on an already-empty stack. There is nothing on top — a correct implementation must check isEmpty() first, or this either crashes or silently returns garbage.'});
+  return frames;
+}
+function genQueueFrames2(){
+  const q=['T-1','T-2','T-3'];
+  const frames=[{rows:[{label:'queue',cells:q.map((v,i)=>({text:v,tags:i===0?['front']:i===q.length-1?['back']:[]}))}],
+    caption:'Three tickets arrived in this order: T-1, T-2, T-3.'}];
+  frames.push({rows:[{label:'queue',cells:q.map((v,i)=>({text:v,cls:i===q.length-1?'bad':'',tags:i===0?['front']:i===q.length-1?['back']:[]}))}],
+    caption:'MISTAKE: calling pop() (removes from the BACK) instead of shift() (removes from the FRONT). This serves T-3 — the newest ticket — first.'});
+  frames.push({rows:[{label:'served (wrong)',cells:[{text:'T-3',cls:'bad'}]}],
+    caption:'T-1 has now waited through someone else being served ahead of it. A queue with the wrong removal end silently behaves like a stack — same interface shape, opposite fairness guarantee.'});
+  return frames;
+}
+function genListFrames2(){
+  const nodes=[101,205,309,417];
+  const chain=(headGone)=>{
+    const list=headGone?nodes.slice(1):nodes,cells=[];
+    list.forEach((v,i)=>{cells.push({text:String(v),cls:headGone&&i===0?'good':''});if(i<list.length-1)cells.push({arrow:true});});
+    return cells;
+  };
+  return [
+    {rows:[{label:'chain',cells:chain(false)},{label:'head',cells:[{text:'→ 101',cls:'active'}]}],
+      caption:'head currently points at 101 — the FIRST node. There is no "previous" node before it.'},
+    {rows:[{label:'chain',cells:chain(false)}],
+      caption:'To delete 101 itself, setNext(prev, ...) doesn\'t apply — there is no prev. You must update head directly instead: head = nextOf(101).'},
+    {rows:[{label:'chain',cells:chain(true)},{label:'head',cells:[{text:'→ 205',cls:'good'}]}],
+      caption:'head now points at 205. Deleting the FIRST node is a special case that trips up almost everyone the first time they implement a linked list.'},
+  ];
+}
+function genMapFrames2(){
+  const index={K7:14,B2:3,R9:22};
+  const frames=[{rows:[{label:'index',cells:Object.entries(index).map(([k,v])=>({text:`${k}→${v}`,cls:'good'}))}],
+    caption:'The index has exactly these three keys.'}];
+  frames.push({rows:[{label:'index',cells:Object.entries(index).map(([k,v])=>({text:`${k}→${v}`,cls:'dim'}))},
+    {label:'lookup',cells:[{text:'index["Z1"]',cls:'bad'}]}],
+    caption:'"Z1" was never inserted. index["Z1"] returns undefined — not an error, not zero, just undefined.'});
+  frames.push({rows:[{label:'result',cells:[{text:'undefined',cls:'bad'}]}],
+    caption:'A very common bug: using the result of a missing lookup as if it were a real value — undefined + 1 is NaN. Always check whether the key exists before trusting a lookup.'});
+  return frames;
+}
+function genPQFrames2(){
+  const items=[['Q-1',30],['Q-2',80],['Q-3',50]];
+  const frames=[{rows:[{label:'waiting',cells:items.map(([id,c])=>({text:`${id}:${c}`}))}],
+    caption:'Three alerts, arrival order Q-1, Q-2, Q-3 — but very different criticality.'}];
+  frames.push({rows:[{label:'waiting',cells:items.map(([id,c],i)=>({text:`${id}:${c}`,cls:i===0?'bad':''}))}],
+    caption:'MISTAKE: waking in ARRIVAL order — treating the priority queue like a plain queue. Q-1 is criticality 30, the LEAST urgent of the three.'});
+  frames.push({rows:[{label:'correct pick',cells:items.map(([id,c],i)=>({text:`${id}:${c}`,cls:i===1?'good':''}))}],
+    caption:'The correct pick is Q-2 (criticality 80) — the entire job of a priority queue is to ignore arrival order and always serve by priority instead.'});
+  return frames;
+}
+function genBfsFrames2(){
+  const rows=['#########','#S......#','#.......#','#.......#','#########','####G####','#########'];
+  const grid=rows.map(r=>[...r]);
+  const h=grid.length,w=grid[0].length;
+  let s,g;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(grid[y][x]==='S')s={x,y};if(grid[y][x]==='G')g={x,y};}
+  const at=(x,y)=>(x<0||y<0||x>=w||y>=h)?'#':grid[y][x];
+  const key=(x,y)=>x+','+y;
+  const dist={};dist[key(s.x,s.y)]=0;
+  let frontier=[s];
+  const snap=(caption)=>({grid:grid.map((row,y)=>row.map((c,x)=>{
+    let cls=c==='#'?'wall':'';
+    if(key(x,y) in dist)cls+=' visited';
+    if(frontier.some(p=>p.x===x&&p.y===y))cls+=' frontier';
+    if(x===s.x&&y===s.y)cls+=' start';
+    if(x===g.x&&y===g.y)cls+=' goal';
+    return {cls:cls.trim(),text:''};
+  })),caption});
+  const frames=[snap('The goal (amber outline) looks close on the page — but is it actually connected to the start?')];
+  let ring=0;
+  while(frontier.length){
+    ring++;
+    const next=[];
+    for(const c of frontier)for(const [dx,dy] of DIRS){
+      const nx=c.x+dx,ny=c.y+dy,k=key(nx,ny);
+      if(at(nx,ny)==='#'||k in dist)continue;
+      dist[k]=ring;next.push({x:nx,y:ny});
+    }
+    frontier=next;
+    if(frontier.length)frames.push(snap(`Ring ${ring}: still expanding.`));
+  }
+  frames.push(snap('The frontier ran out — every reachable tile has been visited, and the goal was never among them. A correct BFS must recognize this and report "no path", not loop forever or crash.'));
+  return frames;
+}
+function genDijkstraFrames2(){
+  const dist={A:0,B:Infinity,C:Infinity};
+  const finalized=new Set();
+  const edges={A:[['B',4],['C',1]],B:[['C',-10]],C:[]};
+  const frames=[];
+  const snap=(caption)=>({rows:[{label:'dist[]',cells:['A','B','C'].map(n=>({
+    text:dist[n]===Infinity?'∞':String(dist[n]),sub:n,cls:finalized.has(n)?'good':''}))}],caption});
+  frames.push(snap('Edges: A→B (4), A→C (1), B→C (−10). A negative edge means a longer-looking route can end up cheaper.'));
+  let guard=0;
+  while(finalized.size<3&&guard++<10){
+    let best=null;
+    for(const n of ['A','B','C'])if(!finalized.has(n)&&(best===null||dist[n]<dist[best]))best=n;
+    if(dist[best]===Infinity)break;
+    finalized.add(best);
+    frames.push(snap(`Finalize ${best} at ${dist[best]} — the smallest tentative distance among unfinalized nodes. Dijkstra will never lower it again.`));
+    for(const [to,w] of edges[best]){
+      const nd=dist[best]+w;
+      if(!finalized.has(to)&&nd<dist[to]){dist[to]=nd;frames.push(snap(`Relax ${best}→${to}: ${dist[best]} + (${w}) = ${nd}, better than before.`));}
+      else if(finalized.has(to)&&nd<dist[to])frames.push(snap(`${best}→${to} would give ${nd} — cheaper than ${to}'s finalized ${dist[to]}. Too late: ${to} is already finalized and won't be touched again.`));
+    }
+  }
+  frames.push(snap(`Dijkstra reports C = ${dist.C}. The true shortest A→C is actually 4 + (−10) = −6, through B — but C was finalized at 1 before B was even processed. This is exactly why Dijkstra requires every edge weight to be non-negative.`));
+  return frames;
+}
+function genTopoFrames2(){
+  const systems=['RCT','NAV','COM'];
+  const deps={RCT:['COM'],NAV:['RCT'],COM:['NAV']};
+  const up=new Set(),order=[];
+  const snap=(caption)=>({rows:[
+    {label:'systems',cells:systems.map(s=>({text:s,cls:up.has(s)?'good':'',sub:'needs '+deps[s].join(',')}))},
+    {label:'started',cells:order.length?order.map(s=>({text:s,cls:'good'})):[{text:'—',cls:'dim'}]},
+  ],caption});
+  const frames=[snap('RCT needs COM. COM needs NAV. NAV needs RCT. Every system is waiting on another — a CYCLE.')];
+  let progressed=true,sweep=0;
+  while(up.size<systems.length&&progressed){
+    sweep++;progressed=false;
+    for(const s of systems){
+      if(up.has(s))continue;
+      if(deps[s].every(d=>up.has(d))){up.add(s);order.push(s);progressed=true;frames.push(snap(`${s} is ready. Starting it.`));}
+    }
+    if(!progressed)frames.push(snap(`Sweep ${sweep}: scanned every system — NONE became ready. Nobody's dependencies are satisfied, because they're waiting on each other in a loop.`));
+  }
+  frames.push(snap(`${up.size} of ${systems.length} systems started. The rest can NEVER start — this is how a topological sort detects a cycle: a sweep that makes zero progress while nodes remain means there is no valid order at all.`));
+  return frames;
+}
+function genRecursionFrames2(){
+  return [
+    {grid:[[{cls:'goal',text:'◆'},{cls:'',text:''}],[{cls:'',text:''},{cls:'',text:''}]],
+      caption:'A 2×2 region — already close to minimal. The beacon (◆) is in this exact cell.'},
+    {grid:[[{cls:'frontier',text:'◆'},{cls:'frontier',text:''}],[{cls:'',text:''},{cls:'',text:''}]],
+      caption:'BUGGY VERSION: this code forgets to check "is this already 1×1?" and quarters the 2×2 region anyway. That part still works...'},
+    {grid:[[{cls:'bad',text:'◆'},{cls:'',text:''}],[{cls:'',text:''},{cls:'',text:''}]],
+      caption:'...but it then recurses into the 1×1 quadrant containing the beacon — and with the base case still missing, tries to quarter a 1×1 region again, into four 0×0 pieces that don\'t exist.'},
+    {grid:[[{cls:'bad',text:'?'},{cls:'',text:''}],[{cls:'',text:''},{cls:'',text:''}]],
+      caption:'A "smaller" call that is really the same size never shrinks — no progress, no exit: infinite recursion, and eventually a stack overflow. The base case isn\'t an optimization — it\'s what makes the recursion finite at all.'},
+  ];
+}
+function genDPFrames2(){
+  const toll=[0,4,8,2,9,3,6];
+  const n=toll.length-1;
+  const calls={};
+  function cost(i){
+    calls[i]=(calls[i]||0)+1;
+    if(i<=0)return 0;
+    let best=Infinity;
+    for(let k=1;k<=3;k++)if(i-k>=0)best=Math.min(best,cost(i-k)+toll[i]);
+    return best;
+  }
+  cost(n);
+  return [
+    {rows:[{label:'calls to cost(i)',cells:toll.map((_,i)=>({text:String(calls[i]||0),sub:'gate '+i,cls:(calls[i]||0)>3?'bad':''}))}],
+      caption:`Naive recursion with NO memo, asked "cheapest way to reach gate ${n}?": gate 3 alone gets recomputed ${calls[3]||0} times. Every gate closer to the start gets asked about more and more, because every recursive path passes back through it.`},
+    {rows:[{label:'calls to cost(i)',cells:toll.map((_,i)=>({text:'1',sub:'gate '+i,cls:'good'}))}],
+      caption:'With memoization (or the bottom-up table from the main example), every gate is computed exactly once — turning an exponential blow-up into a straight line.'},
+  ];
+}
+function genParseFrames2(){
+  const enc='2[AB[C]';
+  const stack=[];
+  for(let i=0;i<enc.length;i++){if(enc[i]==='[')stack.push(i);else if(enc[i]===']')stack.pop();}
+  const errAt=stack.length?stack[stack.length-1]:-1;
+  return [
+    {rows:[{label:'signal',cells:[...enc].map((ch,j)=>({text:ch,sub:String(j)}))}],
+      caption:`Malformed signal: "${enc}" — count the brackets. There are two "[" but only one "]".`},
+    {rows:[{label:'signal',cells:[...enc].map((ch,j)=>({text:ch,sub:String(j),cls:j===errAt?'bad':''}))}],
+      caption:`The "[" at position ${errAt} never finds a matching "]" — the decoder would run off the end of the string still expecting a closer.`},
+    {rows:[{label:'result',cells:[{text:'ERROR',cls:'bad'}]}],
+      caption:'A parser that trusts its input will read past the end of the string or throw a confusing low-level error. A robust one checks bracket balance FIRST and reports exactly where it broke — the same technique this game\'s own syntax-error hints use.'},
+  ];
+}
+
 /* ---------- concept data ---------- */
 const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse'];
 const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4};
 const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques'};
 const CONCEPTS={
-  seq:{title:'Sequences',demoType:'cells',frames:genSeqFrames,
+  seq:{title:'Sequences',
+    examples:[{label:'A working sequence',demoType:'cells',frames:genSeqFrames},{label:'Same steps, reordered',demoType:'grid',frames:genSeqFrames2}],
     oneLiner:'A program is a precise, ordered list of instructions — the computer does exactly what\'s written, never what\'s implied.',
     explanation:[
       'Every program is built from three basic moves: doing things in order (sequence), doing things repeatedly (loops), and choosing between paths (conditionals). Sequence is the simplest, and every other move is built on top of it.',
       'The computer has no common sense and no intuition. If a step is missing, wrong, or out of order, that is exactly what runs. Debugging lives entirely in the gap between what you MEANT to write and what you actually wrote.'],
+    mistakes:['Assuming steps run in the order you MEANT, not the order you wrote.','Moving one command one line early or late, changing everything downstream from that point on.','Forgetting the computer has no context — it never infers what you "obviously" intended.'],
     complexity:[],pseudocode:'move()\nmove()\nmove()\nmove()\nturnRight()\nmove()\nmove()'},
-  loop:{title:'Loops',demoType:'cells',frames:genLoopFrames,
+  loop:{title:'Loops',
+    examples:[{label:'Four passes, one pattern',demoType:'cells',frames:genLoopFrames},{label:'The off-by-one trap',demoType:'cells',frames:genLoopFrames2}],
     oneLiner:'Describe a repeating pattern once, and say how many times to run it — instead of writing it out by hand.',
     explanation:[
       'A loop pairs a block of code with a repeat condition. for loops repeat a countable number of times; while loops repeat as long as a condition stays true. Either way the SAME instructions run multiple times, usually varying a counter or some changing state.',
       'Loops are also how programs scale. Code that handles 4 items with a loop handles 4,000 items with the exact same code — only the data grows, not the program.'],
+    mistakes:['Off-by-one bounds: < vs <=, starting at 0 vs 1.','Changing the loop variable inside the body in a way that skips or repeats iterations.','Reaching for a for loop when the number of repeats isn\'t known ahead of time — that\'s usually a while loop instead.'],
     complexity:[{label:'Typical cost',val:'O(n) per loop'}],
     pseudocode:'for (let i = 0; i < 4; i++) {\n  // repeated body\n}'},
-  cond:{title:'Conditionals',demoType:'cells',frames:genCondFrames,
+  cond:{title:'Conditionals',
+    examples:[{label:'A working branch',demoType:'cells',frames:genCondFrames},{label:'The unhandled case',demoType:'cells',frames:genCondFrames2}],
     oneLiner:'if / else lets a program choose between paths based on what it senses right now, instead of following one fixed script.',
     explanation:[
       'A conditional evaluates something true-or-false and runs one branch or the other — never both. This is what turns a program from a fixed recording into something that reacts to its actual input.',
       'Correctness for a conditional means covering every case that can really occur, not just the case you happened to test. A branch that silently does the wrong thing for an untested input is one of the most common real bugs.'],
+    mistakes:['Handling only the cases you thought of, not every value the condition can actually take.','Using = (assignment) where you meant === (comparison) — always double-check the operator.','Writing overlapping conditions where two branches could both be true, hiding which one actually runs.'],
     complexity:[],pseudocode:'if (condition) {\n  // path A\n} else {\n  // path B\n}'},
-  lsearch:{title:'Linear Search',demoType:'cells',frames:genLinearSearchFrames,
+  lsearch:{title:'Linear Search',
+    examples:[{label:'Target found',demoType:'cells',frames:genLinearSearchFrames},{label:'Target not found',demoType:'cells',frames:genLinearSearchFrames2}],
     oneLiner:'Check every item, one at a time, until you find what you\'re looking for — or run out of items.',
     explanation:[
       'Linear search is the most direct way to find something: start at the beginning and check each element in turn. It needs no preparation and works on ANY list, sorted or not.',
       'Its cost scales directly with the size of the data — to find an item that could be anywhere among n elements, you may need to check all n of them. That\'s O(n): linear in the input size.'],
+    mistakes:['Forgetting to handle "not found" — assuming the target is always present.','Re-scanning from the start on every search instead of remembering previous results.','Reaching for linear search out of habit on data that\'s already sorted, where binary search would be far cheaper.'],
     complexity:[{label:'Best case',val:'O(1)'},{label:'Worst case',val:'O(n)'},{label:'Needs sorted data?',val:'No'}],
     pseudocode:'while (inspect() !== target) {\n  move()\n}'},
-  bsearch:{title:'Binary Search',demoType:'cells',frames:genBinarySearchFrames,
+  bsearch:{title:'Binary Search',
+    examples:[{label:'Target found',demoType:'cells',frames:genBinarySearchFrames},{label:'Target not found',demoType:'cells',frames:genBinarySearchFrames2}],
     oneLiner:'On SORTED data, check the middle element and throw away the half that can\'t contain the target — repeat until found.',
     explanation:[
       'Binary search exploits one fact: if the data is sorted, comparing the target to the MIDDLE element tells you which half it must be in (if it\'s there at all) — so the other half can be discarded without ever being examined.',
       'Each comparison eliminates half of what\'s left, so the number of comparisons needed grows only as the LOGARITHM of the input size. A sorted list of a million items needs about 20 comparisons; a billion needs about 30.',
       'The requirement is strict: the data MUST already be sorted, or binary search can silently return a wrong answer instead of failing loudly. Always check that precondition first.'],
+    mistakes:['Running it on unsorted data — the algorithm doesn\'t fail loudly, it just gives a wrong answer.','Off-by-one in the midpoint or bounds (mid+1 vs mid, lo<=hi vs lo<hi), causing an infinite loop or a missed match.','Confusing "not found" with a bug — an empty lo..hi range is the correct, expected outcome for an absent target.'],
     complexity:[{label:'Time',val:'O(log n)'},{label:'Space',val:'O(1)'},{label:'Needs sorted data?',val:'Yes'}],
     pseudocode:'let lo = 0, hi = n - 1\nwhile (lo <= hi) {\n  mid = floor((lo + hi) / 2)\n  if (a[mid] === target) return mid\n  else if (a[mid] < target) lo = mid + 1\n  else hi = mid - 1\n}\nreturn "not found"'},
-  sort:{title:'Sorting (Selection Sort)',demoType:'cells',frames:genSortFrames,
+  sort:{title:'Sorting (Selection Sort)',
+    examples:[{label:'A clean sort',demoType:'cells',frames:genSortFrames},{label:'Stability with ties',demoType:'cells',frames:genSortFrames2}],
     oneLiner:'Repeatedly find the smallest remaining item and move it into place — pay the sorting cost once so every future search is fast.',
     explanation:[
       'Selection sort builds the sorted result one position at a time: for each slot, scan the entire unsorted remainder for the smallest value, then swap it into that slot.',
       'It\'s simple and needs no extra memory, but scanning "the rest of the list" for every one of the n slots costs roughly n × n operations — O(n²). General-purpose sorts (merge sort, quicksort) bring that down to O(n log n) with a divide-and-conquer structure instead.',
       'The payoff for sorting once is that everything downstream — binary search, deduplication, range queries — gets dramatically cheaper afterward.'],
+    mistakes:['Assuming a sort is stable when it isn\'t — equal elements can silently change relative order.','Re-sorting data that\'s already sorted (or nearly so) with an algorithm that can\'t take advantage of that.','Comparing values with the wrong type in mind — e.g. treating numbers as text, so "9" sorts after "10".'],
     complexity:[{label:'Time',val:'O(n²)'},{label:'Space',val:'O(1)'}],
     pseudocode:'for i in 0..n:\n  min = i\n  for j in i+1..n:\n    if a[j] < a[min]: min = j\n  swap(a[i], a[min])'},
-  maze:{title:'Pathfinding (Wall-Following)',demoType:'grid',frames:genMazeFrames,
+  maze:{title:'Pathfinding (Wall-Following)',
+    examples:[{label:'A solvable maze',demoType:'grid',frames:genMazeFrames},{label:'A sealed loop',demoType:'grid',frames:genMazeFrames2}],
     oneLiner:'With no map, keep one hand on the wall and never let go — it explores every corridor of a simple maze, including the exit.',
     explanation:[
       'The right-hand rule is a LOCAL strategy: at each step, prefer turning right if that side is open, otherwise go straight, otherwise turn left. It needs no memory of where it\'s been and no global map.',
       'It guarantees finding an exit in any simply-connected maze — but it finds A path, not necessarily the SHORTEST one. Finding the shortest path needs a different technique entirely: breadth-first search, which remembers everything it has seen.'],
+    mistakes:['Assuming wall-following always finds an exit — it only works on simply-connected mazes with no separate sealed loops.','Confusing "a path" with "the shortest path" — wall-following gives you the former, never guarantees the latter.','Getting the turn-to-direction mapping backwards, so "turn right" moves the wrong way on the grid.'],
     complexity:[{label:'Memory used',val:'O(1)'},{label:'Finds shortest path?',val:'No'}],
     pseudocode:'loop:\n  if right is open: turnRight(); move()\n  else if ahead is open: move()\n  else: turnLeft()'},
-  stack:{title:'Stacks',demoType:'cells',frames:genStackFrames,
+  stack:{title:'Stacks',
+    examples:[{label:'Push and pop',demoType:'cells',frames:genStackFrames},{label:'Popping empty',demoType:'cells',frames:genStackFrames2}],
     oneLiner:'Last in, first out. You can only add to or remove from the TOP — like a pile of plates.',
     explanation:[
       'A stack supports two operations: push (add to the top) and pop (remove from the top). Whatever was added most recently comes off first — Last In, First Out.',
       'Stacks are how computers naturally "remember what to come back to": every function call in every running program pushes a frame onto a call stack, and returning pops it off. That\'s also why runaway recursion produces a "stack overflow".'],
+    mistakes:['Popping without checking isEmpty() first.','Confusing a stack with a queue — grabbing the wrong end silently reverses the order data comes back out.'],
     complexity:[{label:'Push',val:'O(1)'},{label:'Pop',val:'O(1)'},{label:'Order',val:'LIFO'}],
     pseudocode:'stack.push(x)\nlast = stack.pop()  // removes the most recently pushed item'},
-  queue:{title:'Queues',demoType:'cells',frames:genQueueFrames,
+  queue:{title:'Queues',
+    examples:[{label:'Enqueue and dequeue',demoType:'cells',frames:genQueueFrames},{label:'Wrong end, wrong order',demoType:'cells',frames:genQueueFrames2}],
     oneLiner:'First in, first out. Add at the back, remove from the front — fairness as a data structure.',
     explanation:[
       'A queue supports enqueue (add to the back) and dequeue (remove from the front). Whoever has been waiting longest is served first — the opposite ordering from a stack.',
       'Queues are the standard buffer between a fast producer and a slower consumer: incoming requests, print jobs, or messages waiting to be handled all pile up in a queue rather than being dropped.'],
+    mistakes:['Removing from the wrong end — accidentally implementing a stack instead of a queue.','Not bounding the queue\'s size when the producer is faster than the consumer, letting it grow without limit.'],
     complexity:[{label:'Enqueue',val:'O(1)'},{label:'Dequeue',val:'O(1)'},{label:'Order',val:'FIFO'}],
     pseudocode:'queue.push(x)          // enqueue at the back\nfirst = queue.shift()  // dequeue from the front'},
-  list:{title:'Linked Lists',demoType:'cells',frames:genListFrames,
+  list:{title:'Linked Lists',
+    examples:[{label:'Splicing out a node',demoType:'cells',frames:genListFrames},{label:'Deleting the head',demoType:'cells',frames:genListFrames2}],
     oneLiner:'Instead of one big array, each item just points to the next — so removing something in the middle is one pointer change, not a shift.',
     explanation:[
       'A linked list is a chain of nodes where each node stores a value and a pointer to the NEXT node. There\'s no master array — the chain itself IS the data structure.',
       'The signature move is deletion in the middle: to remove a node, point the PREVIOUS node past it. No need to shift every following element down, unlike an array.',
       'The trade-off: arrays are faster for "give me item #500" (instant, by index); linked lists are faster for insert/remove once you\'re already at that position.'],
+    mistakes:['Deleting the head node without updating the head pointer itself — there\'s no "previous" node to splice from.','Overwriting a node\'s next pointer before saving a reference to what it used to point to, orphaning the rest of the chain.','Forgetting to handle the empty-list or single-node cases separately.'],
     complexity:[{label:'Access by index',val:'O(n)'},{label:'Insert/remove here',val:'O(1)'}],
     pseudocode:'setNext(prev, nextOf(cur))  // splices cur out of the chain'},
-  map:{title:'Hash Maps',demoType:'cells',frames:genMapFrames,
+  map:{title:'Hash Maps',
+    examples:[{label:'Build once, look up fast',demoType:'cells',frames:genMapFrames},{label:'Looking up a missing key',demoType:'cells',frames:genMapFrames2}],
     oneLiner:'Read the data once, remember it by key — every lookup after that is instant, no matter how much data there is.',
     explanation:[
       'A hash map stores values under keys so that looking one up doesn\'t require scanning anything — it computes where the value lives directly from the key.',
       'The classic pattern: build the index once (one full pass over the data), then answer every future question in constant time. Compare that to re-scanning the whole dataset for every query, which costs O(n) EVERY time.',
       'This is arguably the single most broadly useful trick in practical programming — caches, database indexes, and de-duplication are all hash maps underneath.'],
+    mistakes:['Using the result of a missing key (undefined) without checking for it first.','Assuming iteration order is guaranteed the same way across every language — don\'t rely on it unless you\'ve confirmed it.','Using a mutable object as a key, then changing it — the map can no longer find it by its new value.'],
     complexity:[{label:'Lookup',val:'O(1) average'},{label:'Build the index',val:'O(n), once'}],
     pseudocode:'index[key] = value      // build, once\nindex[key]              // lookup, O(1), forever after'},
-  pq:{title:'Priority Queues',demoType:'cells',frames:genPQFrames,
+  pq:{title:'Priority Queues',
+    examples:[{label:'Highest priority first',demoType:'cells',frames:genPQFrames},{label:'Mistaking it for FIFO',demoType:'cells',frames:genPQFrames2}],
     oneLiner:'Always serve whoever is most urgent — not whoever arrived first or has waited longest.',
     explanation:[
       'A priority queue is like a regular queue, but every removal returns the highest- (or lowest-) priority item currently waiting, whatever else has arrived since.',
       'A simple implementation rescans the whole waiting list for the max every time — O(n) per pick. A specialized structure called a HEAP keeps the max near the top and picks it in O(log n), which matters once the queue gets large.',
       'This structure is the missing piece for Dijkstra\'s algorithm: "always expand the cheapest known option next" is a priority queue in disguise.'],
+    mistakes:['Treating it like a plain queue and assuming arrival order — that defeats its entire purpose.','Not defining a clear tie-breaking rule when two items share the same priority.','Reaching for a linear re-scan (O(n) per pick) when the workload is large enough that a heap\'s O(log n) actually matters.'],
     complexity:[{label:'Pick max (scan)',val:'O(n)'},{label:'Pick max (heap)',val:'O(log n)'}],
     pseudocode:'best = index of the highest-priority waiting item\nremove and return waiting[best]'},
-  bfs:{title:'Breadth-First Search',demoType:'grid',frames:genBfsFrames,
+  bfs:{title:'Breadth-First Search',
+    examples:[{label:'Shortest path found',demoType:'grid',frames:genBfsFrames},{label:'Goal unreachable',demoType:'grid',frames:genBfsFrames2}],
     oneLiner:'Explore a graph in ripples — everything 1 step away, then 2, then 3 — using a queue. The first time you reach something is the shortest way there.',
     explanation:[
       'BFS explores a graph outward from a start point one "ring" at a time, using a queue to track what to visit next. Because it expands in rings, the very first time it reaches any node is guaranteed to be via the shortest path, measured in steps.',
       'A visited-set (often a hash map) prevents revisiting the same node twice — without it, BFS can loop forever on a graph with cycles.',
       'It visits every node and edge at most once, so its cost is O(V + E) — proportional to the whole graph\'s size, which is why it scales even to graphs with billions of edges.'],
+    mistakes:['Forgetting the visited-set — without it, BFS can revisit the same node forever on a graph with cycles.','Assuming a path always exists — a correct BFS must handle "unreachable" gracefully, not loop or crash.','Using BFS on a WEIGHTED graph, where it only guarantees fewest edges, not lowest total cost.'],
     complexity:[{label:'Time',val:'O(V + E)'},{label:'Finds shortest path?',val:'Yes (unweighted)'}],
     pseudocode:'queue = [start]\nseen = {start}\nwhile queue not empty:\n  cur = queue.shift()\n  for each neighbor of cur not in seen:\n    seen.add(neighbor); queue.push(neighbor)'},
-  dijkstra:{title:'Dijkstra\'s Algorithm',demoType:'grid',frames:genDijkstraFrames,
+  dijkstra:{title:'Dijkstra\'s Algorithm',
+    examples:[{label:'Cheapest route found',demoType:'grid',frames:genDijkstraFrames},{label:'A negative edge breaks it',demoType:'cells',frames:genDijkstraFrames2}],
     oneLiner:'Same ripple idea as BFS, but always expand the CHEAPEST known option next — for when steps don\'t cost the same.',
     explanation:[
       'Dijkstra\'s algorithm solves shortest paths when edges have different weights. Swap BFS\'s plain queue for a priority queue that always pops the cheapest-known-so-far option, and the same ripple structure now correctly handles unequal costs.',
       'This one change matters: with weights, fewest STEPS is no longer the same as least total COST — a short path through expensive terrain can lose to a longer path through cheap terrain.',
       'Add a "roughly how far is the goal?" estimate to the priority, and Dijkstra becomes A* — the algorithm most games and robots actually use for pathfinding.'],
+    mistakes:['Running it on a graph with negative weights — the core assumption breaks and it can report a wrong answer with no warning.','Forgetting to skip a node that\'s already finalized if it resurfaces in the frontier.','Reaching for Dijkstra when plain BFS (unweighted) would already be correct and simpler.'],
     complexity:[{label:'Time',val:'O((V+E) log V)'},{label:'Handles negative weights?',val:'No'}],
     pseudocode:'dist = {start: 0}\ntodo = [start]\nwhile todo not empty:\n  cur = item in todo with smallest dist\n  for each neighbor of cur:\n    newDist = dist[cur] + cost(cur, neighbor)\n    if newDist beats dist[neighbor]: update it, add neighbor to todo'},
-  topo:{title:'Topological Sort',demoType:'cells',frames:genTopoFrames,
+  topo:{title:'Topological Sort',
+    examples:[{label:'A valid order',demoType:'cells',frames:genTopoFrames},{label:'A cycle: no valid order',demoType:'cells',frames:genTopoFrames2}],
     oneLiner:'When some things must happen before others, repeatedly start whatever has no unmet dependencies left.',
     explanation:[
       'A topological sort orders the nodes of a dependency graph (arrows meaning "needs") so every arrow points from earlier to later in the final order. It only exists for graphs with NO cycles.',
       'Kahn\'s algorithm computes it with repeated sweeps: find every node whose dependencies are all satisfied, process them, and repeat. If a sweep ever finds nothing to process while nodes remain, the graph has a cycle and no valid order exists.',
       'This shows up everywhere outside of graphs specifically: build systems deciding compile order, package managers resolving installs, spreadsheets recalculating formulas.'],
+    mistakes:['Assuming a valid order always exists — a graph with a cycle has none, and the algorithm must detect that rather than loop forever.','Treating topological order as unique — any order that respects the arrows is valid; independent nodes can go in any relative order.'],
     complexity:[{label:'Time',val:'O(V + E)'},{label:'Requires',val:'No cycles (a DAG)'}],
     pseudocode:'while any node remains unstarted:\n  for each unstarted node n:\n    if every dependency of n has started: start n'},
-  quad:{title:'Recursion & Divide-and-Conquer',demoType:'grid',frames:genRecursionFrames,
+  quad:{title:'Recursion & Divide-and-Conquer',
+    examples:[{label:'Quartering to the beacon',demoType:'grid',frames:genRecursionFrames},{label:'A missing base case',demoType:'grid',frames:genRecursionFrames2}],
     oneLiner:'Solve a big problem by handing smaller copies of the same problem to yourself, down to a base case simple enough to answer directly.',
     explanation:[
       'A recursive function calls itself on a SMALLER version of the same problem, plus a base case that can be answered directly without recursing further. Every unfinished call waits on the call stack while its smaller self runs — recursion depends on the stack.',
       'Divide-and-conquer is a specific recursive pattern: split the problem into pieces, solve each piece recursively, then combine the results. Binary search is divide-and-conquer in one dimension; this quadrant search is the same idea in two.',
       'Recursion is a tool, not magic — anything recursive can also be written with an explicit loop and a manual stack. It\'s usually chosen because it mirrors the problem\'s own structure.'],
+    mistakes:['A missing or incorrect base case — recursion that never reaches a stopping condition eventually overflows the call stack.','A recursive call that doesn\'t actually shrink the problem, so it never makes progress toward the base case.','Recomputing overlapping subproblems needlessly — that\'s the entire subject of the next chapter, dynamic programming.'],
     complexity:[{label:'This search',val:'O(log(area))'},{label:'Needs',val:'A base case + shrinking input'}],
     pseudocode:'function search(region):\n  if region is 1 cell: return region\n  split region into 4 quadrants\n  probe each; recurse into the one containing the target'},
-  dp:{title:'Dynamic Programming',demoType:'cells',frames:genDPFrames,
+  dp:{title:'Dynamic Programming',
+    examples:[{label:'The bottom-up table',demoType:'cells',frames:genDPFrames},{label:'Without memoization',demoType:'cells',frames:genDPFrames2}],
     oneLiner:'Answer every sub-question exactly once, and build bigger answers out of the small answers you already have stored.',
     explanation:[
       'Plain recursion can re-solve the exact same sub-problem many times over — for "cheapest way to reach gate i"-style problems, that duplication grows exponentially. Dynamic programming stores each sub-answer the first time it\'s computed and reuses it forever after.',
       'The "bottom-up" style fills a table in order, as shown here: each entry is built from a few earlier entries. The equivalent "top-down" style keeps the natural recursion but adds a cache (memoization) so no sub-problem is solved twice.',
       'Either way, the effect is the same: an exponential brute force collapses into something polynomial — usually linear or close to it.'],
+    mistakes:['Writing plain recursion for an overlapping-subproblems situation and never adding memoization — correct, but exponentially slow.','Getting the recurrence\'s base case wrong, which quietly corrupts every value built on top of it.','Filling the table in the wrong order, so a value it depends on isn\'t ready yet when you need it.'],
     complexity:[{label:'This example',val:'O(n) time, O(n) space'},{label:'Naive recursion',val:'Exponential'}],
     pseudocode:'best[0] = 0\nfor i in 1..n:\n  best[i] = min(best[i-1], best[i-2], best[i-3]) + cost[i]'},
-  parse:{title:'Parsing (Recursive Descent)',demoType:'cells',frames:genParseFrames,
+  parse:{title:'Parsing (Recursive Descent)',
+    examples:[{label:'A nested signal decodes',demoType:'cells',frames:genParseFrames},{label:'Malformed input',demoType:'cells',frames:genParseFrames2}],
     oneLiner:'When the input\'s structure can nest inside itself, the code that reads it has to be able to call itself too.',
     explanation:[
       'Recursive descent parsing reads text left to right, and whenever it meets something that can contain a nested structure, it calls the SAME reading function on the inner piece before continuing.',
       'Flat tools like plain find-and-replace, or many regular expressions, can\'t handle arbitrary nesting because they have no way to track "how deep am I right now" — that bookkeeping is exactly what the call stack gives recursion for free.',
       'This is the same technique, at a larger scale, that reads JSON, compiles programming languages, and renders nested markup.'],
+    mistakes:['Trusting the input\'s structure without validating brackets or tokens are balanced first.','Using a flat regex or find-and-replace on data that can nest arbitrarily deep — it works on shallow examples and quietly breaks on deep ones.','Off-by-one slicing indices when extracting the "inside" of a nested block.'],
     complexity:[{label:'Time',val:'O(n) in input length'},{label:'Handles nesting?',val:'Yes, natively'}],
     pseudocode:'function decode(s):\n  if s starts with a digit:\n    decode the bracketed block that follows (recurse)\n    repeat it that many times\n  else: copy the character through'},
 };
@@ -3302,9 +3652,10 @@ function renderLearnNav(activeId){
     nav.appendChild(b);
   }
 }
-function openLearn(id){
+function openLearn(id,exampleIdx){
   if(!CONCEPTS[id])id=CONCEPT_ORDER[0];
   const c=CONCEPTS[id];
+  exampleIdx=exampleIdx||0;
   renderLearnNav(id);
   const chIdx=LEVELS.findIndex(l=>l.id===id);
   const d=$('#lvDetail');
@@ -3315,10 +3666,23 @@ function openLearn(id){
     ${c.complexity.length?`<div class="lv-cplx-row">${c.complexity.map(x=>`<div class="lv-cplx-item"><div class="lbl">${x.label}</div><div class="val">${x.val}</div></div>`).join('')}</div>`:''}
     <div class="lv-section"><h3>How it actually works</h3>${c.explanation.map(p=>`<p>${p}</p>`).join('')}</div>
     <div class="lv-section"><h3>Pseudocode</h3><div class="lv-code">${escapeHtml(c.pseudocode)}</div></div>
-    <div class="lv-section"><h3>Visualize it</h3><div id="lvViz"></div></div>
+    <div class="lv-section"><h3>Common mistakes</h3><ul class="lv-mistakes">${c.mistakes.map(m=>`<li>${m}</li>`).join('')}</ul></div>
+    <div class="lv-section">
+      <h3>Visualize it</h3>
+      <div class="lv-examples" id="lvExamples">${c.examples.map((ex,i)=>
+        `<button class="lv-ex-tab${i===exampleIdx?' cur':''}" data-ex="${i}">${ex.label}</button>`).join('')}</div>
+      <div id="lvViz"></div>
+    </div>
     ${chIdx>=0?`<a href="#" class="lv-try" id="lvTryLink">▸ Try it yourself: Chapter ${chIdx+1}</a>`:''}
   `;
-  currentVizPlayer=new VizPlayer($('#lvViz'),c.demoType,c.frames());
+  const loadExample=(i)=>{
+    const ex=c.examples[i];
+    currentVizPlayer=new VizPlayer($('#lvViz'),ex.demoType,ex.frames());
+    $('#lvExamples').querySelectorAll('.lv-ex-tab').forEach(b=>b.classList.toggle('cur',+b.dataset.ex===i));
+  };
+  $('#lvExamples').querySelectorAll('.lv-ex-tab').forEach(b=>
+    b.addEventListener('click',()=>loadExample(+b.dataset.ex)));
+  loadExample(exampleIdx);
   const tryLink=$('#lvTryLink');
   if(tryLink)tryLink.addEventListener('click',(e)=>{e.preventDefault();closeLearn();loadLevel(chIdx);});
   $('#learnView').classList.add('show');

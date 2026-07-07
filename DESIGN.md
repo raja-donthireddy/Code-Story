@@ -233,6 +233,27 @@ career-switcher's inner monologue, doing the conceptual connective work).
     chapter level builders (`LEVELS.find(l=>l.id==='bfs').build(...)`)
     rather than a hand-authored maze, so the demo world is guaranteed
     solvable by construction instead of by manual verification.
+- **A second example + a mistakes list, per concept.** Each `CONCEPTS[id]`
+  gained an `examples: [{label, demoType, frames}, ...]` array (was a
+  single `frames` function) rendered as a tab strip above the player, plus
+  a `mistakes: [...]` array rendered as a warning-accented bullet list.
+  Every second example deliberately puts a real failure mode on screen
+  rather than a second happy path: binary search's "not found" termination,
+  a fully sealed maze loop that traps wall-following forever, selection
+  sort silently reordering two tied crates (`[20A,20B,5C]` — the textbook
+  minimal instability counter-example, since naive selection sort *is*
+  usually accidentally stable on small inputs and a careless example would
+  undercut its own point), a hash-map lookup on a key that was never
+  inserted, a linked-list head deletion (the one case with no `prev` to
+  splice from), Kahn's algorithm stalling on a 3-node cycle, and a
+  hand-verified 3-node directed graph (`A→B(4), A→C(1), B→C(−10)`) where
+  Dijkstra provably finalizes C too early and never reconsiders it once B
+  reveals the cheaper route — traced by hand against the actual `finalized`
+  Set logic before shipping, since a wrong "the algorithm fails" demo would
+  be worse than none. Every mistake example still *computes* its outcome
+  live (e.g. the sort-stability caption branches on the real post-sort
+  order) rather than asserting a scripted one, so it can't drift out of
+  sync with the code that produces it.
 - **Resizable panels:** the fixed 310px/430px mission and editor columns
   became `var(--mission-w,310px)`/`var(--game-w,430px)` grid tracks with
   a thin `.resizer` div dropped between them (and between the editor and
