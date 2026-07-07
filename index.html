@@ -168,6 +168,8 @@
   .tile.mark-bad{border-color:var(--bad);background:#241014}
   .tile.mark-bad::before{color:var(--bad)}
   .tile.mark-dim{opacity:.3}
+  .tile.mark-active{border-color:var(--accent);background:#132038}
+  .tile.mark-active::before{color:var(--accent)}
   .tlabel{font-size:9px;line-height:1;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
   .tidx{position:absolute;top:1px;left:3px;font-size:8px;line-height:1;color:#42546d;font-variant-numeric:tabular-nums}
   .sdiv{color:var(--muted);font-size:10px;letter-spacing:.14em;align-self:center;padding:0 4px;user-select:none}
@@ -2023,6 +2025,482 @@ transmit(decode(signal()));
     <p>That's also why plain find-and-replace shattered on trial 2 — and it's the famous reason regular expressions alone can't parse HTML: <em>flat tools can't track nesting</em>. Nesting needs a stack — which recursion gives you for free (chapter 8, one last time).</p>
     <div class="real"><div class="bt">In the wild</div><code>JSON.parse</code>, every compiler and template engine, spreadsheet formulas, markdown renderers — and the regexes you WILL write at work, now with an honest sense of where they stop being enough.</div>`},
 },
+
+/* ============ SEASON 5 — THE DEEP ARCHIVE ============ */
+
+/* ---- 19 · binary search trees ---- */
+{
+  id:'bst',title:'The Index Tree',concept:'Binary search trees',
+  seeds:[302,344,381],
+  brief:[
+    ['HALCYON','The signal changes shape, engineer. Where there was an apology, there is now an offer — a channel, and behind it something the scanners call the Deep Archive. Its index is not a flat list. It is a tree.'],
+    ['BYTE','Fifteen records, four levels. No array to slice — just a root, and two children per node. The shape is new. The trick underneath it is not.'],
+    ['YOU','Compare against whatever node I\'m standing on. Smaller than what I want — go left. Larger — go right. Equal — found it. Binary search taught me this before I even knew what a tree was.'],
+  ],
+  objective:'Starting at root(), find the record matching target() by walking leftOf()/rightOf() child pointers based on comparisons. select(id) once you land on the match. Works on all 3 randomized trees.',
+  api:[
+    ['root()','ID of the tree\'s root node.'],
+    ['keyOf(id)','The key stored at that node.'],
+    ['leftOf(id) / rightOf(id)','Child node IDs on that side, or null if there is none.'],
+    ['select(id)','Declare this node the match. Wrong node fails the trial.'],
+  ],
+  starter:`// Walk the tree: start at the root. At each node, compare
+// its key to target(). Equal -> select it. The target is
+// SMALLER than this key -> go left (leftOf). LARGER -> go right.
+
+let cur = root();
+const t = target();
+while (true) {
+  const k = keyOf(cur);
+  if (k === t) {
+    select(cur);
+    break;
+  } else if (t < k) {
+    cur = leftOf(cur);
+  } else {
+    cur = rightOf(cur);
+  }
+}
+`,
+  build(rng){
+    const world=emptyWorld(17,4);
+    for(let y=0;y<4;y++)for(let x=0;x<17;x++)world.tiles[y][x].type='floor';
+    const values=[];let v=ri(rng,100,130);
+    for(let i=0;i<15;i++){values.push(v);v+=ri(rng,6,22);}
+    // Assign the sorted values by IN-ORDER traversal of the array-indexed
+    // tree (2i+1/2i+2 children) so the result is an actual valid BST —
+    // straight index order would put the smallest value at the root.
+    const inorder=[];
+    (function visit(i){if(i>14)return;visit(2*i+1);inorder.push(i);visit(2*i+2);})(0);
+    const keyOf={};
+    inorder.forEach((nodeIdx,k)=>{keyOf[nodeIdx]=values[k];});
+    const levelX=[[8],[4,12],[2,6,10,14],[1,3,5,7,9,11,13,15]];
+    const positions={};
+    let idx=0;
+    for(let d=0;d<4;d++)for(const x of levelX[d]){positions[idx]={x,y:d};idx++;}
+    const nodes={};
+    for(let i=0;i<15;i++)nodes[i]={key:keyOf[i],left:2*i+1<=14?2*i+1:null,right:2*i+2<=14?2*i+2:null};
+    for(let i=0;i<15;i++){
+      const p=positions[i],t=world.tiles[p.y][p.x];
+      t.type='record';t.idx=i;t.revealed=true;t.label=String(nodes[i].key);
+    }
+    const targetIdx=ri(rng,0,14);
+    world.meta={nodes,positions,target:nodes[targetIdx].key,selected:null};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      root:()=>{opTick(sim);return 0;},
+      target:()=>{opTick(sim);return m.target;},
+      keyOf:(id)=>{opTick(sim);
+        if(id===null||id===undefined||!(id in m.nodes))throw new Error(`keyOf(${id}) — that\'s not a node. Did you follow leftOf/rightOf past a null child?`);
+        const p=m.positions[id];
+        sim.actions.push({t:'ping',x:p.x,y:p.y});bump(sim,'reads');
+        return m.nodes[id].key;},
+      leftOf:(id)=>{opTick(sim);if(!(id in m.nodes))throw new Error(`leftOf(${id}) — no such node.`);return m.nodes[id].left;},
+      rightOf:(id)=>{opTick(sim);if(!(id in m.nodes))throw new Error(`rightOf(${id}) — no such node.`);return m.nodes[id].right;},
+      select:(id)=>{opTick(sim);
+        if(id===null||id===undefined||!(id in m.nodes))throw new Error(`select(${id}) — you walked off the tree without finding it. Check the comparison direction: smaller goes LEFT.`);
+        const p=m.positions[id];
+        if(m.nodes[id].key===m.target){m.selected=id;sim.actions.push({t:'mark',x:p.x,y:p.y,cls:'ok'});maybeWin(sim);}
+        else{sim.actions.push({t:'mark',x:p.x,y:p.y,cls:'bad'});throw new Error(`Node ${id} holds ${m.nodes[id].key}, not ${m.target}. Trial failed.`);}
+      },
+    };
+  },
+  win(sim){return sim.world.meta.selected!==null;},
+  success:'Root to leaf, a handful of comparisons, exact record. The archive index yields.',
+  card:{title:'Binary search trees: search generalized to a shape',body:`
+    <p>A <b>binary search tree</b> keeps the same ordering guarantee as a sorted array — everything smaller lives one way, everything larger the other — but stores it as an explicit shape instead of contiguous memory. There\'s no midpoint to compute; the tree\'s structure already encodes it.</p>
+    <p>Searching costs one comparison per LEVEL, so a balanced tree of n nodes costs O(log n) — the same reason array binary search does. The catch: if values arrive already sorted and nothing rebalances the tree, it degrades into a straight line — a linked list wearing a tree\'s name, back to O(n).</p>
+    <div class="real"><div class="bt">In the wild</div>Database indexes (B-trees are a wide, disk-friendly cousin of this), filesystem directories, and any "keep it sorted AND let me insert efficiently" structure — arrays are bad at the second half of that sentence; trees are built for it.</div>`},
+},
+
+/* ---- 20 · heaps ---- */
+{
+  id:'heap',title:'The Sift',concept:'Binary heaps — O(log n) priority',
+  seeds:[411,459],
+  brief:[
+    ['HALCYON','Chapter 12 taught you to rescan the whole waiting list for the most urgent job, every single time. Honest — and it does not scale. The archive\'s own scheduler does not do that.'],
+    ['BYTE','A binary heap: an array secretly shaped like a tree. The smallest value always sits at index 0. Removing it costs a few swaps down ONE path — never a scan of everything.'],
+    ['YOU','Move the last element to the root, then let it sink: swap with whichever child is smaller, until it\'s lighter than both or it hits a leaf. Do that for every extraction and the whole thing comes out sorted.'],
+  ],
+  objective:'The array below is already a valid min-heap. Repeatedly extract the minimum and restore the heap (move the last element to the root, then sift it down) until every job has been reported — in fully sorted order.',
+  api:[
+    ['heapSize()','Current number of jobs still in the heap.'],
+    ['heapPeek()','The value at index 0 — the current minimum in a valid heap.'],
+    ['heapValueAt(i)','The value at heap index i.'],
+    ['heapSwap(i, j)','Swap two heap slots.'],
+    ['heapShrink()','Remove the last slot, shrinking the heap by one.'],
+    ['report(msg)','Report each extracted minimum, in order.'],
+  ],
+  starter:`// One extraction:
+//  1. report the current minimum: heapPeek()
+//  2. move the LAST element into the root: heapSwap(0, heapSize() - 1)
+//  3. heapShrink() to drop the now-duplicated last slot
+//  4. sift the new root DOWN: while it has a smaller child,
+//     swap with the smaller child and continue from there.
+// Repeat until the heap is empty.
+
+while (heapSize() > 0) {
+  report(heapPeek());
+  heapSwap(0, heapSize() - 1);
+  heapShrink();
+  let i = 0;
+  while (true) {
+    let smallest = i;
+    const l = 2 * i + 1, r = 2 * i + 2;
+    if (l < heapSize() && heapValueAt(l) < heapValueAt(smallest)) smallest = l;
+    if (r < heapSize() && heapValueAt(r) < heapValueAt(smallest)) smallest = r;
+    if (smallest === i) break;
+    heapSwap(i, smallest);
+    i = smallest;
+  }
+}
+`,
+  build(rng){
+    const world=emptyWorld(10,3);
+    const vals=[],seen=new Set();
+    while(seen.size<8){const v=ri(rng,10,99);if(!seen.has(v)){seen.add(v);vals.push(v);}}
+    const heap=[...vals];
+    const n=heap.length;
+    const siftDown=(a,i,size)=>{
+      while(true){
+        let smallest=i;const l=2*i+1,r=2*i+2;
+        if(l<size&&a[l]<a[smallest])smallest=l;
+        if(r<size&&a[r]<a[smallest])smallest=r;
+        if(smallest===i)break;
+        [a[i],a[smallest]]=[a[smallest],a[i]];i=smallest;
+      }
+    };
+    for(let i=Math.floor(n/2)-1;i>=0;i--)siftDown(heap,i,n);
+    for(let x=1;x<=8;x++){const t=world.tiles[1][x];t.type='crate';t.idx=x-1;t.weight=heap[x-1];t.label=String(heap[x-1]);t.revealed=true;}
+    world.meta={heap,expected:[...vals].sort((a,b)=>a-b)};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const posOf=(i)=>i+1;
+    return {
+      heapSize:()=>{opTick(sim);return m.heap.length;},
+      heapPeek:()=>{opTick(sim);
+        if(!m.heap.length)throw new Error('heapPeek() on an empty heap — nothing left to extract.');
+        sim.actions.push({t:'mark',x:posOf(0),y:1,cls:'active'});
+        return m.heap[0];},
+      heapValueAt:(i)=>{opTick(sim);checkIndex(i,m.heap.length,'heapValueAt');return m.heap[i];},
+      heapSwap:(i,j)=>{opTick(sim);checkIndex(i,m.heap.length,'heapSwap');checkIndex(j,m.heap.length,'heapSwap');
+        [m.heap[i],m.heap[j]]=[m.heap[j],m.heap[i]];
+        sim.actions.push({t:'swap',i,j});bump(sim,'swaps');},
+      heapShrink:()=>{opTick(sim);
+        if(!m.heap.length)throw new Error('heapShrink() on an empty heap.');
+        const removed=m.heap.length-1;m.heap.pop();
+        sim.actions.push({t:'mark',x:posOf(removed),y:1,cls:'dim'});},
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    const m=sim.world.meta;
+    const reports=sim.actions.filter(a=>a.t==='report').map(a=>Number(a.msg));
+    if(reports.length!==m.expected.length){sim.failed=`Reported ${reports.length} values; expected ${m.expected.length} — every job must be extracted exactly once.`;return false;}
+    for(let i=0;i<reports.length;i++)if(reports[i]!==m.expected[i]){
+      sim.failed=`Report #${i+1} was ${reports[i]}, expected ${m.expected[i]} — the heap property broke somewhere during a sift-down.`;return false;}
+    return true;
+  },
+  success:'Eight jobs, eight extractions, perfectly sorted — each one costing a few swaps down one path, never a full rescan.',
+  card:{title:'Heaps: the O(log n) answer to chapter 12',body:`
+    <p>A <b>binary heap</b> is an array that secretly behaves like a tree: index i\'s children live at 2i+1 and 2i+2. A MIN-heap keeps the smallest value at the root at all times — not sorted everywhere, just "smaller than both children," which is far cheaper to maintain.</p>
+    <p>Removing the minimum costs one path from root to leaf — O(log n) — instead of chapter 12\'s full O(n) rescan. Repeat the extraction and a heap becomes a sorting algorithm for free: this is literally how <b>heapsort</b> works.</p>
+    <div class="real"><div class="bt">In the wild</div>Every real priority-queue library, OS task schedulers, Dijkstra\'s and A*\'s "expand the cheapest frontier node" step, and the top-K-items family of interview questions — almost always the intended answer once "O(n) per pick" stops being fast enough.</div>`},
+},
+
+/* ---- 21 · greedy algorithms ---- */
+{
+  id:'greedy',title:'The Broadcast Window',concept:'Greedy algorithms',
+  seeds:[512,567],
+  brief:[
+    ['HALCYON','The archive will only transmit through ONE antenna, engineer, and every decryption job wants a different slice of time. Pick badly and half the queue never runs at all.'],
+    ['BYTE','Seven jobs, all overlapping somehow. You cannot run two at once. The goal isn\'t to fill the most TIME — it\'s to complete the most JOBS.'],
+    ['YOU','Don\'t chase the longest or the earliest — chase whichever job FINISHES soonest among what\'s still possible. Lock it in, skip everything it collides with, and ask the same question again.'],
+  ],
+  objective:'Choose the maximum number of non-overlapping broadcast windows out of 7 candidates. choose(i) locks a window in; it fails if it overlaps one you already chose. The count must reach the true maximum — not just any non-overlapping set.',
+  api:[
+    ['windowCount()','Number of candidate windows (7).'],
+    ['windowAt(i)','{start, end} for window i.'],
+    ['choose(i)','Lock window i into the schedule. Overlapping an already-chosen window fails the trial.'],
+  ],
+  starter:`// Greedy by END TIME: sort windows by when they FINISH,
+// then take every window whose start is at or after the
+// end of the last one you took.
+
+const n = windowCount();
+let idx = [];
+for (let i = 0; i < n; i++) idx.push(i);
+idx.sort((a, b) => windowAt(a).end - windowAt(b).end);
+
+let lastEnd = -Infinity;
+for (const i of idx) {
+  const w = windowAt(i);
+  if (w.start >= lastEnd) {
+    choose(i);
+    lastEnd = w.end;
+  }
+}
+`,
+  build(rng){
+    const scheduleBy=(intervals,keyFn)=>{
+      const idx=intervals.map((_,i)=>i).sort((a,b)=>keyFn(intervals[a])-keyFn(intervals[b]));
+      let count=0,lastEnd=-Infinity;
+      for(const i of idx)if(intervals[i].start>=lastEnd){count++;lastEnd=intervals[i].end;}
+      return count;
+    };
+    for(let tries=0;tries<400;tries++){
+      const n=7,intervals=[];
+      for(let i=0;i<n;i++){const start=ri(rng,0,15);intervals.push({start,end:start+ri(rng,1,6)});}
+      const trueMax=scheduleBy(intervals,iv=>iv.end);
+      const byDuration=scheduleBy(intervals,iv=>iv.end-iv.start);
+      const byStart=scheduleBy(intervals,iv=>iv.start);
+      if(trueMax<3||trueMax<=byDuration||trueMax<=byStart)continue;
+      const world=emptyWorld(9,3);
+      for(let x=1;x<=n;x++){const t=world.tiles[1][x];t.type='record';t.idx=x-1;t.revealed=true;t.label=`${intervals[x-1].start}–${intervals[x-1].end}`;}
+      world.meta={intervals,trueMax,chosen:new Set()};
+      return world;
+    }
+    throw new Error('window generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      windowCount:()=>{opTick(sim);return m.intervals.length;},
+      windowAt:(i)=>{opTick(sim);checkIndex(i,m.intervals.length,'windowAt');
+        sim.actions.push({t:'ping',x:i+1,y:1});return {...m.intervals[i]};},
+      choose:(i)=>{opTick(sim);checkIndex(i,m.intervals.length,'choose');
+        if(m.chosen.has(i))throw new Error(`Window ${i} was already chosen.`);
+        for(const j of m.chosen){
+          const a=m.intervals[i],b=m.intervals[j];
+          if(a.start<b.end&&b.start<a.end)throw new Error(`Window ${i} [${a.start}–${a.end}] overlaps window ${j} [${b.start}–${b.end}] — the antenna runs one decryption at a time. Trial failed.`);
+        }
+        m.chosen.add(i);
+        sim.actions.push({t:'mark',x:i+1,y:1,cls:'ok'});bump(sim,'chosen');},
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    const m=sim.world.meta;
+    if(m.chosen.size<m.trueMax){sim.failed=`Scheduled ${m.chosen.size} windows; ${m.trueMax} is achievable. Sort by END TIME (not duration, not start time) and greedily take every compatible window.`;return false;}
+    return true;
+  },
+  success:'Every antenna slot booked to the theoretical maximum — greedy, and provably optimal for this exact problem shape.',
+  card:{title:'Greedy algorithms: the locally-best choice, done right',body:`
+    <p>A <b>greedy algorithm</b> builds a solution by always taking the choice that looks best RIGHT NOW, never reconsidering it. That sounds reckless — and for many problems it is — but for <b>interval scheduling</b>, greedy-by-earliest-finish-time is provably optimal: the job that ends soonest always leaves the most room for everything after it.</p>
+    <p>The trap is assuming greedy always works. Sort by DURATION instead (shortest job first) or by START time, and you can strictly do worse — one short-but-badly-placed job can block two better ones. Greedy needs a proof, not just intuition, before you trust it.</p>
+    <div class="real"><div class="bt">In the wild</div>Meeting-room and CPU schedulers, Huffman coding, minimum-spanning-tree algorithms (Kruskal\'s, Prim\'s) — and a favorite interview trap, since "greedy feels right" is exactly how the wrong answer sneaks past a demo.</div>`},
+},
+
+/* ---- 22 · two pointers / sliding window ---- */
+{
+  id:'twoptr',title:'The Shortest Span',concept:'Two pointers — sliding window',
+  seeds:[611,655],
+  brief:[
+    ['HALCYON','Twelve seconds of telemetry, engineer, and a power threshold the receiver needs to lock on. I don\'t need the whole stream — I need the SHORTEST run of consecutive seconds that clears it.'],
+    ['BYTE','Checking every possible span costs n² comparisons. There is a way to slide through this stream and touch each second only a couple of times, total.'],
+    ['YOU','Grow a window from the right until it clears the threshold. Then shrink it from the left for as long as it STILL clears — every shrink that survives is a shorter answer. When it stops surviving, grow again.'],
+  ],
+  objective:'Find the SHORTEST contiguous span of readings whose sum is at least threshold(), and report it with reportWindow(start, end) (inclusive indices). A span that meets the threshold but isn\'t the shortest one fails the trial.',
+  api:[
+    ['streamLength()','Number of readings (12).'],
+    ['readingAt(i)','The power reading at index i.'],
+    ['threshold()','The minimum sum a span must reach.'],
+    ['reportWindow(start, end)','Report your answer as inclusive indices [start, end].'],
+  ],
+  starter:`// Sliding window: grow 'right' until the running sum
+// clears threshold(); then shrink 'left' while it STILL
+// clears, recording the shortest span seen. Then keep growing.
+
+const n = streamLength();
+const t = threshold();
+let left = 0, sum = 0;
+let bestLen = Infinity, bestStart = -1, bestEnd = -1;
+
+for (let right = 0; right < n; right++) {
+  sum += readingAt(right);
+  while (sum >= t) {
+    if (right - left + 1 < bestLen) {
+      bestLen = right - left + 1;
+      bestStart = left;
+      bestEnd = right;
+    }
+    sum -= readingAt(left);
+    left++;
+  }
+}
+reportWindow(bestStart, bestEnd);
+`,
+  build(rng){
+    for(let tries=0;tries<300;tries++){
+      const n=12,arr=[];
+      for(let i=0;i<n;i++)arr.push(ri(rng,1,9));
+      const total=arr.reduce((a,b)=>a+b,0);
+      const target=ri(rng,Math.floor(total*0.28),Math.floor(total*0.42));
+      let left=0,sum=0,minLen=Infinity,bestStart=-1,bestEnd=-1;
+      for(let right=0;right<n;right++){
+        sum+=arr[right];
+        while(sum>=target){
+          if(right-left+1<minLen){minLen=right-left+1;bestStart=left;bestEnd=right;}
+          sum-=arr[left];left++;
+        }
+      }
+      if(minLen===Infinity||minLen<2||minLen>5)continue;
+      const world=emptyWorld(14,3);
+      for(let x=1;x<=n;x++){const t=world.tiles[1][x];t.type='rad';t.idx=x-1;t.cost=arr[x-1];t.val=arr[x-1];}
+      world.meta={arr,target,minLen,bestStart,bestEnd,reported:false};
+      return world;
+    }
+    throw new Error('stream generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      streamLength:()=>{opTick(sim);return m.arr.length;},
+      readingAt:(i)=>{opTick(sim);checkIndex(i,m.arr.length,'readingAt');
+        sim.actions.push({t:'ping',x:i+1,y:1});return m.arr[i];},
+      threshold:()=>{opTick(sim);return m.target;},
+      reportWindow:(start,end)=>{opTick(sim);
+        if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end>=m.arr.length||start>end)
+          throw new Error(`reportWindow(${start}, ${end}) — needs 0 <= start <= end <= ${m.arr.length-1}.`);
+        let sum=0;for(let i=start;i<=end;i++)sum+=m.arr[i];
+        const len=end-start+1;
+        if(sum<m.target)throw new Error(`Span [${start},${end}] sums to ${sum} — below the threshold of ${m.target}. Trial failed.`);
+        if(len>m.minLen)throw new Error(`Span [${start},${end}] (length ${len}) clears the threshold, but a length-${m.minLen} span exists. Shrink from the left while the sum still clears — don\'t stop at the first span that works.`);
+        for(let i=start;i<=end;i++)sim.actions.push({t:'mark',x:i+1,y:1,cls:'ok'});
+        m.reported=true;maybeWin(sim);},
+    };
+  },
+  win(sim){return sim.world.meta.reported===true;},
+  success:'The shortest span that clears the threshold, found by touching each second only a couple of times — not by checking every possible span.',
+  card:{title:'Two pointers: one pass instead of nested loops',body:`
+    <p>The brute-force answer to "shortest span meeting a condition" checks every start and every end — O(n²). A <b>sliding window</b> keeps two pointers, left and right, and only ever moves them FORWARD: expand right to gather more, contract left to tighten, never backtrack.</p>
+    <p>Because each pointer only ever advances, and never by more than n steps total, the whole scan costs O(n) — even though it FEELS like it\'s checking many spans. This pattern applies whenever a window\'s "goodness" changes predictably as you grow or shrink it from either end.</p>
+    <div class="real"><div class="bt">In the wild</div>"Longest substring without repeating characters," "smallest subarray with sum ≥ K," streaming rate limiters, and TCP\'s actual sliding window — a hugely common interview pattern once you know to look for it.</div>`},
+},
+
+/* ---- 23 · backtracking ---- */
+{
+  id:'backtrack',title:'The Sentry Grid',concept:'Backtracking',
+  seeds:[733,777],
+  brief:[
+    ['HALCYON','The vault, engineer. Five sentries, one per row, none sharing a row, column, or diagonal with another — and two cells are physically damaged, unusable. Get it wrong and the only way forward is back.'],
+    ['BYTE','Try a placement. If it survives, move to the next row. If nothing in the next row works, undo the LAST placement and try a different column. That "undo" is the entire idea.'],
+    ['YOU','Not recursion that only ever goes forward, and not a table that remembers everything — a search that commits, discovers a dead end, and takes the commitment back. Try. Fail. Undo. Try again.'],
+  ],
+  objective:'Place exactly 5 sentries, one per row on a 5×5 grid, so that no two share a row, column, or diagonal, avoiding the 2 damaged cells. Use isSafe() before every place(), and remove() to backtrack out of a dead end.',
+  api:[
+    ['boardSize()','Board width/height (5).'],
+    ['isBlocked(row, col)','true if that cell is damaged and unusable.'],
+    ['isSafe(row, col)','true if a sentry here would not conflict with any already placed, and isn\'t blocked.'],
+    ['place(row, col)','Place a sentry. Throws if the cell is unsafe.'],
+    ['remove(row, col)','Remove a previously placed sentry — how you backtrack.'],
+  ],
+  starter:`// Classic backtracking: try row by row.
+// For each row, try every column; if isSafe, place() and
+// recurse to the next row. If the recursion fails, remove()
+// and try the next column. If NO column works, this whole
+// row fails -- return false so the row above tries again.
+
+const n = boardSize();
+
+function solve(row) {
+  if (row === n) return true;
+  for (let col = 0; col < n; col++) {
+    if (isSafe(row, col)) {
+      place(row, col);
+      if (solve(row + 1)) return true;
+      remove(row, col);
+    }
+  }
+  return false;
+}
+
+solve(0);
+`,
+  build(rng){
+    const n=5;
+    const solves=(blocked)=>{
+      const bset=new Set(blocked.map(([r,c])=>r+','+c));
+      const cols=new Set(),d1=new Set(),d2=new Set();
+      const safe=(row,col)=>!bset.has(row+','+col)&&!cols.has(col)&&!d1.has(row-col)&&!d2.has(row+col);
+      const solve=(row)=>{
+        if(row===n)return true;
+        for(let col=0;col<n;col++){
+          if(safe(row,col)){
+            cols.add(col);d1.add(row-col);d2.add(row+col);
+            if(solve(row+1))return true;
+            cols.delete(col);d1.delete(row-col);d2.delete(row+col);
+          }
+        }
+        return false;
+      };
+      return solve(0);
+    };
+    for(let tries=0;tries<200;tries++){
+      const blocked=[];
+      while(blocked.length<2){
+        const r=ri(rng,0,n-1),c=ri(rng,0,n-1);
+        if(!blocked.some(([br,bc])=>br===r&&bc===c))blocked.push([r,c]);
+      }
+      if(!solves(blocked))continue;
+      const world=emptyWorld(n,n);
+      for(let y=0;y<n;y++)for(let x=0;x<n;x++)world.tiles[y][x].type='floor';
+      for(const [r,c] of blocked)world.tiles[r][c].type='wall';
+      world.meta={n,blocked:blocked.map(([r,c])=>r+','+c),placed:new Map()};
+      return world;
+    }
+    throw new Error('board generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const key=(r,c)=>r+','+c;
+    const conflicts=(row,col)=>{
+      for(const k of m.placed.keys()){
+        const [pr,pc]=k.split(',').map(Number);
+        if(pc===col||pr-pc===row-col||pr+pc===row+col)return true;
+      }
+      return false;
+    };
+    return {
+      boardSize:()=>{opTick(sim);return m.n;},
+      isBlocked:(row,col)=>{opTick(sim);return m.blocked.includes(key(row,col));},
+      isSafe:(row,col)=>{opTick(sim);
+        if(row<0||col<0||row>=m.n||col>=m.n)throw new Error(`isSafe(${row}, ${col}) — outside the ${m.n}×${m.n} board.`);
+        return !m.blocked.includes(key(row,col))&&!conflicts(row,col);},
+      place:(row,col)=>{opTick(sim);
+        if(row<0||col<0||row>=m.n||col>=m.n)throw new Error(`place(${row}, ${col}) — outside the board.`);
+        if(m.blocked.includes(key(row,col)))throw new Error(`place(${row}, ${col}) — that cell is damaged. Check isBlocked() first.`);
+        if(conflicts(row,col))throw new Error(`place(${row}, ${col}) — conflicts with a sentry already on the board. Check isSafe() before placing.`);
+        m.placed.set(key(row,col),true);
+        sim.actions.push({t:'mark',x:col,y:row,cls:'ok'});bump(sim,'placements');},
+      remove:(row,col)=>{opTick(sim);
+        if(!m.placed.has(key(row,col)))throw new Error(`remove(${row}, ${col}) — there is no sentry there to remove.`);
+        m.placed.delete(key(row,col));
+        sim.actions.push({t:'mark',x:col,y:row,cls:'dim'});},
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    const m=sim.world.meta;
+    if(m.placed.size!==m.n){sim.failed=`${m.placed.size} of ${m.n} sentries placed at the end — the board must end with exactly ${m.n}, one per row.`;return false;}
+    const cells=[...m.placed.keys()].map(k=>k.split(',').map(Number));
+    for(let i=0;i<cells.length;i++)for(let j=i+1;j<cells.length;j++){
+      const [r1,c1]=cells[i],[r2,c2]=cells[j];
+      if(c1===c2||r1-c1===r2-c2||r1+c1===r2+c2){sim.failed=`Sentries at (${r1},${c1}) and (${r2},${c2}) conflict — final placement isn\'t valid.`;return false;}
+    }
+    return true;
+  },
+  success:'Five sentries, zero conflicts, two damaged cells avoided. Every dead end this search hit, it backed out of and tried again.',
+  card:{title:'Backtracking: commit, discover, undo, retry',body:`
+    <p><b>Backtracking</b> is depth-first search over CHOICES rather than tiles or nodes: try an option, recurse as if it were correct, and if that path dead-ends, UNDO it and try the next option. The undo — <code>remove()</code> mirroring <code>place()</code> — is the entire idea; plain recursion (chapter 16) never needed to take a choice back.</p>
+    <p>The <code>isSafe()</code> check is what makes this fast in practice: it prunes an entire branch of "what ifs" the instant a partial placement is already invalid, instead of building out every full board and checking it at the end.</p>
+    <div class="real"><div class="bt">In the wild</div>N-Queens is the textbook example, but the same shape solves Sudoku, generates all permutations or subsets, and powers combinatorial search in planning and constraint-satisfaction systems — anywhere "try it, and be willing to take it back" beats trying to see the whole answer in advance.</div>`},
+},
 ];
 
 /* ============================================================
@@ -2638,6 +3116,16 @@ const HINTS={
         'best[i] = toll[i] + the smallest of best[i-1], best[i-2], best[i-3]. Fill the array left to right, record from[i], then walk from[] backwards from gate 25 and reverse.'],
   parse:['Letters copy straight to the output. A digit announces a bracket block: decode what is INSIDE the block first, then repeat it.',
         'Inside a block there can be more blocks — so decode the slice with the SAME function: out += decode(s.slice(i + 2, close)) repeated Number(c) times, then i = close + 1.'],
+  bst:['Every node answers one question: is the target smaller, bigger, or equal to keyOf(cur)? Smaller goes left, bigger goes right.',
+        'while (true) { const k = keyOf(cur); if (k === t) { select(cur); break; } cur = t < k ? leftOf(cur) : rightOf(cur); } — three trials, same code, different tree.'],
+  heap:['heapValueAt(0) is always the minimum in a valid min-heap. Extracting it means moving the LAST element to the root, then sifting it back down.',
+        'Loop while heapSize() > 0: report(heapPeek()); move the last value to index 0 (swap then shrink), then sift it down by repeatedly swapping with its smaller child until it is no longer bigger than either child.'],
+  greedy:['Sort by END time, not start time and not duration. Always take the earliest-ending window that does not overlap the last one you chose.',
+        'Sort indices by the end of windowAt(i). Track lastEnd = -Infinity. For each window in that order: if its start >= lastEnd, choose(i) and set lastEnd to its end.'],
+  twoptr:['Grow the right edge until the sum is enough, then shrink from the left while it is STILL enough — that is how you find the shortest span, not just any span.',
+        'Expand end, adding readingAt(end) to a running sum. Whenever sum >= threshold(), record the window length if it is the best so far, then subtract readingAt(start) and advance start to shrink.'],
+  backtrack:['Place a sentry, then check every ALREADY-placed sentry for a shared column or diagonal — not just the row you are on.',
+        'Recursive row-by-row placement: for each col, if isSafe(row, col) call place(row, col), recurse to row + 1, and if that path fails remove(row, col) and try the next column.'],
   side_lb:['A match is not the end — an EARLIER match might exist to the left. Shrink toward the left even when idAt(mid) equals the target.',
         'If idAt(mid) >= target(): hi = mid - 1. Else: lo = mid + 1. When the loop ends, lo is the first index whose id is >= target — open(lo).'],
   side_brackets:['Openers stack up; every closer must match the TOP of the stack. Store [char, index] pairs so you can report positions.',
@@ -3384,10 +3872,415 @@ function genParseFrames2(){
   ];
 }
 
+function genBSTFrames(){
+  const levels=[[50],[30,70],[20,40,60,80]];
+  const target=60;
+  let d=0,p=0,cur=levels[0][0];
+  const steps=[];
+  while(true){
+    steps.push({d,p,val:cur});
+    if(cur===target)break;
+    p=target<cur?p*2:p*2+1;
+    d++;cur=levels[d][p];
+  }
+  const snap=(active,visited,caption)=>({rows:levels.map((row,di)=>({label:'depth '+di,cells:row.map((v,pi)=>({
+    text:String(v),
+    cls:(active&&active.d===di&&active.p===pi)?(v===target?'good':'active'):(visited.some(s=>s.d===di&&s.p===pi)?'dim':'')}))})),caption});
+  const frames=[snap(null,[],`Searching for ${target}. Compare against the root; smaller goes left, larger goes right.`)];
+  const visited=[];
+  for(let i=0;i<steps.length;i++){
+    const s=steps[i];
+    const caption=s.val===target
+      ?`Node ${s.val}: match — found in ${i+1} comparison${i+1>1?'s':''}, one per level instead of scanning all ${levels.flat().length} nodes.`
+      :`Node ${s.val} vs ${target}: ${target<s.val?`${target} is smaller → go left.`:`${target} is larger → go right.`}`;
+    frames.push(snap(s,visited,caption));
+    visited.push(s);
+  }
+  return frames;
+}
+function genBSTFrames2(){
+  const vals=[10,20,30,40,50];
+  let root=null;
+  const insert=(node,v)=>{if(!node)return{v,l:null,r:null};if(v<node.v)node.l=insert(node.l,v);else node.r=insert(node.r,v);return node;};
+  for(const v of vals)root=insert(root,v);
+  const chain=[];let n=root;while(n){chain.push(n.v);n=n.r;}
+  const rowsAt=(cls)=>chain.map((v,i)=>({label:'depth '+i,cells:[{text:String(v),cls:cls(i)||''}]}));
+  const frames=[
+    {rows:rowsAt(()=>''),caption:`Inserting ${vals.join(', ')} IN THAT ORDER — each new value is larger than everything already in the tree, so every insert attaches as a RIGHT child.`},
+    {rows:rowsAt(()=>''),caption:`Five inserts, five levels, zero branching — a binary "tree" that is really a linked list wearing a tree's name.`},
+  ];
+  const target=chain[chain.length-1];
+  const visited=[];
+  for(let i=0;i<chain.length;i++){
+    const v=chain[i];
+    const isMatch=v===target;
+    frames.push({rows:rowsAt(j=>j===i?(isMatch?'good':'active'):(visited.includes(j)?'dim':'')),
+      caption:isMatch?`Node ${v} vs ${target}: match — but that took ${i+1} comparisons.`:`Node ${v} vs ${target}: ${target} is larger → go right.`});
+    visited.push(i);
+  }
+  const balancedCost=Math.ceil(Math.log2(chain.length+1));
+  frames.push({rows:rowsAt(()=>'dim'),caption:`A BALANCED tree of these same ${chain.length} values would find any node in about ${balancedCost} comparisons. This chain needed ${chain.length} — binary search's O(log n) promise only holds if the tree stays balanced.`});
+  return frames;
+}
+function genHeapFrames(){
+  let heap=[4,8,7,15,10,16,9];
+  const snap=(cls,caption)=>({rows:[{label:'heap[]',cells:heap.map((v,i)=>({text:String(v),sub:String(i),cls:cls[i]||''}))}],caption});
+  const frames=[snap({},'A valid min-heap: every parent is ≤ both its children. The minimum is always at index 0 — no scanning required.')];
+  frames.push(snap({0:'active'},`heapPeek() = ${heap[0]} — report it. Extraction removes it: move the LAST slot into the root, then shrink.`));
+  const lastIdx=heap.length-1;
+  heap[0]=heap[lastIdx];heap.pop();
+  frames.push(snap({0:'picked'},`Moved the last value (${heap[0]}) into the root and shrank the array. The heap property is likely broken at the top — sift it down.`));
+  let i=0;
+  while(true){
+    let smallest=i;const l=2*i+1,r=2*i+2;const cls={};cls[i]='active';
+    if(l<heap.length){cls[l]='active';if(heap[l]<heap[smallest])smallest=l;}
+    if(r<heap.length){cls[r]='active';if(heap[r]<heap[smallest])smallest=r;}
+    if(smallest===i){frames.push(snap(cls,`Index ${i} (${heap[i]}) is already ≤ both children — sift-down stops here.`));break;}
+    frames.push(snap(Object.assign({},cls,{[smallest]:'picked'}),`Index ${i} (${heap[i]}) is bigger than child ${smallest} (${heap[smallest]}) — swap and continue from index ${smallest}.`));
+    [heap[i],heap[smallest]]=[heap[smallest],heap[i]];i=smallest;
+  }
+  frames.push(snap({},'Heap restored in a few swaps down ONE path — never a full rescan.'));
+  return frames;
+}
+function genHeapFrames2(){
+  let heap=[4,8,7,15,10,16,9];
+  const snap=(cls,caption)=>({rows:[{label:'heap[]',cells:heap.map((v,i)=>({text:String(v),sub:String(i),cls:cls[i]||''}))}],caption});
+  const frames=[snap({},'Same valid min-heap. This time, extract the minimum but SKIP the sift-down step entirely.')];
+  heap[0]=heap[heap.length-1];heap.pop();
+  frames.push(snap({0:'bad'},`Moved the last value (${heap[0]}) into the root and stopped — no sift-down.`));
+  let brokenAt=null;
+  for(let i=0;i<heap.length;i++){
+    const l=2*i+1,r=2*i+2;
+    if((l<heap.length&&heap[l]<heap[i])||(r<heap.length&&heap[r]<heap[i])){brokenAt=i;break;}
+  }
+  const trueMin=Math.min(...heap);
+  const cls={};if(brokenAt!==null)cls[brokenAt]='bad';
+  frames.push(snap(cls,brokenAt!==null?`Heap property broken at index ${brokenAt} (value ${heap[brokenAt]}) — a child is smaller than it. The array looks plausible but no longer behaves like a heap.`:'The heap property happens to still hold here.'));
+  frames.push(snap({0:'bad'},`The next heapPeek() would return ${heap[0]} — but the true minimum remaining is ${trueMin}. Skipping the sift-down silently returns the wrong answer.`));
+  return frames;
+}
+function genGreedyFrames(){
+  const windows=[[1,3],[2,5],[4,6],[6,7],[5,8]];
+  const idx=windows.map((_,i)=>i).sort((a,b)=>windows[a][1]-windows[b][1]);
+  const snap=(chosen,cur,caption)=>({rows:[{label:'windows',cells:windows.map((w,i)=>({text:`${w[0]}–${w[1]}`,cls:chosen.includes(i)?'good':i===cur?'active':''}))}],caption});
+  const frames=[snap([],null,'Five overlapping windows. Sort by END time, then greedily take every window whose start is at or after the last chosen end.')];
+  let lastEnd=-Infinity;const chosen=[];
+  for(const i of idx){
+    const w=windows[i];
+    if(w[0]>=lastEnd){chosen.push(i);lastEnd=w[1];
+      frames.push(snap([...chosen],i,`[${w[0]}–${w[1]}] starts at or after the last chosen end — take it. lastEnd is now ${lastEnd}.`));
+    }else{
+      frames.push(snap([...chosen],i,`[${w[0]}–${w[1]}] starts before the last chosen window ends — skip it, it would overlap.`));
+    }
+  }
+  frames.push(snap(chosen,null,`${chosen.length} windows scheduled — earliest-finish-time-first is provably optimal for interval scheduling.`));
+  return frames;
+}
+function genGreedyFrames2(){
+  const windows=[[1,3],[2,5],[4,6],[6,7],[5,8]];
+  const scheduleCount=(order)=>{let lastEnd=-Infinity,count=0;for(const i of order){if(windows[i][0]>=lastEnd){count++;lastEnd=windows[i][1];}}return count;};
+  const trueMax=scheduleCount(windows.map((_,i)=>i).sort((a,b)=>windows[a][1]-windows[b][1]));
+  const idx=windows.map((_,i)=>i).sort((a,b)=>(windows[a][1]-windows[a][0])-(windows[b][1]-windows[b][0]));
+  const snap=(chosen,cur,caption)=>({rows:[{label:'windows',cells:windows.map((w,i)=>({text:`${w[0]}–${w[1]}`,cls:chosen.includes(i)?'good':i===cur?'bad':''}))}],caption});
+  const frames=[snap([],null,'Same five windows. This time sort by DURATION (shortest job first) instead of end time.')];
+  let lastEnd=-Infinity;const chosen=[];
+  for(const i of idx){
+    const w=windows[i];
+    if(w[0]>=lastEnd){chosen.push(i);lastEnd=w[1];
+      frames.push(snap([...chosen],i,`[${w[0]}–${w[1]}] (duration ${w[1]-w[0]}) is compatible — take it.`));
+    }else{
+      frames.push(snap([...chosen],i,`[${w[0]}–${w[1]}] (duration ${w[1]-w[0]}) overlaps the last chosen window — skip it.`));
+    }
+  }
+  frames.push(snap(chosen,null,`Only ${chosen.length} window${chosen.length===1?'':'s'} scheduled — worse than the ${trueMax} achievable by sorting on end time. The shortest job got taken first and blocked better windows around it.`));
+  return frames;
+}
+function genTwoPtrFrames(){
+  const arr=[2,3,1,2,4,3];
+  const target=7;
+  const win=(l,r)=>arr.map((v,i)=>({text:String(v),sub:String(i),cls:i<l?'dim':(i<=r?'active':'')}));
+  const frames=[{rows:[{label:'readings',cells:arr.map((v,i)=>({text:String(v),sub:String(i)}))}],
+    caption:`Find the SHORTEST contiguous span summing to at least ${target}. Grow the window from the right; shrink from the left while it still clears the target.`}];
+  let left=0,sum=0,best=null;
+  for(let right=0;right<arr.length;right++){
+    sum+=arr[right];
+    frames.push({rows:[{label:'readings',cells:win(left,right)}],caption:`Grow right to index ${right} (value ${arr[right]}) — running sum = ${sum}.`});
+    while(sum>=target){
+      const len=right-left+1;
+      if(!best||len<best.len)best={len,start:left,end:right};
+      frames.push({rows:[{label:'readings',cells:win(left,right)}],caption:`Sum ${sum} ≥ ${target} — span [${left},${right}] (length ${len}) qualifies. Shrink from the left and check again.`});
+      sum-=arr[left];left++;
+    }
+  }
+  frames.push({rows:[{label:'readings',cells:arr.map((v,i)=>({text:String(v),sub:String(i),cls:(i>=best.start&&i<=best.end)?'good':'dim'}))}],
+    caption:`Shortest qualifying span: [${best.start},${best.end}], length ${best.len} — found in one left-to-right pass, each index touched only twice.`});
+  return frames;
+}
+function genTwoPtrFrames2(){
+  const arr=[2,3,1,2,4,3];
+  const target=7;
+  let left=0,sum=0,firstFound=null;
+  for(let right=0;right<arr.length&&!firstFound;right++){
+    sum+=arr[right];
+    if(sum>=target)firstFound={start:left,end:right,len:right-left+1};
+  }
+  left=0;sum=0;let best=null;
+  for(let right=0;right<arr.length;right++){
+    sum+=arr[right];
+    while(sum>=target){
+      const len=right-left+1;
+      if(!best||len<best.len)best={len,start:left,end:right};
+      sum-=arr[left];left++;
+    }
+  }
+  const frames=[{rows:[{label:'readings',cells:arr.map((v,i)=>({text:String(v),sub:String(i),cls:(i>=firstFound.start&&i<=firstFound.end)?'bad':''}))}],
+    caption:`A common mistake: stop the moment the window first clears the target, without ever shrinking from the left. First span found: [${firstFound.start},${firstFound.end}], length ${firstFound.len}.`}];
+  frames.push({rows:[{label:'readings',cells:arr.map((v,i)=>({text:String(v),sub:String(i),cls:(i>=best.start&&i<=best.end)?'good':(i>=firstFound.start&&i<=firstFound.end)?'bad':''}))}],
+    caption:`The actual shortest span is [${best.start},${best.end}], length ${best.len} — shorter by ${firstFound.len-best.len}. Without the shrink-while-it-still-clears step, two pointers degrades into "first window that works," a different (and wrong) problem.`});
+  return frames;
+}
+function genBacktrackFrames(){
+  const n=4;
+  const cols=new Set(),d1=new Set(),d2=new Set();
+  const placed=[];
+  const frames=[];
+  const boardFrame=(caption,curRow,curCol,curCls)=>({grid:Array.from({length:n},(_,r)=>Array.from({length:n},(_,c)=>{
+    let cls=placed[r]===c?'path':'';
+    if(r===curRow&&c===curCol)cls=curCls;
+    return {text:placed[r]===c?'Q':'',cls};
+  })),caption});
+  frames.push(boardFrame('Place one queen per row so no two share a column or diagonal. Try columns left to right; if none work, back up a row.',null,null,''));
+  const safe=(row,col)=>!cols.has(col)&&!d1.has(row-col)&&!d2.has(row+col);
+  function solve(row){
+    if(row===n){frames.push(boardFrame(`All ${n} rows placed with no conflicts — solved.`,null,null,''));return true;}
+    for(let col=0;col<n;col++){
+      if(safe(row,col)){
+        placed[row]=col;cols.add(col);d1.add(row-col);d2.add(row+col);
+        frames.push(boardFrame(`Row ${row}, column ${col} is safe — place it.`,row,col,'current'));
+        if(solve(row+1))return true;
+        placed[row]=undefined;cols.delete(col);d1.delete(row-col);d2.delete(row+col);
+        frames.push(boardFrame(`Dead end below row ${row} — undo (row ${row}, col ${col}) and try the next column.`,row,col,'frontier'));
+      }else{
+        frames.push(boardFrame(`Row ${row}, column ${col} conflicts with a queen already placed — skip it.`,row,col,'wall'));
+      }
+    }
+    return false;
+  }
+  solve(0);
+  return frames;
+}
+function genBacktrackFrames2(){
+  const n=4;
+  let bruteChecks=0;
+  const bruteValid=(cols)=>{for(let i=0;i<cols.length;i++)for(let j=i+1;j<cols.length;j++)if(cols[i]===cols[j]||Math.abs(cols[i]-cols[j])===Math.abs(i-j))return false;return true;};
+  const foundBrute=[];
+  function bruteGen(row,cols){
+    if(foundBrute.length)return;
+    if(row===n){bruteChecks++;if(bruteValid(cols))foundBrute.push([...cols]);return;}
+    for(let c=0;c<n;c++){bruteGen(row+1,[...cols,c]);if(foundBrute.length)return;}
+  }
+  bruteGen(0,[]);
+  let backtrackAttempts=0;
+  const cols=new Set(),d1=new Set(),d2=new Set();
+  const safe=(row,col)=>!cols.has(col)&&!d1.has(row-col)&&!d2.has(row+col);
+  function solve(row){
+    if(row===n)return true;
+    for(let col=0;col<n;col++){
+      backtrackAttempts++;
+      if(safe(row,col)){
+        cols.add(col);d1.add(row-col);d2.add(row+col);
+        if(solve(row+1))return true;
+        cols.delete(col);d1.delete(row-col);d2.delete(row+col);
+      }
+    }
+    return false;
+  }
+  solve(0);
+  return [
+    {rows:[{label:'brute force',cells:[{text:String(bruteChecks),sub:'full boards checked'}]}],
+      caption:`Generate every possible column-per-row assignment FIRST, and only check for conflicts once all ${n} rows are filled: ${bruteChecks} complete boards had to be built and checked before the first valid one turned up.`},
+    {rows:[{label:'backtracking',cells:[{text:String(backtrackAttempts),sub:'column attempts'}]}],
+      caption:`Backtracking checks isSafe() BEFORE placing — the moment a column conflicts, that entire branch below it is skipped, not just that one cell. Same board, same answer, only ${backtrackAttempts} column attempts total.`},
+  ];
+}
+
+function genBinarySearchFrames3(){
+  const arr=[40,50,60,70,10,20,30];
+  const target=20;
+  let lo=0,hi=arr.length-1;
+  const frames=[];
+  const snap=(extra,caption)=>({rows:[{label:'array',cells:arr.map((v,i)=>{
+    const tags=[];
+    if(extra&&extra.mid===i)tags.push('mid');
+    if(lo<=hi&&i===lo)tags.push('lo');
+    if(lo<=hi&&i===hi)tags.push('hi');
+    return {text:String(v),sub:String(i),tags,
+      cls:extra&&extra.found===i?'good':(i<lo||i>hi)?'dim':(extra&&extra.mid===i)?'active':''};
+  })}],caption});
+  frames.push(snap(null,`A SORTED array, rotated at an unknown pivot: [${arr.join(',')}]. Searching for ${target}. One half of any range is always still sorted — the trick is figuring out which.`));
+  let step=0;
+  while(lo<=hi){
+    step++;
+    const mid=Math.floor((lo+hi)/2),midVal=arr[mid];
+    if(midVal===target){frames.push(snap({mid,found:mid},`mid = ${mid}, value ${midVal} — MATCH. Found in ${step} check${step>1?'s':''}.`));break;}
+    const leftSorted=arr[lo]<=midVal;
+    if(leftSorted){
+      if(arr[lo]<=target&&target<midVal){frames.push(snap({mid},`Left half [${lo}..${mid}] is sorted (${arr[lo]}..${midVal}) and ${target} falls inside it — search left.`));hi=mid-1;}
+      else{frames.push(snap({mid},`Left half [${lo}..${mid}] is sorted but ${target} is outside it — search right instead.`));lo=mid+1;}
+    }else{
+      if(midVal<target&&target<=arr[hi]){frames.push(snap({mid},`Right half [${mid}..${hi}] is sorted (${midVal}..${arr[hi]}) and ${target} falls inside it — search right.`));lo=mid+1;}
+      else{frames.push(snap({mid},`Right half [${mid}..${hi}] is sorted but ${target} is outside it — search left instead.`));hi=mid-1;}
+    }
+    if(lo<=hi)frames.push(snap(null,`New range: lo=${lo}, hi=${hi}.`));
+  }
+  frames.push(snap({found:arr.indexOf(target)},'Still O(log n): one extra question per step ("which half is sorted?") doesn\'t change the complexity, just which branch you take.'));
+  return frames;
+}
+function genSortFrames3(){
+  const arr=[38,27,43,3,9,82,10];
+  const frames=[{rows:[{label:'array',cells:arr.map((v,i)=>({text:String(v),sub:String(i)}))}],
+    caption:'Merge sort: split the array in half recursively down to single elements, then merge sorted halves back together.'}];
+  const snap=(lo,hi,cls,caption)=>frames.push({rows:[{label:'array',cells:arr.map((v,i)=>({text:String(v),sub:String(i),cls:(i>=lo&&i<=hi)?cls:''}))}],caption});
+  function mergeSort(lo,hi){
+    if(lo>=hi)return;
+    const mid=Math.floor((lo+hi)/2);
+    snap(lo,hi,'active',`Split [${lo}..${hi}] into [${lo}..${mid}] and [${mid+1}..${hi}].`);
+    mergeSort(lo,mid);mergeSort(mid+1,hi);
+    const left=arr.slice(lo,mid+1),right=arr.slice(mid+1,hi+1);
+    let i=0,j=0,k=lo;
+    while(i<left.length&&j<right.length)arr[k++]=left[i]<=right[j]?left[i++]:right[j++];
+    while(i<left.length)arr[k++]=left[i++];
+    while(j<right.length)arr[k++]=right[j++];
+    snap(lo,hi,'good',`Merged [${lo}..${hi}]: both halves were already sorted, so combining them is a single linear pass — ${arr.slice(lo,hi+1).join(',')}.`);
+  }
+  mergeSort(0,arr.length-1);
+  frames.push({rows:[{label:'array',cells:arr.map((v,i)=>({text:String(v),sub:String(i),cls:'good'}))}],
+    caption:'Fully sorted in O(n log n): log n levels of splitting, each doing O(n) worth of merging — versus selection sort\'s O(n²).'});
+  return frames;
+}
+function genBfsFrames3(){
+  const W=6,H=5;
+  const wallSet=new Set(['2,1','2,2','2,3']);
+  const sources=[{x:0,y:0},{x:5,y:4}];
+  const key=(x,y)=>x+','+y;
+  const dist={};let frontier=[];
+  for(const s of sources){dist[key(s.x,s.y)]=0;frontier.push(s);}
+  const isWall=(x,y)=>wallSet.has(key(x,y));
+  const snap=(caption)=>({grid:Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>{
+    let cls=isWall(x,y)?'wall':'';
+    if(key(x,y) in dist)cls+=' visited';
+    if(frontier.some(p=>p.x===x&&p.y===y))cls+=' frontier';
+    if(sources.some(p=>p.x===x&&p.y===y))cls+=' start';
+    return {cls:cls.trim(),text:key(x,y) in dist?String(dist[key(x,y)]):''};
+  })),caption});
+  const frames=[snap('Two sources light up at once (distance 0). Multi-source BFS pushes ALL starting points into the queue before the first ripple — no separate BFS per source needed.')];
+  let ring=0,guard=0;
+  const DIRS4=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(frontier.length&&guard++<30){
+    ring++;
+    const next=[];
+    for(const c of frontier)for(const [dx,dy] of DIRS4){
+      const nx=c.x+dx,ny=c.y+dy;
+      if(nx<0||ny<0||nx>=W||ny>=H||isWall(nx,ny))continue;
+      const k=key(nx,ny);
+      if(k in dist)continue;
+      dist[k]=ring;next.push({x:nx,y:ny});
+    }
+    if(!next.length)break;
+    frontier=next;
+    frames.push(snap(`Ring ${ring}: every still-unvisited tile exactly ${ring} step${ring>1?'s':''} from ITS NEAREST source lights up — sources compete, and whichever ripple arrives first wins that tile.`));
+  }
+  frontier=[];
+  frames.push(snap('Every reachable tile now holds its distance to the CLOSEST source — the same one-pass ripple, just seeded from more than one place.'));
+  return frames;
+}
+function genDijkstraFrames3(){
+  const w=5,h=4,s={x:0,y:0},g={x:4,y:3};
+  const costs=Array.from({length:h},()=>Array.from({length:w},()=>1));
+  const key=(x,y)=>x+','+y;
+  const dist={};dist[key(s.x,s.y)]=0;
+  const cameFrom={};let todo=[s];
+  const inb=(x,y)=>x>=0&&y>=0&&x<w&&y<h;
+  const snap=(caption,cur,path)=>({grid:Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>{
+    let cls='';const k=key(x,y);
+    if(k in dist)cls+=' visited';
+    if(todo.some(p=>p.x===x&&p.y===y))cls+=' frontier';
+    if(cur&&cur.x===x&&cur.y===y)cls+=' current';
+    if(x===s.x&&y===s.y)cls+=' start';
+    if(x===g.x&&y===g.y)cls+=' goal';
+    if(path&&path.some(p=>p.x===x&&p.y===y))cls+=' path';
+    return {cls:cls.trim(),text:k in dist?String(dist[k]):''};
+  })),caption});
+  const frames=[snap('Same algorithm as before, but every tile now costs exactly 1 to enter — identical to plain BFS\'s assumption.')];
+  let guard=0;
+  while(todo.length&&guard++<60){
+    let bi=0;
+    for(let i=1;i<todo.length;i++)if(dist[key(todo[i].x,todo[i].y)]<dist[key(todo[bi].x,todo[bi].y)])bi=i;
+    const cur=todo.splice(bi,1)[0];
+    if(cur.x===g.x&&cur.y===g.y){frames.push(snap(`Goal reached — total cost ${dist[key(cur.x,cur.y)]}, exactly the number of steps.`,cur));break;}
+    frames.push(snap(`Expand (${cur.x},${cur.y}) — cheapest unexplored tile, cost ${dist[key(cur.x,cur.y)]} so far.`,cur));
+    for(const [dx,dy] of DIRS){
+      const nx=cur.x+dx,ny=cur.y+dy;
+      if(!inb(nx,ny))continue;
+      const k=key(nx,ny),nd=dist[key(cur.x,cur.y)]+costs[ny][nx];
+      if(!(k in dist)||nd<dist[k]){dist[k]=nd;cameFrom[k]=cur;todo.push({x:nx,y:ny});}
+    }
+  }
+  let cur={x:g.x,y:g.y};const path=[cur];
+  while(!(cur.x===s.x&&cur.y===s.y)){cur=cameFrom[key(cur.x,cur.y)];path.push(cur);}
+  todo=[];
+  frames.push(snap('Every distance here equals the tile\'s step-count from the start — with uniform weights, Dijkstra\'s "always expand the cheapest" rule and BFS\'s "always expand the oldest" rule pick the exact same order. BFS is Dijkstra with every weight fixed at 1.',null,path));
+  return frames;
+}
+function genDPFrames3(){
+  const vals=[3,7,2,9,4,6,1];
+  const n=vals.length;
+  const best=[vals[0],Math.max(vals[0],vals[1])];
+  const snap=(i,cands,caption)=>({rows:[
+    {label:'value',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===i?'active':(cands&&cands.includes(k))?'picked':''}))},
+    {label:'best[]',cells:best.map((v,k)=>({text:String(v),sub:String(k),cls:'good'}))
+      .concat(Array.from({length:n-best.length},(_,j)=>({text:'?',sub:String(best.length+j),cls:'dim'})))},
+  ],caption});
+  const frames=[snap(0,null,'House Robber: rob a house and you CANNOT rob its immediate neighbor. best[i] = the most collectable using only houses 0..i.')];
+  frames.push(snap(1,[0],`best[0] = ${best[0]} (only one house). best[1] = max(best[0], value[1]) = max(${best[0]}, ${vals[1]}) = ${best[1]} — either rob house 0 or house 1, whichever pays more.`));
+  for(let i=2;i<n;i++){
+    frames.push(snap(i,[i-1,i-2],`House ${i}: either SKIP it (keep best[${i-1}] = ${best[i-1]}) or TAKE it (best[${i-2}] = ${best[i-2]} + value ${vals[i]} = ${best[i-2]+vals[i]}).`));
+    const skipVal=best[i-1],takeVal=best[i-2]+vals[i],b=Math.max(skipVal,takeVal);
+    best.push(b);
+    frames.push(snap(i,[i-1,i-2],`best[${i}] = max(skip=${skipVal}, take=${takeVal}) = ${b}.`));
+  }
+  frames.push(snap(n-1,null,`best[${n-1}] = ${best[n-1]} — the most collectible without ever robbing two adjacent houses, computed once per house instead of trying every subset.`));
+  return frames;
+}
+function genRecursionFrames3(){
+  const x=3,nStart=13;
+  const calls=[];
+  const frames=[];
+  const snap=(activeIdx,caption)=>({rows:[{label:'call stack',cells:calls.map((c,i)=>({
+    text:`pow(${x},${c.n})`,sub:c.result===null?'…':String(c.result),
+    cls:i===activeIdx?'active':(c.result!==null?'good':'')}))}],caption});
+  function pow(n){
+    calls.push({n,result:null});
+    const idx=calls.length-1;
+    frames.push(snap(idx,n===0
+      ?`pow(${x}, 0) is the base case — return 1 directly, no further recursion.`
+      :`pow(${x}, ${n}) calls pow(${x}, ${Math.floor(n/2)}) — half the exponent, same problem.`));
+    let result;
+    if(n===0){result=1;}
+    else{const half=pow(Math.floor(n/2));result=half*half*(n%2===1?x:1);}
+    calls[idx].result=result;
+    frames.push(snap(idx,n===0?`pow(${x}, 0) = 1.`:`pow(${x}, ${n}) = half² ${n%2===1?`× ${x} `:''}= ${result}.`));
+    return result;
+  }
+  const final=pow(nStart);
+  frames.push(snap(null,`${x}^${nStart} = ${final}, computed with only ${calls.length} nested calls instead of ${nStart} sequential multiplications — halving the exponent each time is the same divide-and-conquer idea as quartering the grid.`));
+  return frames;
+}
+
 /* ---------- concept data ---------- */
-const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse'];
-const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4};
-const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques'};
+const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse','bst','heap','greedy','twoptr','backtrack'];
+const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4,bst:5,heap:5,greedy:5,twoptr:5,backtrack:5};
+const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques',5:'Season 5 · The Deep Archive'};
 const CONCEPTS={
   seq:{title:'Sequences',
     examples:[{label:'A working sequence',demoType:'cells',frames:genSeqFrames},{label:'Same steps, reordered',demoType:'grid',frames:genSeqFrames2}],
@@ -3424,7 +4317,7 @@ const CONCEPTS={
     complexity:[{label:'Best case',val:'O(1)'},{label:'Worst case',val:'O(n)'},{label:'Needs sorted data?',val:'No'}],
     pseudocode:'while (inspect() !== target) {\n  move()\n}'},
   bsearch:{title:'Binary Search',
-    examples:[{label:'Target found',demoType:'cells',frames:genBinarySearchFrames},{label:'Target not found',demoType:'cells',frames:genBinarySearchFrames2}],
+    examples:[{label:'Target found',demoType:'cells',frames:genBinarySearchFrames},{label:'Target not found',demoType:'cells',frames:genBinarySearchFrames2},{label:'Rotated sorted array',demoType:'cells',frames:genBinarySearchFrames3}],
     oneLiner:'On SORTED data, check the middle element and throw away the half that can\'t contain the target — repeat until found.',
     explanation:[
       'Binary search exploits one fact: if the data is sorted, comparing the target to the MIDDLE element tells you which half it must be in (if it\'s there at all) — so the other half can be discarded without ever being examined.',
@@ -3434,7 +4327,7 @@ const CONCEPTS={
     complexity:[{label:'Time',val:'O(log n)'},{label:'Space',val:'O(1)'},{label:'Needs sorted data?',val:'Yes'}],
     pseudocode:'let lo = 0, hi = n - 1\nwhile (lo <= hi) {\n  mid = floor((lo + hi) / 2)\n  if (a[mid] === target) return mid\n  else if (a[mid] < target) lo = mid + 1\n  else hi = mid - 1\n}\nreturn "not found"'},
   sort:{title:'Sorting (Selection Sort)',
-    examples:[{label:'A clean sort',demoType:'cells',frames:genSortFrames},{label:'Stability with ties',demoType:'cells',frames:genSortFrames2}],
+    examples:[{label:'A clean sort',demoType:'cells',frames:genSortFrames},{label:'Stability with ties',demoType:'cells',frames:genSortFrames2},{label:'Merge sort: O(n log n)',demoType:'cells',frames:genSortFrames3}],
     oneLiner:'Repeatedly find the smallest remaining item and move it into place — pay the sorting cost once so every future search is fast.',
     explanation:[
       'Selection sort builds the sorted result one position at a time: for each slot, scan the entire unsorted remainder for the smallest value, then swap it into that slot.',
@@ -3501,7 +4394,7 @@ const CONCEPTS={
     complexity:[{label:'Pick max (scan)',val:'O(n)'},{label:'Pick max (heap)',val:'O(log n)'}],
     pseudocode:'best = index of the highest-priority waiting item\nremove and return waiting[best]'},
   bfs:{title:'Breadth-First Search',
-    examples:[{label:'Shortest path found',demoType:'grid',frames:genBfsFrames},{label:'Goal unreachable',demoType:'grid',frames:genBfsFrames2}],
+    examples:[{label:'Shortest path found',demoType:'grid',frames:genBfsFrames},{label:'Goal unreachable',demoType:'grid',frames:genBfsFrames2},{label:'Multi-source BFS',demoType:'grid',frames:genBfsFrames3}],
     oneLiner:'Explore a graph in ripples — everything 1 step away, then 2, then 3 — using a queue. The first time you reach something is the shortest way there.',
     explanation:[
       'BFS explores a graph outward from a start point one "ring" at a time, using a queue to track what to visit next. Because it expands in rings, the very first time it reaches any node is guaranteed to be via the shortest path, measured in steps.',
@@ -3511,7 +4404,7 @@ const CONCEPTS={
     complexity:[{label:'Time',val:'O(V + E)'},{label:'Finds shortest path?',val:'Yes (unweighted)'}],
     pseudocode:'queue = [start]\nseen = {start}\nwhile queue not empty:\n  cur = queue.shift()\n  for each neighbor of cur not in seen:\n    seen.add(neighbor); queue.push(neighbor)'},
   dijkstra:{title:'Dijkstra\'s Algorithm',
-    examples:[{label:'Cheapest route found',demoType:'grid',frames:genDijkstraFrames},{label:'A negative edge breaks it',demoType:'cells',frames:genDijkstraFrames2}],
+    examples:[{label:'Cheapest route found',demoType:'grid',frames:genDijkstraFrames},{label:'A negative edge breaks it',demoType:'cells',frames:genDijkstraFrames2},{label:'Uniform weights = BFS',demoType:'grid',frames:genDijkstraFrames3}],
     oneLiner:'Same ripple idea as BFS, but always expand the CHEAPEST known option next — for when steps don\'t cost the same.',
     explanation:[
       'Dijkstra\'s algorithm solves shortest paths when edges have different weights. Swap BFS\'s plain queue for a priority queue that always pops the cheapest-known-so-far option, and the same ripple structure now correctly handles unequal costs.',
@@ -3531,7 +4424,7 @@ const CONCEPTS={
     complexity:[{label:'Time',val:'O(V + E)'},{label:'Requires',val:'No cycles (a DAG)'}],
     pseudocode:'while any node remains unstarted:\n  for each unstarted node n:\n    if every dependency of n has started: start n'},
   quad:{title:'Recursion & Divide-and-Conquer',
-    examples:[{label:'Quartering to the beacon',demoType:'grid',frames:genRecursionFrames},{label:'A missing base case',demoType:'grid',frames:genRecursionFrames2}],
+    examples:[{label:'Quartering to the beacon',demoType:'grid',frames:genRecursionFrames},{label:'A missing base case',demoType:'grid',frames:genRecursionFrames2},{label:'Fast exponentiation',demoType:'cells',frames:genRecursionFrames3}],
     oneLiner:'Solve a big problem by handing smaller copies of the same problem to yourself, down to a base case simple enough to answer directly.',
     explanation:[
       'A recursive function calls itself on a SMALLER version of the same problem, plus a base case that can be answered directly without recursing further. Every unfinished call waits on the call stack while its smaller self runs — recursion depends on the stack.',
@@ -3541,7 +4434,7 @@ const CONCEPTS={
     complexity:[{label:'This search',val:'O(log(area))'},{label:'Needs',val:'A base case + shrinking input'}],
     pseudocode:'function search(region):\n  if region is 1 cell: return region\n  split region into 4 quadrants\n  probe each; recurse into the one containing the target'},
   dp:{title:'Dynamic Programming',
-    examples:[{label:'The bottom-up table',demoType:'cells',frames:genDPFrames},{label:'Without memoization',demoType:'cells',frames:genDPFrames2}],
+    examples:[{label:'The bottom-up table',demoType:'cells',frames:genDPFrames},{label:'Without memoization',demoType:'cells',frames:genDPFrames2},{label:'House Robber: take or skip',demoType:'cells',frames:genDPFrames3}],
     oneLiner:'Answer every sub-question exactly once, and build bigger answers out of the small answers you already have stored.',
     explanation:[
       'Plain recursion can re-solve the exact same sub-problem many times over — for "cheapest way to reach gate i"-style problems, that duplication grows exponentially. Dynamic programming stores each sub-answer the first time it\'s computed and reuses it forever after.',
@@ -3560,6 +4453,56 @@ const CONCEPTS={
     mistakes:['Trusting the input\'s structure without validating brackets or tokens are balanced first.','Using a flat regex or find-and-replace on data that can nest arbitrarily deep — it works on shallow examples and quietly breaks on deep ones.','Off-by-one slicing indices when extracting the "inside" of a nested block.'],
     complexity:[{label:'Time',val:'O(n) in input length'},{label:'Handles nesting?',val:'Yes, natively'}],
     pseudocode:'function decode(s):\n  if s starts with a digit:\n    decode the bracketed block that follows (recurse)\n    repeat it that many times\n  else: copy the character through'},
+  bst:{title:'Binary Search Trees',
+    examples:[{label:'Search narrows one level at a time',demoType:'cells',frames:genBSTFrames},{label:'Sorted inserts degrade it to a line',demoType:'cells',frames:genBSTFrames2}],
+    oneLiner:'Binary search\'s halving trick, generalized into an explicit shape: everything smaller lives one way, everything larger the other.',
+    explanation:[
+      'A binary search tree stores the same ordering guarantee binary search relies on — everything smaller one way, everything larger the other — but as an explicit shape instead of a sorted array. There\'s no midpoint to compute; the structure already encodes it, and searching just means following the comparison at each node.',
+      'Insertion follows the identical logic as search: walk down comparing keys until you fall off the tree, then attach the new node there. Because search and insert share one walk, a BST supports fast lookups AND fast insertion — something a plain sorted array can\'t do without shifting everything after the insertion point.',
+      'The catch is balance. A tree built from already-sorted input never branches — every new node becomes the only child of the last one, and search degrades from O(log n) to O(n), a straight line pretending to be a tree. Real-world BSTs (red-black trees, AVL trees) add rebalancing specifically to prevent this.'],
+    mistakes:['Assuming any binary tree is a binary search tree — the ordering property must hold at every node, not just look roughly sorted.','Inserting already-sorted (or reverse-sorted) data and expecting O(log n) — without rebalancing, that\'s the worst case, not the average case.','Checking the equal case only at the very end instead of the moment a node matches, or forgetting it and looping past the target entirely.'],
+    complexity:[{label:'Search/insert (balanced)',val:'O(log n)'},{label:'Search/insert (degenerate)',val:'O(n)'}],
+    pseudocode:'function search(node, target):\n  if node is null: not found\n  if node.key === target: found\n  if target < node.key: search(node.left, target)\n  else: search(node.right, target)'},
+  heap:{title:'Binary Heaps',
+    examples:[{label:'Extract-min, then sift down',demoType:'cells',frames:genHeapFrames},{label:'Skipping the sift-down',demoType:'cells',frames:genHeapFrames2}],
+    oneLiner:'An array secretly shaped like a tree, kept just orderly enough that the minimum (or maximum) is always at index 0.',
+    explanation:[
+      'A binary heap stores a tree\'s shape inside a flat array: node i\'s children live at 2i+1 and 2i+2, no pointers needed. A MIN-heap only guarantees each parent is less than or equal to both its children — nothing about siblings, and nothing sorted below the root.',
+      'That weaker guarantee is what makes it fast: removing the minimum only has to fix ONE path from root to leaf (sift-down), not re-sort anything. Inserting is the mirror image — add at the end, then sift UP while the new value beats its parent.',
+      'Chapter 12\'s priority queue and this heap solve the identical problem; the heap is just the O(log n) machine that makes the O(n) rescan unnecessary. Run extract-min repeatedly and you\'ve built heapsort for free.'],
+    mistakes:['Treating the heap array as fully sorted — only the root is guaranteed to be the minimum; siblings have no defined order relative to each other.','Extracting the minimum but forgetting to sift the new root down — the array still looks plausible but silently stops behaving like a heap.','Comparing a node to only one child during sift-down instead of both, and swapping with the wrong one when the smaller child is on the other side.'],
+    complexity:[{label:'Peek min',val:'O(1)'},{label:'Extract / insert',val:'O(log n)'}],
+    pseudocode:'extractMin():\n  min = heap[0]\n  heap[0] = heap[last]; heap.pop()\n  siftDown(0)\n  return min\n\nsiftDown(i):\n  smallest = i; check children 2i+1, 2i+2\n  if a child is smaller: swap, i = that child, repeat'},
+  greedy:{title:'Greedy Algorithms',
+    examples:[{label:'Earliest finish time wins',demoType:'cells',frames:genGreedyFrames},{label:'Sorting by the wrong key',demoType:'cells',frames:genGreedyFrames2}],
+    oneLiner:'Take the choice that looks best right now, and never reconsider it — correct only for problems where the local best is provably a global best.',
+    explanation:[
+      'A greedy algorithm builds a solution one locally-best decision at a time and never revisits it. That\'s a dangerous habit in general — but for a specific set of problems, a proof exists that the locally-best choice can never be beaten by planning ahead.',
+      'Interval scheduling — maximize the count of non-overlapping intervals you can take — is the textbook example: sorting by EARLIEST FINISH TIME and taking every compatible interval in that order is provably optimal, because the interval that ends soonest always leaves the most room for everything after it.',
+      'The trap is generalizing that confidence to every problem. Sort by duration or by start time instead, and greedy can strictly underperform — a short-but-badly-placed choice can block two better ones. Greedy needs its own correctness proof; it isn\'t a free strategy.'],
+    mistakes:['Trusting that "the obviously good choice" is the greedy choice, without identifying and sorting by the actual key the proof depends on.','Assuming greedy is always at least close to optimal — for many problems (like 0/1 knapsack) it can be arbitrarily far from the right answer.','Only checking compatibility against the immediately previous choice instead of ALL previously chosen items — that misses conflicts with earlier choices.'],
+    complexity:[{label:'Time (after sort)',val:'O(n log n)'},{label:'Always optimal?',val:'Only when provable'}],
+    pseudocode:'sort items by finishing time\nlastEnd = -Infinity\nfor item in sorted order:\n  if item.start >= lastEnd:\n    take it; lastEnd = item.end'},
+  twoptr:{title:'Two Pointers / Sliding Window',
+    examples:[{label:'Shrink while it still qualifies',demoType:'cells',frames:genTwoPtrFrames},{label:'Stopping at the first fit',demoType:'cells',frames:genTwoPtrFrames2}],
+    oneLiner:'Walk two indices through one pass — grow to gather, shrink to tighten — turning an O(n²) scan into O(n).',
+    explanation:[
+      'The brute-force answer to "shortest/longest span meeting some condition" checks every start and every end — O(n²) pairs. Two pointers keeps a left and a right index and only ever moves them FORWARD, never backtracking either one.',
+      'The pattern applies whenever growing the window (moving right) and shrinking it (moving left) change the window\'s "goodness" in a predictable direction — grow to gather more, shrink to discard what\'s no longer needed, and stop shrinking the moment it wouldn\'t be valid anymore.',
+      'Because each pointer only advances and never reverses, together they take at most 2n steps total across the whole scan — even though the window looks like it\'s re-examining data, the combined pointer movement is linear, not quadratic.'],
+    mistakes:['Stopping at the FIRST window that satisfies the condition instead of continuing to shrink it — that finds a valid answer, not the shortest one.','Moving one pointer without undoing its contribution to the running total — the window\'s sum silently goes stale.','Reaching for two pointers on data where advancing a pointer doesn\'t move monotonically in the "right direction" for the condition being tracked.'],
+    complexity:[{label:'Time',val:'O(n)'},{label:'Naive nested-loop version',val:'O(n²)'}],
+    pseudocode:'left = 0; sum = 0\nfor right in 0..n-1:\n  sum += a[right]\n  while sum >= target:\n    record window [left, right] if shortest so far\n    sum -= a[left]; left++'},
+  backtrack:{title:'Backtracking',
+    examples:[{label:'Place, discover, undo',demoType:'grid',frames:genBacktrackFrames},{label:'Pruning vs. brute force',demoType:'cells',frames:genBacktrackFrames2}],
+    oneLiner:'A search that commits to a choice, and the instant it proves unworkable, undoes exactly that choice and tries the next one.',
+    explanation:[
+      'Backtracking is a systematic trial-and-error search: make a choice, and the MOMENT it\'s proven unworkable — not just when the whole attempt fails — undo exactly that choice and try the next option. That single discipline turns "try everything" into something far cheaper in practice.',
+      'The key optimization is pruning: checking a constraint (isSafe) BEFORE committing to a choice, so an entire doomed branch of possibilities is skipped instead of explored and rejected one leaf at a time. The earlier the prune, the more work it saves.',
+      'It shares its shape with plain recursion and divide-and-conquer — a function calling itself on a smaller version of the problem — but adds an explicit UNDO step, since backtracking explores shared, mutable state (the board) instead of always passing fresh copies down.'],
+    mistakes:['Checking validity only at the very end (after every choice is made) instead of pruning early with isSafe — correct, but explores exponentially more dead branches.','Forgetting to undo (remove) a choice before trying the next option at the same level — leftover state from the failed attempt corrupts the next one.','Checking a placement against only the most recent choice instead of ALL previously committed choices — a conflict with something placed several steps earlier goes undetected.'],
+    complexity:[{label:'Worst case',val:'Exponential'},{label:'In practice',val:'Pruned far below worst case'}],
+    pseudocode:'function solve(row):\n  if row === n: success\n  for col in 0..n-1:\n    if isSafe(row, col):\n      place(row, col)\n      if solve(row + 1): return true\n      remove(row, col)\n  return false'},
 };
 
 /* ---------- viz player: generic playback + two renderers ---------- */
@@ -4010,6 +4953,7 @@ function showCard(level){
     if(cur===6){btn='End of Season 1 ▸';next=showS1End;}
     if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
     if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
+    if(cur===17){btn='End of Season 4 ▸';next=showS4End;}
     if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
   }
   openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
@@ -4064,7 +5008,7 @@ function showS4Intro(){
     </ul>`,
     'Break orbit ▸',null);
 }
-function showFinale(){
+function showS4End(){
   openModal('Transmission · to whom it may concern','WE ARE THE STORM AND WE ARE SORRY.',`
     <p>The "debris storm" that crippled the Meridian was a wake — the turbulence of something vast arriving, and it has spent the whole story trying to say sorry. First contact, made by a career-switcher with a maintenance robot and eighteen chapters of fundamentals:</p>
     <ul>
@@ -4073,8 +5017,34 @@ function showFinale(){
       <li><b>Season 3 · graphs</b> — BFS, Dijkstra, topological sort.</li>
       <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
     </ul>
-    <p>That is a genuine CS-fundamentals curriculum, end to end — and nearly the entire technical-interview canon. You didn't read about it. You <em>shipped</em> it, against randomized trials, eighteen times.</p>
-    <div class="real"><div class="bt">Your real Season 5</div>(1) Re-implement binary search, BFS, and the toll-road DP from memory, in JavaScript or Python. (2) Take a set of "easy"-tier interview problems — you will recognize almost every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, and finally in shapes that fold.</em></p>
+    <p>That is a genuine CS-fundamentals curriculum, end to end — and nearly the entire technical-interview canon. Eighteen chapters, shipped against randomized trials. And the visitors are not done talking.</p>
+    <p>Buried in their apology is a coordinate: a structure they call the Deep Archive, sealed since before the storm, offered now as a gift. HALCYON's read on it is one word: <em>library</em>.</p>
+    <div class="real"><div class="bt">Season 5 · The Deep Archive</div>Trees, heaps, and three techniques interview panels ask about constantly — greedy choices, two pointers, backtracking. The last five chapters, built from everything you already own.</div>`,
+    'Begin Season 5: The Deep Archive ▸',()=>loadLevel(18));
+}
+function showS5Intro(){
+  openModal('Season 5 · The Deep Archive','A library that has been waiting.',`
+    <p>The coordinate resolves to a structure kilometers across, dark until the Meridian's approach lights it from the inside out. HALCYON's translation is halting but clear: this is a record of everything the visitors have ever indexed, and it was left unlocked on purpose.</p>
+    <p>Five rooms, five ideas — some of interview-prep's most-asked topics, still built from parts you already have: comparisons, arrays, and a robot that does exactly what you tell it.</p>
+    <ul>
+      <li><b>Binary search trees</b> — binary search's shape, generalized off of arrays.</li>
+      <li><b>Heaps</b> — the machine underneath chapter 12's priority queue, made explicit.</li>
+      <li><b>Greedy, two pointers, backtracking</b> — three technique families that show up everywhere once you can name them.</li>
+    </ul>`,
+    'Enter the archive ▸',null);
+}
+function showFinale(){
+  openModal('Transmission · to whom it may concern','THE ARCHIVE IS YOURS NOW.',`
+    <p>The last chamber of the Deep Archive dims to a single steady light, and HALCYON reports something it has never reported before: no further chapters. Twenty-three, start to finish — a career-switcher, a maintenance robot, and a full CS-fundamentals curriculum:</p>
+    <ul>
+      <li><b>Season 1 · algorithms</b> — sequences, loops, conditionals, search, sorting, pathfinding.</li>
+      <li><b>Season 2 · data structures</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
+      <li><b>Season 3 · graphs</b> — BFS, Dijkstra, topological sort.</li>
+      <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
+      <li><b>Season 5 · the deep archive</b> — binary search trees, heaps, greedy, two pointers, backtracking.</li>
+    </ul>
+    <p>That's nearly the entire technical-interview canon, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, twenty-three times.</p>
+    <div class="real"><div class="bt">Your real next chapter</div>(1) Re-implement binary search, BFS, and the toll-road DP from memory, in JavaScript or Python. (2) Take a set of "easy"/"medium"-tier interview problems — you will recognize almost every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, and finally in shapes that fold.</em></p>
     <p>Replay any chapter from the bar above. The universe reshuffles; your programs won't mind.</p>`,
     'End transmission',null);
 }
@@ -4222,10 +5192,10 @@ function loadSideMission(sm){
 function renderChips(){
   const nav=$('#chips');nav.innerHTML='';
   LEVELS.forEach((lv,i)=>{
-    if(i===7||i===12||i===15){
+    if(i===7||i===12||i===15||i===18){
       const s=document.createElement('span');s.className='sdiv';
-      s.textContent={7:'S2',12:'S3',15:'S4'}[i];
-      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact'}[i];
+      s.textContent={7:'S2',12:'S3',15:'S4',18:'S5'}[i];
+      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact',18:'Season 5: The Deep Archive'}[i];
       nav.appendChild(s);
     }
     const b=document.createElement('button');
@@ -4241,8 +5211,8 @@ function loadLevel(i){
   cur=i;
   sideActive=null;primerActive=null;
   const lv=LEVELS[i];
-  const season=i<7?1:i<12?2:i<15?3:4;
-  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT'][season-1];
+  const season=i<7?1:i<12?2:i<15?3:i<18?4:5;
+  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT','THE DEEP ARCHIVE'][season-1];
   $('#lv-kicker').textContent=`Season ${season} · Chapter ${i+1} of ${LEVELS.length}`;
   $('#lv-title').textContent=lv.title;
   $('#lv-concept').textContent=lv.concept;
@@ -4286,6 +5256,10 @@ function loadLevel(i){
     localStorage.setItem('cs_seen_s4','1');
     showS4Intro();
   }
+  if(i===18&&!localStorage.getItem('cs_seen_s5')&&!CS.instant){
+    localStorage.setItem('cs_seen_s5','1');
+    showS5Intro();
+  }
 }
 
 function showShipLog(){
@@ -4294,6 +5268,7 @@ function showShipLog(){
     {name:'Season 2 · Cold Storage — data structures',from:7,to:11},
     {name:'Season 3 · The Relay Network — graphs',from:12,to:14},
     {name:'Season 4 · First Contact — techniques',from:15,to:17},
+    {name:'Season 5 · The Deep Archive — trees, heaps, techniques',from:18,to:22},
   ];
   let html='<p>Every concept this ship has taught you, and where you are. This list doubles as a syllabus — screenshot it.</p>';
   for(const s of seasons){
