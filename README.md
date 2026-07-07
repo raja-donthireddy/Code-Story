@@ -87,20 +87,28 @@ techniques), each with:
 
 - A plain-English explanation, independent of the story/robot framing.
 - Complexity badges and runnable pseudocode.
-- An **interactive visualization** — lo/mid/hi pointers narrowing on a
-  sorted array for binary search, ripple expansion for BFS, cost-based
-  expansion for Dijkstra, push/pop for stacks, splice-by-pointer for linked
-  lists, and so on — with Play/Step/Reset controls, modeled on the
-  step-through presentation style of sites like
+- A **Common Mistakes** list — the specific ways people actually get each
+  concept wrong (off-by-ones, unstable sorts, missing base cases, negative
+  Dijkstra weights, treating a priority queue like FIFO, and so on).
+- **Two interactive visualizations per concept**, switchable via tabs — a
+  primary "how it works" walkthrough plus a second scenario that puts a
+  common mistake or edge case on screen: binary search's "not found" case,
+  a maze with a sealed loop that traps the wall-follower forever, a
+  negative graph edge that makes Dijkstra confidently report the wrong
+  answer, selection sort silently reordering tied elements, deleting a
+  linked list's head node, and more. Playback has Play/Step/Reset controls,
+  modeled on the step-through presentation style of sites like
   [algorithm-visualizer.org](https://algorithm-visualizer.org/branch-and-bound/binary-search).
 - A "Try it yourself" link that jumps straight into that concept's chapter.
 
 The visualizations are not scripted animations — each one runs an actual
-(simplified) version of the algorithm on fixed sample data and records a
-frame at every meaningful step, the same "record what happened, replay it"
-pattern the game itself uses for chapter replays. That guarantees the demo
-always matches the real algorithm instead of risking hand-authored frames
-that drift out of sync.
+(simplified) version of the algorithm (or a deliberately broken variant, for
+the mistake examples) on fixed sample data and records a frame at every
+meaningful step, the same "record what happened, replay it" pattern the
+game itself uses for chapter replays. That guarantees the demo always
+matches the real algorithm instead of risking hand-authored frames that
+drift out of sync — including the "wrong answer" demos, whose captions
+report the actual computed numbers rather than an assumed outcome.
 
 ## Other tools
 
