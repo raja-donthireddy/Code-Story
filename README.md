@@ -112,10 +112,14 @@ that drift out of sync.
 - Runtime errors report the offending line (`[line 7: cut(...)]`); syntax
   errors get a bracket-balance hint.
 - **Resizable panels** — drag the thin dividers between the mission panel,
-  viewport, and editor (and between the editor and console) to reflow the
-  layout to taste; the Reference Library's concept list is resizable too.
-  Sizes persist across sessions; double-click a divider to reset it, or
-  focus one and use the arrow keys.
+  code editor, and game viewport (and between the editor and console) to
+  reflow the layout to taste; the Reference Library's concept list is
+  resizable too. Sizes persist across sessions; double-click a divider to
+  reset it, or focus one and use the arrow keys.
+- **Layout:** mission briefing on the left, the code editor front and
+  center, the game viewport on the right — the editor gets the flexible
+  center space since that's where you spend most of your time; the board
+  is usually small enough to sit comfortably in a fixed-width side panel.
 
 ## For developers
 

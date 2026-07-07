@@ -51,13 +51,19 @@
   #nextBtn.waiting{border-color:var(--amber);color:var(--amber);animation:pulse 1.2s ease-in-out infinite}
 
   /* ---------- layout ---------- */
-  main{display:grid;grid-template-columns:var(--mission-w,310px) 7px minmax(0,1fr) 7px var(--right-w,430px);
+  main{display:grid;grid-template-columns:var(--mission-w,310px) 7px minmax(0,1fr) 7px var(--game-w,430px);
     gap:0;min-height:calc(100vh - 49px)}
   main>*{min-width:0}
+  /* code editor sits in the flexible CENTER track, game viewport in the
+     resizable RIGHT track — order swaps their visual position without
+     touching any #id references the rest of the script depends on */
+  #mission{order:1} #rzMission{order:2} #right{order:3} #rzRight{order:4} #viewport{order:5}
   @media (max-width:1150px){
     main{grid-template-columns:1fr;min-height:0}
-    #mission{border-right:none;border-bottom:1px solid var(--line)}
-    #right{border-left:none;border-top:1px solid var(--line)}
+    /* stack in the original mission → game → code order on narrow screens */
+    #mission{order:1} #viewport{order:2} #right{order:3}
+    #mission{border-bottom:1px solid var(--line)}
+    #right{border-top:1px solid var(--line)}
     #edwrap{min-height:220px}
     main>.resizer{display:none}
   }
@@ -75,7 +81,7 @@
   body.resizing-y,body.resizing-y *{cursor:row-resize!important;user-select:none!important}
 
   /* ---------- mission panel ---------- */
-  #mission{border-right:1px solid var(--line);padding:18px;overflow-y:auto;background:var(--panel2)}
+  #mission{padding:18px;overflow-y:auto;background:var(--panel2)}
   .kicker{font-size:11px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
   #lv-title{font-size:19px;font-weight:700;letter-spacing:.04em;margin:2px 0 2px;text-wrap:balance}
   #lv-concept{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent-dim);padding:2px 8px;border-radius:2px;margin-bottom:14px}
@@ -180,7 +186,7 @@
   }
 
   /* ---------- right: editor + console ---------- */
-  #right{border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel2)}
+  #right{display:flex;flex-direction:column;background:var(--panel2)}
   #edhead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
   #edhead .fname{font-size:12px;letter-spacing:.12em;color:var(--muted)}
   #edhead .fname b{color:var(--text);font-weight:400}
@@ -357,7 +363,7 @@
     <div id="gridwrap"><div id="grid"></div></div>
   </section>
 
-  <div class="resizer" id="rzRight" role="separator" aria-orientation="vertical" aria-label="Resize editor panel" tabindex="0"></div>
+  <div class="resizer" id="rzRight" role="separator" aria-orientation="vertical" aria-label="Resize game viewport" tabindex="0"></div>
 
   <section id="right">
     <div id="edhead">
@@ -4031,7 +4037,7 @@ function makeResizer(handle,{axis,cssVar,min,max,def,direction=1,step=16}){
   });
 }
 makeResizer($('#rzMission'),{axis:'x',cssVar:'mission-w',min:220,max:480,def:310,direction:1});
-makeResizer($('#rzRight'),{axis:'x',cssVar:'right-w',min:320,max:640,def:430,direction:-1});
+makeResizer($('#rzRight'),{axis:'x',cssVar:'game-w',min:320,max:640,def:430,direction:-1});
 makeResizer($('#rzConsole'),{axis:'y',cssVar:'console-h',min:80,max:500,def:210,direction:-1});
 makeResizer($('#rzLearnNav'),{axis:'x',cssVar:'lvnav-w',min:180,max:420,def:270,direction:1});
 
