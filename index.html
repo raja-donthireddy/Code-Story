@@ -2573,6 +2573,482 @@ solve(0);
     <p>The <code>isSafe()</code> check is what makes this fast in practice: it prunes an entire branch of "what ifs" the instant a partial placement is already invalid, instead of building out every full board and checking it at the end.</p>
     <div class="real"><div class="bt">In the wild</div>N-Queens is the textbook example, but the same shape solves Sudoku, generates all permutations or subsets, and powers combinatorial search in planning and constraint-satisfaction systems — anywhere "try it, and be willing to take it back" beats trying to see the whole answer in advance.</div>`},
 },
+
+/* ============ SEASON 6 — THE SUBSTRATE ============ */
+
+/* ---- 24 · tries ---- */
+{
+  id:'trie',title:'The Prefix Index',concept:'Tries — prefix trees',
+  seeds:[811,857,899],
+  brief:[
+    ['HALCYON','The Archive dims — you were told that was the end of it. But its query log is still live, engineer, and it is not indexing itself the way the Archive claimed. Something older is running underneath.'],
+    ['BYTE','A structure the Archive never showed us: the Substrate. Every call-sign in this sector, indexed not as a list but as a tree of letters — walk one character at a time, and every word sharing that path shares the walk.'],
+    ['YOU','So a prefix isn\'t a search — it\'s just a path. Walk the letters once, then count everything still reachable from wherever I stop.'],
+  ],
+  objective:'Answer each prefix query by walking the trie one character at a time from root() using childOf(), then counting every complete call-sign reachable beneath where you stop. answer(queryIndex, count) for each of the 4 queries.',
+  api:[
+    ['root()','ID of the trie\'s root node.'],
+    ['childOf(node, ch)','Child node ID for that single character, or null if no call-sign has that path.'],
+    ['childrenOf(node)','Array of this node\'s child node IDs (no characters needed to count).'],
+    ['isWord(node)','true if a complete call-sign ends exactly at this node.'],
+    ['queryCount()','Number of prefix queries (4).'],
+    ['queryAt(i)','The prefix string for query i.'],
+    ['answer(i, count)','Report the number of call-signs starting with query i\'s prefix.'],
+  ],
+  starter:`// Walk the prefix one character at a time from the root.
+// If a character has no child, the prefix matches nothing -> 0.
+// Otherwise, count every complete call-sign in the subtree below
+// where you stopped -- that recursive count is the whole answer.
+
+function countWords(node) {
+  let count = isWord(node) ? 1 : 0;
+  for (const child of childrenOf(node)) {
+    count += countWords(child);
+  }
+  return count;
+}
+
+for (let q = 0; q < queryCount(); q++) {
+  const prefix = queryAt(q);
+  let node = root();
+  let found = true;
+  for (const ch of prefix) {
+    node = childOf(node, ch);
+    if (node === null) { found = false; break; }
+  }
+  answer(q, found ? countWords(node) : 0);
+}
+`,
+  build(rng){
+    const ALPHA='ABC';
+    const LEN=4;
+    const words=new Set();
+    while(words.size<12){
+      let w='';
+      for(let i=0;i<LEN;i++)w+=ALPHA[Math.floor(rng()*ALPHA.length)];
+      words.add(w);
+    }
+    const wordList=[...words];
+    const nodes=[{children:{},isWord:false,wordIdx:null}];
+    wordList.forEach((w,wi)=>{
+      let cur=0;
+      for(const ch of w){
+        if(!(ch in nodes[cur].children)){
+          nodes.push({children:{},isWord:false,wordIdx:null});
+          nodes[cur].children[ch]=nodes.length-1;
+        }
+        cur=nodes[cur].children[ch];
+      }
+      nodes[cur].isWord=true;
+      nodes[cur].wordIdx=wi;
+    });
+    const trueCount=(prefix)=>wordList.filter(w=>w.startsWith(prefix)).length;
+    const realPrefixes=new Set();
+    for(const w of wordList)for(let l=1;l<LEN;l++)realPrefixes.add(w.slice(0,l));
+    const realArr=[...realPrefixes].sort((a,b)=>trueCount(b)-trueCount(a));
+    const chosen=[];
+    const seenCounts=new Set();
+    for(const p of realArr){
+      const c=trueCount(p);
+      if(!seenCounts.has(c)){chosen.push(p);seenCounts.add(c);}
+      if(chosen.length>=3)break;
+    }
+    while(chosen.length<3)chosen.push(realArr[ri(rng,0,realArr.length-1)]);
+    let nonexistent=null;
+    outer:
+    for(let len=1;len<=3;len++){
+      const combos=Math.pow(ALPHA.length,len);
+      for(let c=0;c<combos;c++){
+        let p='',cc=c;
+        for(let k=0;k<len;k++){p=ALPHA[cc%ALPHA.length]+p;cc=Math.floor(cc/ALPHA.length);}
+        if(!realPrefixes.has(p)){nonexistent=p;break outer;}
+      }
+    }
+    const queries=[...chosen,nonexistent];
+    for(let i=queries.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[queries[i],queries[j]]=[queries[j],queries[i]];}
+    const world=emptyWorld(4,3);
+    let idx=0;
+    for(let y=0;y<3;y++)for(let x=0;x<4;x++){
+      const t=world.tiles[y][x];t.type='record';t.idx=idx;t.revealed=true;t.label=wordList[idx];idx++;
+    }
+    world.meta={nodes,wordList,queries,answers:queries.map(p=>trueCount(p)),reports:{}};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    const posOf=(i)=>({x:i%4,y:Math.floor(i/4)});
+    return {
+      root:()=>{opTick(sim);return 0;},
+      childOf:(node,ch)=>{opTick(sim);
+        if(node===null||node===undefined||!m.nodes[node])throw new Error(`childOf(${node}, ${JSON.stringify(ch)}) — that's not a node.`);
+        if(typeof ch!=='string'||ch.length!==1)throw new Error(`childOf expects a single character, got ${JSON.stringify(ch)}.`);
+        const c=m.nodes[node].children[ch];
+        return c===undefined?null:c;
+      },
+      childrenOf:(node)=>{opTick(sim);
+        if(node===null||node===undefined||!m.nodes[node])throw new Error(`childrenOf(${node}) — that's not a node.`);
+        return Object.values(m.nodes[node].children);
+      },
+      isWord:(node)=>{opTick(sim);
+        if(node===null||node===undefined||!m.nodes[node])throw new Error(`isWord(${node}) — that's not a node.`);
+        const n=m.nodes[node];
+        if(n.isWord){const p=posOf(n.wordIdx);sim.actions.push({t:'ping',x:p.x,y:p.y});}
+        return n.isWord;
+      },
+      queryCount:()=>{opTick(sim);return m.queries.length;},
+      queryAt:(i)=>{opTick(sim);checkIndex(i,m.queries.length,'queryAt');return m.queries[i];},
+      answer:(i,count)=>{opTick(sim);checkIndex(i,m.queries.length,'answer');
+        if(count!==m.answers[i])throw new Error(`answer(${i}, ${count}) — query "${m.queries[i]}" actually matches ${m.answers[i]} call-sign${m.answers[i]===1?'':'s'}, not ${count}.`);
+        m.reports[i]=count;bump(sim,'answered');
+        if(Object.keys(m.reports).length===m.queries.length)maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return Object.keys(sim.world.meta.reports).length===sim.world.meta.queries.length;},
+  success:'Every prefix answered by walking letters once, never rescanning the manifest — the Substrate\'s own trick.',
+  card:{title:'Tries: a tree shaped like the alphabet',body:`
+    <p>A <b>trie</b> (prefix tree) stores strings one character at a time: each node is a letter, and words sharing a prefix literally share that path through the tree. Answering "how many words start with X" costs O(|X|) to walk the prefix, plus a pass over whatever subtree remains — never a scan of every stored word.</p>
+    <p>This is the opposite trade-off from a hash map (chapter 11): a hash map answers "does this EXACT string exist" in O(1) but knows nothing about prefixes; a trie is built specifically for prefix questions, at the cost of more memory (one node per shared character, not per word).</p>
+    <div class="real"><div class="bt">In the wild</div>Autocomplete and predictive text, spell-checkers, IP routing tables (longest-prefix match), and any "type the first few letters" search box — tries are the reason those feel instant regardless of dictionary size.</div>`},
+},
+
+/* ---- 25 · union-find ---- */
+{
+  id:'unionfind',title:'The Wreckage Map',concept:'Union-Find — disjoint sets',
+  seeds:[913,967],
+  brief:[
+    ['HALCYON','The Substrate keeps its own map of what\'s connected to what, engineer — sensor relays, welded together over months. One weld in this log is a lie: a connection between two relays that were already joined. Find it.'],
+    ['BYTE','Ten relays. Track which group each one belongs to. When a new weld joins two DIFFERENT groups, merge them. The first weld that tries to join a relay to its own group — that\'s the redundant one.'],
+    ['YOU','Every relay starts alone. Follow parent pointers up to each one\'s group leader; if two relays already share a leader, the weld between them does nothing but waste cable.'],
+  ],
+  objective:'Process every weld event in order. Use find() (walk parentOf() to the root) to check if the two relays are already in the same group; if so, reportRedundant(eventIndex). Otherwise, join the groups with setParent().',
+  api:[
+    ['nodeCount()','Number of relays.'],
+    ['parentOf(i)','Relay i\'s current parent pointer (itself, if it hasn\'t been joined to anything yet).'],
+    ['setParent(i, p)','Set relay i\'s parent pointer — how you merge two groups.'],
+    ['nextEvent()','The next {a, b} weld event to process, or null when the log is exhausted.'],
+    ['reportRedundant(eventIndex)','Report the ONE weld event that connects two relays already in the same group.'],
+  ],
+  starter:`// Union-Find: each relay points to a parent; the "root" (a relay
+// that is its own parent) identifies the whole group.
+function find(x) {
+  while (parentOf(x) !== x) x = parentOf(x);
+  return x;
+}
+
+let i = 0;
+let e = nextEvent();
+while (e !== null) {
+  const ra = find(e.a), rb = find(e.b);
+  if (ra === rb) {
+    reportRedundant(i);
+  } else {
+    setParent(ra, rb);
+  }
+  i++;
+  e = nextEvent();
+}
+`,
+  build(rng){
+    const n=10;
+    const treeEdges=[];
+    for(let i=1;i<n;i++)treeEdges.push([i,ri(rng,0,i-1)]);
+    let a=ri(rng,0,n-1),b=ri(rng,0,n-1);
+    while(b===a)b=ri(rng,0,n-1);
+    const events=[...treeEdges,[a,b]].map(([x,y])=>({a:x,b:y}));
+    for(let i=events.length-1;i>0;i--){const j=ri(rng,0,i);[events[i],events[j]]=[events[j],events[i]];}
+    const parent=Array.from({length:n},(_,i)=>i);
+    const find=(x)=>{while(parent[x]!==x)x=parent[x];return x;};
+    let redundantIdx=-1;
+    events.forEach((e,i)=>{
+      const ra=find(e.a),rb=find(e.b);
+      if(ra===rb)redundantIdx=i;else parent[ra]=rb;
+    });
+    const world=emptyWorld(n,2);
+    for(let x=0;x<n;x++){const t=world.tiles[0][x];t.type='node';t.pid=x;}
+    world.meta={n,events,eventIdx:0,parent:Array.from({length:n},(_,i)=>i),redundantIdx,reported:null};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      nodeCount:()=>{opTick(sim);return m.n;},
+      parentOf:(i)=>{opTick(sim);checkIndex(i,m.n,'parentOf');return m.parent[i];},
+      setParent:(i,p)=>{opTick(sim);checkIndex(i,m.n,'setParent');checkIndex(p,m.n,'setParent');
+        m.parent[i]=p;sim.actions.push({t:'ping',x:i,y:0});bump(sim,'unions');},
+      nextEvent:()=>{opTick(sim);
+        if(m.eventIdx>=m.events.length)return null;
+        const e=m.events[m.eventIdx++];
+        sim.actions.push({t:'ping',x:e.a,y:0});sim.actions.push({t:'ping',x:e.b,y:0});
+        return {...e};
+      },
+      reportRedundant:(eventIdx)=>{opTick(sim);
+        if(!Number.isInteger(eventIdx)||eventIdx<0||eventIdx>=m.events.length)
+          throw new Error(`reportRedundant(${eventIdx}) — there is no event ${eventIdx}.`);
+        if(eventIdx!==m.redundantIdx)throw new Error(`Event ${eventIdx} (weld ${m.events[eventIdx].a}–${m.events[eventIdx].b}) is NOT redundant at the time it happens — check find() against the CURRENT parent pointers, not the original event list.`);
+        m.reported=eventIdx;sim.actions.push({t:'mark',x:m.events[eventIdx].a,y:0,cls:'bad'});maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return sim.world.meta.reported===sim.world.meta.redundantIdx;},
+  success:'One redundant weld found by walking parent pointers to the root — the whole wreckage map resolves to nine real connections.',
+  card:{title:'Union-Find: near-instant "are these connected?"',body:`
+    <p><b>Union-Find</b> (Disjoint Set Union) tracks a collection of groups by giving each element a parent pointer; the "root" of a group is whichever element points to itself. <code>find(x)</code> walks parent pointers up to that root; two elements are in the same group exactly when their roots match.</p>
+    <p><code>union(a, b)</code> merges two groups by pointing one root at the other. Adding path compression (making every visited node point straight at the root during <code>find</code>) and union-by-rank/size keeps each operation close to O(1) even after millions of merges — this chapter\'s plain version is already enough to make "same group?" cheap.</p>
+    <div class="real"><div class="bt">In the wild</div>Kruskal\'s minimum spanning tree (the next chapter), detecting cycles, network/social-graph connectivity ("are these two accounts linked?"), and image processing\'s connected-component labeling all reduce to exactly this structure.</div>`},
+},
+
+/* ---- 26 · bit manipulation ---- */
+{
+  id:'bitmask',title:'The Binary Vault',concept:'Bit manipulation — XOR',
+  seeds:[1013,1069],
+  brief:[
+    ['HALCYON','The Substrate stores everything as raw bits, engineer — no labels, no structure, just numbers. Fifteen fragment IDs came through this vault twice each. Except one. It only came through once, and the vault only grants one read per fragment.'],
+    ['BYTE','XOR a number with itself and you get zero. XOR it with nothing and it stays itself. Feed every ID through the same accumulator, in one pass, and every pair cancels out — whatever survives is the one that never had a partner.'],
+    ['YOU','No sorting, no counting table, no second look at anything. One pass, one running number, done.'],
+  ],
+  objective:'Exactly one fragment ID (of 15) has no duplicate. Find it using a single XOR-accumulator pass — the vault grants only one read of valueAt() per index, total.',
+  api:[
+    ['count()','Number of fragment IDs (15).'],
+    ['valueAt(i)','Read the fragment ID at index i. The vault allows exactly count() reads total, across the whole run.'],
+    ['reportUnique(value)','Report the one ID with no duplicate.'],
+  ],
+  starter:`// XOR every value together in one pass. Every ID that appears
+// TWICE cancels itself out (x ^ x === 0); whatever survives the
+// whole pass is the one ID with no partner.
+
+let x = 0;
+for (let i = 0; i < count(); i++) {
+  x ^= valueAt(i);
+}
+reportUnique(x);
+`,
+  build(rng){
+    const n=15;
+    const vals=[];
+    const used=new Set();
+    const uniq=ri(rng,100,999);
+    used.add(uniq);vals.push(uniq);
+    while(vals.length<n){
+      let v=ri(rng,100,999);
+      if(used.has(v))continue;
+      used.add(v);vals.push(v,v);
+    }
+    for(let i=vals.length-1;i>0;i--){const j=ri(rng,0,i);[vals[i],vals[j]]=[vals[j],vals[i]];}
+    const world=emptyWorld(15,3);
+    for(let x=0;x<n;x++){const t=world.tiles[1][x];t.type='crate';t.idx=x;t.weight=vals[x];t.label=String(vals[x]);t.revealed=true;}
+    world.meta={vals,uniq,reads:0,reported:null};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return m.vals.length;},
+      valueAt:(i)=>{opTick(sim);checkIndex(i,m.vals.length,'valueAt');
+        if(++m.reads>m.vals.length)throw new Error(`Vault sealed — that was read #${m.reads} of ${m.vals.length}. One read per fragment, total: fold each value into a single running number as you go, and never come back for a second look. Trial failed.`);
+        sim.actions.push({t:'ping',x:i,y:1});
+        return m.vals[i];},
+      reportUnique:(value)=>{opTick(sim);
+        if(value!==m.uniq)throw new Error(`reportUnique(${value}) — the fragment with no partner is actually ${m.uniq}. Trial failed.`);
+        m.reported=value;
+        for(let i=0;i<m.vals.length;i++)if(m.vals[i]===m.uniq)sim.actions.push({t:'mark',x:i,y:1,cls:'ok'});
+        maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return sim.world.meta.reported===sim.world.meta.uniq;},
+  success:'Fifteen reads, one pass, zero extra memory — the unpaired fragment found by what it failed to cancel out.',
+  card:{title:'Bit manipulation: XOR\'s one rule solves this in one pass',body:`
+    <p><b>XOR</b> (<code>^</code>) has three properties that make it a favorite low-level trick: <code>x ^ x === 0</code> (a value cancels itself), <code>x ^ 0 === x</code> (identity), and it\'s commutative/associative (order never matters). Feed a list where everything is paired except one value through a running XOR, and every pair vanishes, leaving only the unpaired value — no matter what order they arrive in.</p>
+    <p>This costs O(n) time and O(1) extra space: no hash map counting occurrences, no sort, just one number carried forward. It\'s the simplest example of a much larger toolbox — bitmasks — where a single integer\'s bits each flag a yes/no fact, letting a whole SET be encoded as one number instead of an array (the same array-plus-index idea as chapter 17\'s toll table, except the index is a set of bits instead of a position).</p>
+    <div class="real"><div class="bt">In the wild</div>Network protocols use XOR checksums for error detection; bitmasks pack permission flags (read/write/execute) into a single byte; competitive programming leans on bitmask-indexed DP tables for subset-shaped problems.</div>`},
+},
+
+/* ---- 27 · monotonic stack ---- */
+{
+  id:'monostack',title:'The Watch List',concept:'Monotonic stack — next greater element',
+  seeds:[1123,1171],
+  brief:[
+    ['HALCYON','Twelve watch-posts, engineer, each logging a threat level. For every post, I need to know the next post along the line with a STRICTLY higher reading — or nothing, if none ever comes.'],
+    ['BYTE','Checking every post against every later post costs n². The Substrate doesn\'t have that kind of time. Keep a stack of posts still waiting for their answer — the moment a higher reading shows up, it answers all of them at once.'],
+    ['YOU','Push a post onto the stack. Every time the next reading beats whatever\'s on top, pop it — that reading is its answer. Whatever\'s left when I reach the end never gets one.'],
+  ],
+  objective:'For each of the 12 watch-posts, find the index of the next post with a STRICTLY greater reading (or -1 if none exists), using a monotonic stack. readingAt() may be called at most once per index, total.',
+  api:[
+    ['count()','Number of watch-posts (12).'],
+    ['readingAt(i)','This post\'s threat level. Budgeted to exactly one read per index, total.'],
+    ['reportNextGreater(results)','Report the full answer: an array where results[i] is the index of the next strictly-greater post, or -1.'],
+  ],
+  starter:`// Monotonic stack: keep {index, value} pairs whose "next greater"
+// is still unknown, with DECREASING values from bottom to top.
+// Every time the current reading beats the top of the stack, that
+// reading is the top's answer -- pop it and check the new top.
+
+const n = count();
+let stack = [];
+let next = new Array(n).fill(-1);
+for (let i = 0; i < n; i++) {
+  const v = readingAt(i);
+  while (stack.length > 0 && stack[stack.length - 1].val < v) {
+    next[stack.pop().idx] = i;
+  }
+  stack.push({ idx: i, val: v });
+}
+reportNextGreater(next);
+`,
+  build(rng){
+    const n=12;
+    let vals,dupOk;
+    do{
+      vals=[];
+      for(let i=0;i<n;i++)vals.push(ri(rng,1,50));
+      dupOk=new Set(vals).size<n;
+    }while(!dupOk);
+    const next=new Array(n).fill(-1);
+    const stack=[];
+    for(let i=0;i<n;i++){
+      while(stack.length&&vals[stack[stack.length-1]]<vals[i])next[stack.pop()]=i;
+      stack.push(i);
+    }
+    const world=emptyWorld(n,3);
+    for(let x=0;x<n;x++){const t=world.tiles[1][x];t.type='crate';t.idx=x;t.weight=vals[x];t.label=String(vals[x]);t.revealed=true;}
+    world.meta={vals,next,reads:new Set(),reported:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return m.vals.length;},
+      readingAt:(i)=>{opTick(sim);checkIndex(i,m.vals.length,'readingAt');
+        if(m.reads.has(i))throw new Error(`readingAt(${i}) called a second time — the watch post only reports once. Cache the value (e.g., alongside its index on your stack) instead of re-reading it. Trial failed.`);
+        m.reads.add(i);
+        sim.actions.push({t:'ping',x:i,y:1});
+        return m.vals[i];},
+      reportNextGreater:(results)=>{opTick(sim);
+        if(!Array.isArray(results)||results.length!==m.vals.length)
+          throw new Error(`reportNextGreater() needs an array of exactly ${m.vals.length} answers.`);
+        for(let i=0;i<m.vals.length;i++){
+          if(results[i]!==m.next[i])throw new Error(`Post ${i} (reading ${m.vals[i]}): reported next-greater index ${results[i]}, but it's actually ${m.next[i]}. Trial failed.`);
+        }
+        m.reported=true;
+        for(let i=0;i<m.vals.length;i++)if(m.next[i]!==-1)sim.actions.push({t:'mark',x:i,y:1,cls:'ok'});
+        maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return sim.world.meta.reported===true;},
+  success:'Twelve posts answered in one left-to-right pass — every index read exactly once, no matter how many comparisons it took.',
+  card:{title:'Monotonic stacks: answer many, in one pass',body:`
+    <p>A <b>monotonic stack</b> keeps its entries in strictly increasing or decreasing order at all times, by popping whatever would break that order before pushing the new value. Here, popping an entry means "this new reading IS its answer" — so each element gets pushed once and popped at most once, for O(n) total work instead of the O(n²) of comparing every pair.</p>
+    <p>The trick generalizes past "next greater": the same shape answers "next smaller," "previous greater," and — read backwards — spans like "how many days until a warmer one." Whatever the question, the pattern is the same: maintain only the candidates that could still matter, drop the rest the instant they\'re beaten.</p>
+    <div class="real"><div class="bt">In the wild</div>The daily-temperatures and largest-rectangle-in-a-histogram interview staples are both monotonic-stack problems; stock-span calculations and sliding-window-maximum (a monotonic DEQUE, the same idea with both ends live) use it directly.</div>`},
+},
+
+/* ---- 28 · Kruskal's MST ---- */
+{
+  id:'mst',title:'The Minimum Spanning Relay',concept:'Kruskal\'s algorithm — minimum spanning tree',
+  seeds:[1201,1249],
+  brief:[
+    ['HALCYON','The Substrate\'s physical layer, engineer — real cable, real cost. Eight relay stations, more possible links than you need. Wire the CHEAPEST set of links that connects every station to every other, directly or through the chain.'],
+    ['BYTE','You already own both halves of this: sort the candidate links cheapest-first (chapter 21), and use the Wreckage Map\'s trick (chapter 25) to skip any link that would just reconnect two stations already joined.'],
+    ['YOU','Cheapest link first. If it joins two DIFFERENT groups, take it and merge them. If it would just close a loop inside a group that\'s already whole, skip it. Stop once everything\'s one group.'],
+  ],
+  objective:'Connect all 8 relay stations at minimum total cost. Sort edgeAt() by cost, then walk them in order: connect(i) if the two endpoints are in different union-find groups (merge them with setParent()), skip otherwise.',
+  api:[
+    ['nodeCount()','Number of relay stations (8).'],
+    ['edgeCount()','Number of candidate links.'],
+    ['edgeAt(i)','{a, b, cost} for candidate link i.'],
+    ['parentOf(i)','Station i\'s current union-find parent (for detecting "already connected").'],
+    ['setParent(i, p)','Merge two groups — same primitive as the Wreckage Map.'],
+    ['connect(i)','Commit to wiring link i. Fails if both endpoints are already connected (that link would only close a loop).'],
+  ],
+  starter:`function find(x) { while (parentOf(x) !== x) x = parentOf(x); return x; }
+
+const m = edgeCount();
+let idx = [];
+for (let i = 0; i < m; i++) idx.push(i);
+idx.sort((a, b) => edgeAt(a).cost - edgeAt(b).cost);
+
+for (const i of idx) {
+  const { a, b } = edgeAt(i);
+  const ra = find(a), rb = find(b);
+  if (ra !== rb) {
+    connect(i);
+    setParent(ra, rb);
+  }
+}
+`,
+  build(rng){
+    const n=8;
+    const mstCost=(edges,order)=>{
+      const parent=Array.from({length:n},(_,i)=>i);
+      const find=(x)=>{while(parent[x]!==x)x=parent[x];return x;};
+      let cost=0,used=0;
+      for(const i of order){
+        const [a,b,w]=edges[i];
+        const ra=find(a),rb=find(b);
+        if(ra!==rb){parent[ra]=rb;cost+=w;used++;}
+      }
+      return {cost,used};
+    };
+    for(let tries=0;tries<300;tries++){
+      const edges=[];
+      for(let i=1;i<n;i++)edges.push([i,ri(rng,0,i-1),ri(rng,1,20)]);
+      const extra=ri(rng,3,6);
+      for(let k=0;k<extra;k++){
+        let a=ri(rng,0,n-1),b=ri(rng,0,n-1);
+        while(b===a)b=ri(rng,0,n-1);
+        edges.push([a,b,ri(rng,1,20)]);
+      }
+      const m=edges.length;
+      const byWeight=edges.map((_,i)=>i).sort((x,y)=>edges[x][2]-edges[y][2]);
+      const original=edges.map((_,i)=>i);
+      const trueMst=mstCost(edges,byWeight);
+      const naive=mstCost(edges,original);
+      if(trueMst.used!==n-1)continue;
+      if(!(naive.used===n-1&&naive.cost>trueMst.cost))continue;
+      const world=emptyWorld(n,2);
+      for(let x=0;x<n;x++){const t=world.tiles[0][x];t.type='node';t.pid=x;}
+      world.meta={n,edges,trueCost:trueMst.cost,connected:new Set(),parent:Array.from({length:n},(_,i)=>i),totalCost:0,edgesUsed:0};
+      return world;
+    }
+    throw new Error('MST generation failed');
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      nodeCount:()=>{opTick(sim);return m.n;},
+      edgeCount:()=>{opTick(sim);return m.edges.length;},
+      edgeAt:(i)=>{opTick(sim);checkIndex(i,m.edges.length,'edgeAt');
+        const [a,b,cost]=m.edges[i];sim.actions.push({t:'ping',x:a,y:0});sim.actions.push({t:'ping',x:b,y:0});
+        return {a,b,cost};},
+      parentOf:(i)=>{opTick(sim);checkIndex(i,m.n,'parentOf');return m.parent[i];},
+      setParent:(i,p)=>{opTick(sim);checkIndex(i,m.n,'setParent');checkIndex(p,m.n,'setParent');m.parent[i]=p;},
+      connect:(i)=>{opTick(sim);checkIndex(i,m.edges.length,'connect');
+        if(m.connected.has(i))throw new Error(`connect(${i}) — link ${i} is already wired.`);
+        const [a,b,cost]=m.edges[i];
+        let ra=a;while(m.parent[ra]!==ra)ra=m.parent[ra];
+        let rb=b;while(m.parent[rb]!==rb)rb=m.parent[rb];
+        if(ra===rb)throw new Error(`connect(${i}) — stations ${a} and ${b} are already connected through the network; wiring this link would only close a loop. Check parentOf() before connecting.`);
+        m.connected.add(i);m.totalCost+=cost;m.edgesUsed++;
+        sim.actions.push({t:'mark',x:a,y:0,cls:'ok'});sim.actions.push({t:'mark',x:b,y:0,cls:'ok'});
+        bump(sim,'links');
+      },
+    };
+  },
+  winAtEnd:true,
+  win(sim){
+    const m=sim.world.meta;
+    if(m.edgesUsed!==m.n-1){sim.failed=`${m.edgesUsed} links wired at the end; a spanning tree over ${m.n} stations needs exactly ${m.n-1}.`;return false;}
+    if(m.totalCost!==m.trueCost){sim.failed=`Total wiring cost ${m.totalCost}; the true minimum is ${m.trueCost}. Sort by cost BEFORE connecting — taking edges in any other order can lock in an expensive link too early.`;return false;}
+    return true;
+  },
+  success:'Every station reachable, at the true minimum cost — cheapest-first, skipping anything that would only close a loop.',
+  card:{title:'Kruskal\'s algorithm: greedy, made safe by union-find',body:`
+    <p><b>Kruskal\'s algorithm</b> builds a minimum spanning tree with one rule: sort every candidate edge by cost, then take each one UNLESS it would connect two stations already in the same group. That "already connected?" check is exactly chapter 25\'s union-find — greedy is only safe here because cycle-detection is cheap.</p>
+    <p>This is the same shape as chapter 21\'s greedy scheduling: sort by the right key, then take-or-skip in one pass. The proof of correctness is the classic "cut property" — the cheapest edge crossing ANY split of the stations into two groups is always safe to include in SOME minimum spanning tree.</p>
+    <div class="real"><div class="bt">In the wild</div>Network and utility infrastructure design (wiring the cheapest cable/pipe layout that reaches everyone), clustering algorithms that cut the most expensive edges of a spanning tree to find natural groups, and approximate solutions to the traveling salesman problem all build on this exact routine.</div>`},
+},
 ];
 
 /* ============================================================
@@ -3198,6 +3674,16 @@ const HINTS={
         'Expand end, adding readingAt(end) to a running sum. Whenever sum >= threshold(), record the window length if it is the best so far, then subtract readingAt(start) and advance start to shrink.'],
   backtrack:['Place a sentry, then check every ALREADY-placed sentry for a shared column or diagonal — not just the row you are on.',
         'Recursive row-by-row placement: for each col, if isSafe(row, col) call place(row, col), recurse to row + 1, and if that path fails remove(row, col) and try the next column.'],
+  trie:['A prefix that doesn\'t exist means childOf() returns null partway through — that query\'s answer is 0, not an error.',
+        'Walk childOf() once per character to find where the prefix ends, then recursively add up isWord(node) across every node reachable via childrenOf() from there.'],
+  unionfind:['parentOf() alone only checks ONE hop. Walk parentOf() repeatedly until a relay points to itself — THAT\'S the group leader to compare.',
+        'find(x): while (parentOf(x) !== x) x = parentOf(x); return x; — then reportRedundant() the event where find(e.a) === find(e.b) BEFORE you\'d union them.'],
+  bitmask:['Counting occurrences needs a second look at your own tally. XOR needs neither — one running number, one pass.',
+        'let x = 0; for each value: x ^= value. Whatever survives at the end is the one with no partner; every paired value cancels itself out along the way.'],
+  monostack:['A brute-force "check every later post" re-reads readingAt() many times per post — the vault only allows one read, ever, per post.',
+        'Push {idx, val}. Before pushing the NEW post, pop everything on the stack whose cached val is smaller — each pop just found ITS answer.'],
+  mst:['Connecting in log order (or any order that isn\'t cost order) can lock in an expensive link before a cheaper alternative is even considered.',
+        'Sort edge indices by edgeAt(i).cost first. Then walk that sorted order: connect(i) only if find(a) !== find(b), and setParent() the roots together right after.'],
   side_lb:['A match is not the end — an EARLIER match might exist to the left. Shrink toward the left even when idAt(mid) equals the target.',
         'If idAt(mid) >= target(): hi = mid - 1. Else: lo = mid + 1. When the loop ends, lo is the first index whose id is >= target — open(lo).'],
   side_brackets:['Openers stack up; every closer must match the TOP of the stack. Store [char, index] pairs so you can report positions.',
@@ -4348,11 +4834,219 @@ function genRecursionFrames3(){
   frames.push(snap(null,`${x}^${nStart} = ${final}, computed with only ${calls.length} nested calls instead of ${nStart} sequential multiplications — halving the exponent each time is the same divide-and-conquer idea as quartering the grid.`));
   return frames;
 }
+function buildDemoTrie(){
+  const words=['CAT','CAR','CARD','DOG'];
+  const nodes=[{ch:'•',children:{},isWord:false,depth:0}];
+  words.forEach(w=>{
+    let cur=0;
+    for(const ch of w){
+      if(!(ch in nodes[cur].children)){
+        nodes.push({ch,children:{},isWord:false,depth:nodes[cur].depth+1});
+        nodes[cur].children[ch]=nodes.length-1;
+      }
+      cur=nodes[cur].children[ch];
+    }
+    nodes[cur].isWord=true;
+  });
+  return nodes;
+}
+function genTrieFrames(){
+  const nodes=buildDemoTrie();
+  const maxDepth=Math.max(...nodes.map(n=>n.depth));
+  const byDepth=[];
+  for(let d=1;d<=maxDepth;d++)byDepth.push(nodes.map((n,i)=>({...n,id:i})).filter(n=>n.depth===d));
+  const snap=(activeId,visited,caption)=>({rows:byDepth.map((row,di)=>({label:'depth '+(di+1),cells:row.map(n=>({
+    text:n.ch,cls:n.id===activeId?(n.isWord?'good':'active'):(visited.includes(n.id)?'dim':'')}))})),caption});
+  const frames=[snap(null,[],'A trie for CAT, CAR, CARD, DOG. Searching prefix "CAR" — walk one letter at a time from the root.')];
+  const path=['C','A','R'];
+  let cur=0;const visited=[];
+  for(const ch of path){cur=nodes[cur].children[ch];frames.push(snap(cur,visited,`Follow '${ch}' — node found, keep walking.`));visited.push(cur);}
+  function countWords(id){let c=nodes[id].isWord?1:0;for(const cid of Object.values(nodes[id].children))c+=countWords(cid);return c;}
+  const count=countWords(cur);
+  frames.push(snap(cur,visited,`Prefix "CAR" ends here — this node is itself a complete word (CAR), and its subtree holds one more (CARD). Total: ${count}.`));
+  return frames;
+}
+function genTrieFrames2(){
+  const nodes=buildDemoTrie();
+  const maxDepth=Math.max(...nodes.map(n=>n.depth));
+  const byDepth=[];
+  for(let d=1;d<=maxDepth;d++)byDepth.push(nodes.map((n,i)=>({...n,id:i})).filter(n=>n.depth===d));
+  const snap=(activeId,badId,visited,caption)=>({rows:byDepth.map((row,di)=>({label:'depth '+(di+1),cells:row.map(n=>({
+    text:n.ch,cls:n.id===activeId?'active':n.id===badId?'bad':(visited.includes(n.id)?'dim':'')}))})),caption});
+  const frames=[snap(null,null,[],'Same trie. This time, count "CAR" by checking isWord() ONLY at the node where the prefix ends — no recursion into children.')];
+  const path=['C','A','R'];
+  let cur=0;const visited=[];
+  for(const ch of path){cur=nodes[cur].children[ch];visited.push(cur);}
+  frames.push(snap(cur,null,visited.slice(0,-1),'Prefix ends here. isWord() is true, so the naive count reports 1 — and stops.'));
+  const cardId=nodes[cur].children['D'];
+  function countWords(id){let c=nodes[id].isWord?1:0;for(const cid of Object.values(nodes[id].children))c+=countWords(cid);return c;}
+  const trueCount=countWords(cur);
+  frames.push(snap(null,cardId,visited,`But CARD also starts with "CAR" — it's sitting right in the subtree, unexamined. The true count is ${trueCount}, not 1: skipping the recursion silently undercounts any longer word sharing the prefix.`));
+  return frames;
+}
+function genUnionFindFrames(){
+  const n=6;
+  const parent=Array.from({length:n},(_,i)=>i);
+  const find=(x)=>{while(parent[x]!==x)x=parent[x];return x;};
+  const snap=(caption,hi)=>({rows:[{label:'relay',cells:Array.from({length:n},(_,i)=>({text:String(i),sub:'root '+find(i),cls:hi&&hi.includes(i)?'active':''}))}],caption});
+  const frames=[snap('Six relays, each its own group at the start (root = itself).')];
+  const events=[[0,1],[2,3],[1,2]];
+  for(const [a,b] of events){
+    const ra=find(a),rb=find(b);
+    frames.push(snap(`Union(${a}, ${b}): find(${a})=${ra}, find(${b})=${rb} — different groups, merge them.`,[a,b]));
+    parent[ra]=rb;
+    frames.push(snap(`Relay ${ra}'s group now points at ${rb}.`,[a,b]));
+  }
+  frames.push(snap(`find(0) = ${find(0)}, find(3) = ${find(3)} — same root, so 0 and 3 ARE in the same group, even though they were never unioned directly.`,[0,3]));
+  return frames;
+}
+function genUnionFindFrames2(){
+  const n=6;
+  const parent=Array.from({length:n},(_,i)=>i);
+  const events=[[0,1],[2,3],[1,2]];
+  for(const [a,b] of events){
+    let ra=a;while(parent[ra]!==ra)ra=parent[ra];
+    let rb=b;while(parent[rb]!==rb)rb=parent[rb];
+    parent[ra]=rb;
+  }
+  const find=(x)=>{let c=x;while(parent[c]!==c)c=parent[c];return c;};
+  const snap=(caption,cls)=>({rows:[{label:'parentOf',cells:Array.from({length:n},(_,i)=>({text:String(parent[i]),sub:String(i),cls:(cls&&cls[i])||''}))}],caption});
+  const a=0,b=3;
+  const frames=[snap('Same six relays after the same three unions. This time, check "same group?" using parentOf() directly — no walk to the root.',null)];
+  const shallowSame=parent[a]===parent[b];
+  frames.push(snap(`parentOf(${a}) = ${parent[a]}, parentOf(${b}) = ${parent[b]} — not equal, so a shallow check reports "different groups."`,{[a]:'bad',[b]:'bad'}));
+  frames.push(snap(`But walking all the way to the root: find(${a}) = ${find(a)}, find(${b}) = ${find(b)} — genuinely the SAME group. Checking only the immediate parent misses merges that happened through an intermediate relay.`,{[a]:'good',[b]:'good'}));
+  return frames;
+}
+function genBitmaskFrames(){
+  const vals=[12,7,12,9,7];
+  let acc=0;
+  const snap=(i,caption)=>({rows:[
+    {label:'values',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===i?'active':(k<i?'dim':'')}))},
+    {label:'accumulator',cells:[{text:String(acc)}]},
+  ],caption});
+  const frames=[snap(-1,'XOR every value together, one pass. Pairs cancel (x ^ x = 0); the unpaired value survives.')];
+  for(let i=0;i<vals.length;i++){
+    const before=acc;acc^=vals[i];
+    frames.push(snap(i,`acc = ${before} ^ ${vals[i]} = ${acc}.`));
+  }
+  frames.push({rows:[{label:'result',cells:[{text:String(acc),cls:'good'}]}],caption:`Final accumulator: ${acc} — the one value with no partner, found in a single pass with no extra memory.`});
+  return frames;
+}
+function genBitmaskFrames2(){
+  const vals=[12,7,12,9,7];
+  let sum=0;
+  const trueUnique=vals.reduce((a,b)=>a^b,0);
+  const snap=(i,caption)=>({rows:[{label:'values',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===i?'active':(k<i?'dim':'')}))},{label:'running sum',cells:[{text:String(sum)}]}],caption});
+  const frames=[snap(-1,'Same array. This time, ADD every value instead of XORing it.')];
+  for(let i=0;i<vals.length;i++){sum+=vals[i];frames.push(snap(i,`sum += ${vals[i]} → ${sum}.`));}
+  frames.push({rows:[{label:'result',cells:[{text:String(sum),cls:'bad'}]}],caption:`Final sum: ${sum} — a number, but not the answer. Addition doesn't cancel duplicates the way XOR does; the true unique value is ${trueUnique}. Only XOR's "x ^ x = 0" property makes pairs vanish.`});
+  return frames;
+}
+function genMonoStackFrames(){
+  const vals=[2,5,3,8,4];
+  const n=vals.length;
+  const next=new Array(n).fill(-1);
+  const stack=[];
+  const snap=(i,caption)=>({rows:[
+    {label:'readings',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===i?'active':(next[k]!==-1?'good':'')}))},
+    {label:'stack (idx)',cells:stack.length?stack.map(s=>({text:String(s)})):[{text:'empty',cls:'dim'}]},
+  ],caption});
+  const frames=[snap(-1,'Find, for each reading, the next STRICTLY GREATER one to the right — or none.')];
+  for(let i=0;i<n;i++){
+    while(stack.length&&vals[stack[stack.length-1]]<vals[i]){
+      const popped=stack.pop();next[popped]=i;
+      frames.push(snap(i,`${vals[i]} (index ${i}) beats the top of the stack (index ${popped}, value ${vals[popped]}) — that's its answer. Pop it.`));
+    }
+    stack.push(i);
+    frames.push(snap(i,`Push index ${i} (value ${vals[i]}) — its next-greater is still unknown.`));
+  }
+  frames.push({rows:[{label:'next[]',cells:next.map((v,k)=>({text:String(v),sub:String(k),cls:v!==-1?'good':'dim'}))}],caption:'Final answers: one pass, each index pushed once and popped at most once.'});
+  return frames;
+}
+function genMonoStackFrames2(){
+  const vals=[4,4,2,6];
+  const n=vals.length;
+  const wrongNext=new Array(n).fill(-1);
+  const stack=[];
+  const frames=[{rows:[{label:'readings',cells:vals.map((v,k)=>({text:String(v),sub:String(k)}))}],caption:'Same idea, but the pop condition uses <= instead of < — treating an EQUAL value as if it were greater.'}];
+  for(let i=0;i<n;i++){
+    while(stack.length&&vals[stack[stack.length-1]]<=vals[i]){
+      const popped=stack.pop();wrongNext[popped]=i;
+      frames.push({rows:[{label:'readings',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===popped?'bad':(k===i?'active':'')}))}],
+        caption:`${vals[i]} (index ${i}) is only EQUAL to index ${popped}'s value (${vals[popped]}), not greater — but <= pops it anyway. Wrong answer recorded.`});
+    }
+    stack.push(i);
+  }
+  const trueNext=new Array(n).fill(-1);
+  const stack2=[];
+  for(let i=0;i<n;i++){
+    while(stack2.length&&vals[stack2[stack2.length-1]]<vals[i])trueNext[stack2.pop()]=i;
+    stack2.push(i);
+  }
+  frames.push({rows:[
+    {label:'wrong (<=)',cells:wrongNext.map((v,k)=>({text:String(v),sub:String(k),cls:v!==trueNext[k]?'bad':''}))},
+    {label:'correct (<)',cells:trueNext.map((v,k)=>({text:String(v),sub:String(k),cls:'good'}))},
+  ],caption:'Index 0 disagrees: the <= version reports its next-greater as index 1 (an EQUAL value), while the correct strict version correctly skips past ties to index 3.'});
+  return frames;
+}
+const MST_DEMO_EDGES=[[1,0,1],[2,1,9],[3,2,1],[4,0,7],[4,1,7],[3,1,4]];
+function genKruskalFrames(){
+  const n=5;
+  const edges=MST_DEMO_EDGES;
+  const parent=Array.from({length:n},(_,i)=>i);
+  const find=(x)=>{while(parent[x]!==x)x=parent[x];return x;};
+  const order=edges.map((_,i)=>i).sort((a,b)=>edges[a][2]-edges[b][2]);
+  const chosen=[];
+  const snap=(cur,caption)=>({rows:[{label:'edges (cost order)',cells:order.map(i=>({text:`${edges[i][0]}–${edges[i][1]}:${edges[i][2]}`,cls:chosen.includes(i)?'good':i===cur?'active':''}))}],caption});
+  const frames=[snap(null,'Six candidate links, sorted cheapest first. Take each one UNLESS it would just reconnect two stations already joined.')];
+  let totalCost=0;
+  for(const i of order){
+    const [a,b,cost]=edges[i];
+    const ra=find(a),rb=find(b);
+    if(ra!==rb){
+      chosen.push(i);parent[ra]=rb;totalCost+=cost;
+      frames.push(snap(i,`Link ${a}–${b} (cost ${cost}): different groups — take it. Running total: ${totalCost}.`));
+    }else{
+      frames.push(snap(i,`Link ${a}–${b} (cost ${cost}): ${a} and ${b} are already connected — skip it, it would only close a loop.`));
+    }
+  }
+  frames.push(snap(null,`All ${n} stations connected at minimum cost: ${totalCost}.`));
+  return frames;
+}
+function genKruskalFrames2(){
+  const n=5;
+  const edges=MST_DEMO_EDGES;
+  const mstCost=(order)=>{
+    const parent=Array.from({length:n},(_,i)=>i);
+    const find=(x)=>{while(parent[x]!==x)x=parent[x];return x;};
+    let cost=0;
+    for(const i of order){const [a,b,w]=edges[i];const ra=find(a),rb=find(b);if(ra!==rb){parent[ra]=rb;cost+=w;}}
+    return cost;
+  };
+  const byCost=edges.map((_,i)=>i).sort((a,b)=>edges[a][2]-edges[b][2]);
+  const trueCost=mstCost(byCost);
+  const original=edges.map((_,i)=>i);
+  const parent=Array.from({length:n},(_,i)=>i);
+  const find=(x)=>{while(parent[x]!==x)x=parent[x];return x;};
+  const chosen=[];
+  const snap=(cur,caption)=>({rows:[{label:'edges (original order)',cells:original.map(i=>({text:`${edges[i][0]}–${edges[i][1]}:${edges[i][2]}`,cls:chosen.includes(i)?'bad':i===cur?'active':''}))}],caption});
+  const frames=[snap(null,'Same six links, processed in their ORIGINAL order instead of sorted by cost.')];
+  let totalCost=0;
+  for(const i of original){
+    const [a,b,cost]=edges[i];
+    const ra=find(a),rb=find(b);
+    if(ra!==rb){chosen.push(i);parent[ra]=rb;totalCost+=cost;frames.push(snap(i,`Link ${a}–${b} (cost ${cost}): different groups — take it. Running total: ${totalCost}.`));}
+    else frames.push(snap(i,`Link ${a}–${b} (cost ${cost}): already connected — skip.`));
+  }
+  frames.push(snap(null,`Total cost: ${totalCost} — worse than the true minimum of ${trueCost}. An expensive edge locked in early, before a cheaper alternative connecting the same stations was ever considered.`));
+  return frames;
+}
 
 /* ---------- concept data ---------- */
-const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse','bst','heap','greedy','twoptr','backtrack'];
-const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4,bst:5,heap:5,greedy:5,twoptr:5,backtrack:5};
-const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques',5:'Season 5 · The Deep Archive'};
+const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse','bst','heap','greedy','twoptr','backtrack','trie','unionfind','bitmask','monostack','mst'];
+const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4,bst:5,heap:5,greedy:5,twoptr:5,backtrack:5,trie:6,unionfind:6,bitmask:6,monostack:6,mst:6};
+const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques',5:'Season 5 · The Deep Archive',6:'Season 6 · The Substrate'};
 const CONCEPTS={
   seq:{title:'Sequences',
     examples:[{label:'A working sequence',demoType:'cells',frames:genSeqFrames},{label:'Same steps, reordered',demoType:'grid',frames:genSeqFrames2}],
@@ -4575,13 +5269,63 @@ const CONCEPTS={
     mistakes:['Checking validity only at the very end (after every choice is made) instead of pruning early with isSafe — correct, but explores exponentially more dead branches.','Forgetting to undo (remove) a choice before trying the next option at the same level — leftover state from the failed attempt corrupts the next one.','Checking a placement against only the most recent choice instead of ALL previously committed choices — a conflict with something placed several steps earlier goes undetected.'],
     complexity:[{label:'Worst case',val:'Exponential'},{label:'In practice',val:'Pruned far below worst case'}],
     pseudocode:'function solve(row):\n  if row === n: success\n  for col in 0..n-1:\n    if isSafe(row, col):\n      place(row, col)\n      if solve(row + 1): return true\n      remove(row, col)\n  return false'},
+  trie:{title:'Tries (Prefix Trees)',
+    examples:[{label:'Walking a prefix',demoType:'cells',frames:genTrieFrames},{label:'Counting only exact matches',demoType:'cells',frames:genTrieFrames2}],
+    oneLiner:'A tree shaped like the alphabet: words sharing a prefix literally share that path, so answering "how many start with X" costs one walk, not one scan.',
+    explanation:[
+      'A trie (prefix tree) stores strings one character at a time. Each node represents a single letter, and any two words that share a prefix share the exact same nodes for that prefix — the tree only branches where words actually differ.',
+      'Searching for a prefix costs O(|prefix|): walk one child pointer per character. Once you land on the node where the prefix ends, every complete word beneath it in the tree starts with that prefix — a small recursive count over the subtree answers "how many," with no need to look at every stored word.',
+      'This is a different trade-off than a hash map (chapter 11): a hash map answers "does this EXACT string exist" in O(1) but has no idea about prefixes at all; a trie is built specifically to make prefix questions cheap, at the cost of more memory — one node per shared character, not one entry per word.'],
+    mistakes:['Checking isWord() only at the exact node where a prefix ends, without recursing into its children — undercounts any longer word that also shares the prefix.','Assuming a missing character means "no such node," and forgetting that a null child mid-walk means the ENTIRE prefix has zero matches, not just that one branch.','Treating a trie as a general-purpose string container — it earns its cost specifically for prefix-shaped questions, not exact-match lookups a hash map already does faster.'],
+    complexity:[{label:'Prefix search',val:'O(|prefix|)'},{label:'Space',val:'O(total characters)'}],
+    pseudocode:'function countWithPrefix(prefix):\n  node = root\n  for ch in prefix:\n    node = node.children[ch]\n    if node is null: return 0\n  return countWords(node)  // isWord(node) + recurse into every child'},
+  unionfind:{title:'Union-Find (Disjoint Sets)',
+    examples:[{label:'Same group?',demoType:'cells',frames:genUnionFindFrames},{label:'Checking parentOf() instead of find()',demoType:'cells',frames:genUnionFindFrames2}],
+    oneLiner:'Give every element a parent pointer; the element that points to itself is its group\'s "root." Two elements are in the same group exactly when their roots match.',
+    explanation:[
+      'Union-Find (Disjoint Set Union) tracks a changing collection of groups without ever building an explicit list of members. Each element has one parent pointer; following parent pointers upward always ends at a "root" — an element that is its own parent — which identifies the whole group.',
+      '`find(x)` walks parent pointers to the root. `union(a, b)` merges two groups by pointing one root at the other. The only correctness rule that matters: always compare and merge at the ROOT level, never at the level of immediate parents, since two elements can be in the same group through a chain of several merges.',
+      'Real implementations add path compression (flattening the chain during `find` so future lookups are faster) and union-by-rank/size (always attaching the smaller tree to the larger one), which together keep every operation close to O(1) even after huge numbers of merges — but the plain version here already captures the whole idea.'],
+    mistakes:['Comparing parentOf(a) and parentOf(b) directly instead of find(a) and find(b) — this only checks ONE hop, and misses groups joined through an intermediate element.','Unioning by setting a root\'s parent to a non-root — this breaks the invariant that a root always points to itself, corrupting every future find() through it.','Forgetting that a freshly-created element starts as its own parent (its own group of one), not pointing at element 0 or any other default.'],
+    complexity:[{label:'find/union (plain)',val:'O(log n)'},{label:'find/union (optimized)',val:'O(α(n)) ≈ O(1)'}],
+    pseudocode:'function find(x):\n  while parent[x] !== x: x = parent[x]\n  return x\n\nfunction union(a, b):\n  ra, rb = find(a), find(b)\n  if ra !== rb: parent[ra] = rb'},
+  bitmask:{title:'Bit Manipulation',
+    examples:[{label:'XOR cancels pairs',demoType:'cells',frames:genBitmaskFrames},{label:'Using + instead of ^',demoType:'cells',frames:genBitmaskFrames2}],
+    oneLiner:'XOR\'s one rule — a value canceled with itself is zero — turns "find what has no partner" into a single pass with no extra memory.',
+    explanation:[
+      'XOR (`^`) has three properties that make it a favorite low-level trick: `x ^ x === 0` (a value cancels itself out), `x ^ 0 === x` (identity — XORing with nothing changes nothing), and it\'s commutative and associative, so the order values arrive in never matters.',
+      'Feed a list where every value is paired except one through a single running XOR, and every pair vanishes — leaving only the unpaired value. This costs O(n) time and O(1) extra space: no counting table, no sort, just one number carried forward through one pass.',
+      'This is the simplest member of a larger toolbox: a bitmask packs a whole SET of yes/no facts into a single integer, one fact per bit, letting set membership, union, and intersection all become O(1) operations on machine words instead of operations on a whole data structure.'],
+    mistakes:['Reaching for a hash map / counting table when the paired-except-one shape is exactly what XOR solves in one pass with zero extra memory.','Using addition or another operation that doesn\'t have XOR\'s cancellation property — a sum changes with every value and never isolates the unpaired one.','Assuming bit tricks only apply to toy problems — bitmask-indexed DP tables and permission-flag bytes are the same idea at production scale.'],
+    complexity:[{label:'Time',val:'O(n)'},{label:'Extra space',val:'O(1)'}],
+    pseudocode:'x = 0\nfor v in values:\n  x = x ^ v\n// every paired value has canceled out; x is the unpaired one'},
+  monostack:{title:'Monotonic Stack',
+    examples:[{label:'Next greater, one pass',demoType:'cells',frames:genMonoStackFrames},{label:'Using <= instead of <',demoType:'cells',frames:genMonoStackFrames2}],
+    oneLiner:'Keep only the candidates that could still matter, in sorted order — the moment a new value beats the top, that top just got its answer.',
+    explanation:[
+      'A monotonic stack maintains its entries in strictly increasing or decreasing order at all times, by popping anything that would break that order before pushing a new value. For "next greater element," it keeps values in DECREASING order from bottom to top.',
+      'Every element is pushed exactly once and popped at most once, so the total work across the whole pass is O(n) — dramatically cheaper than the O(n²) of comparing every pair directly, even though it can look like nested loops at first glance.',
+      'The trick generalizes past "next greater": the same shape answers "next smaller," "previous greater," and — scanned in reverse — "how many steps until a bigger one." Whatever the exact question, the pattern is identical: keep only what could still be an answer, discard the rest the instant something beats it.'],
+    mistakes:['Using <= instead of < (or vice versa) in the pop condition — this silently changes how ties are handled, often reporting an EQUAL value as if it were "greater."','Re-reading a value from the original data instead of caching it when pushed — wastes work and, in a budget-limited setting, isn\'t even possible.','Popping based on stack POSITION instead of the cached VALUE at that position — position and value are easy to conflate once index bookkeeping gets involved.'],
+    complexity:[{label:'Time',val:'O(n)'},{label:'Naive nested-loop version',val:'O(n²)'}],
+    pseudocode:'stack = []  // indices, decreasing values\nfor i in 0..n-1:\n  while stack not empty and value[top] < value[i]:\n    next[stack.pop()] = i\n  stack.push(i)'},
+  mst:{title:'Kruskal\'s Algorithm (Minimum Spanning Tree)',
+    examples:[{label:'Cheapest first',demoType:'cells',frames:genKruskalFrames},{label:'Wrong order, higher cost',demoType:'cells',frames:genKruskalFrames2}],
+    oneLiner:'Sort every candidate edge by cost, then take each one UNLESS it would only reconnect two things already joined — union-find makes that check nearly free.',
+    explanation:[
+      'Kruskal\'s algorithm builds a minimum spanning tree — the cheapest set of edges that connects every node — with one rule: sort all candidate edges by cost, then walk them in that order, taking each edge UNLESS both endpoints are already in the same union-find group (which would mean the edge only closes a loop).',
+      'This is greedy (chapter 21\'s "sort by the right key, then take-or-skip") made SAFE by a correctness proof called the cut property: the cheapest edge crossing any split of the nodes into two groups is always safe to include in some minimum spanning tree. Union-find is what makes checking "would this close a loop?" cheap enough to do for every candidate edge.',
+      'Processing edges in any order OTHER than cost order breaks the guarantee: an expensive edge can lock two groups together before a cheaper edge connecting the same two groups is ever considered, and once two groups are joined there\'s no going back to swap in the cheaper option.'],
+    mistakes:['Connecting edges in their original (or any non-cost) order — a moment\'s convenience that can lock in an expensive edge before a cheaper alternative is considered.','Checking parentOf() instead of find() before connecting — the same shallow-check mistake as plain union-find, just easier to miss under a graph\'s extra complexity.','Forgetting to union the two groups immediately after connecting an edge — the next edge\'s cycle check will be based on stale information.'],
+    complexity:[{label:'Time',val:'O(E log E)'},{label:'Dominated by',val:'sorting the edges'}],
+    pseudocode:'sort edges by cost\nfor (a, b, cost) in sorted edges:\n  if find(a) !== find(b):\n    connect(a, b)\n    union(a, b)'},
 };
 
 /* ---------- viz player: generic playback + two renderers ---------- */
 function renderCellsFrame(container,frame){
   container.innerHTML='';
   for(const row of frame.rows){
-    const rowEl=document.createElement('div');rowEl.className='viz-row';
+    const rowEl=document.createElement('div');rowEl.className='viz-row';rowEl.tabIndex=0;
     if(row.label){const lbl=document.createElement('div');lbl.className='viz-rowlabel';lbl.textContent=row.label;rowEl.appendChild(lbl);}
     for(const c of row.cells){
       if(c.arrow){const a=document.createElement('div');a.className='viz-arrow';a.textContent='→';rowEl.appendChild(a);continue;}
@@ -4710,7 +5454,7 @@ function openLearn(id,exampleIdx){
     <div class="lv-oneliner">${c.oneLiner}</div>
     ${c.complexity.length?`<div class="lv-cplx-row">${c.complexity.map(x=>`<div class="lv-cplx-item"><div class="lbl">${x.label}</div><div class="val">${x.val}</div></div>`).join('')}</div>`:''}
     <div class="lv-section"><h2>How it actually works</h2>${c.explanation.map(p=>`<p>${p}</p>`).join('')}</div>
-    <div class="lv-section"><h2>Pseudocode</h2><div class="lv-code">${escapeHtml(c.pseudocode)}</div></div>
+    <div class="lv-section"><h2>Pseudocode</h2><div class="lv-code" tabindex="0">${escapeHtml(c.pseudocode)}</div></div>
     <div class="lv-section"><h2>Common mistakes</h2><ul class="lv-mistakes">${c.mistakes.map(m=>`<li>${m}</li>`).join('')}</ul></div>
     <div class="lv-section">
       <h2>Visualize it</h2>
@@ -5067,6 +5811,7 @@ function showCard(level){
     if(cur===11){btn='End of Season 2 ▸';next=showS2End;}
     if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
     if(cur===17){btn='End of Season 4 ▸';next=showS4End;}
+    if(cur===22){btn='End of Season 5 ▸';next=showS5End;}
     if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
   }
   openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
@@ -5146,7 +5891,7 @@ function showS5Intro(){
     </ul>`,
     'Enter the archive ▸',null);
 }
-function showFinale(){
+function showS5End(){
   openModal('Transmission · to whom it may concern','THE ARCHIVE IS YOURS NOW.',`
     <p>The last chamber of the Deep Archive dims to a single steady light, and HALCYON reports something it has never reported before: no further chapters. Twenty-three, start to finish — a career-switcher, a maintenance robot, and a full CS-fundamentals curriculum:</p>
     <ul>
@@ -5156,8 +5901,36 @@ function showFinale(){
       <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
       <li><b>Season 5 · the deep archive</b> — binary search trees, heaps, greedy, two pointers, backtracking.</li>
     </ul>
-    <p>That's nearly the entire technical-interview canon, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, twenty-three times.</p>
-    <div class="real"><div class="bt">Your real next chapter</div>(1) Re-implement binary search, BFS, and the toll-road DP from memory, in JavaScript or Python. (2) Take a set of "easy"/"medium"-tier interview problems — you will recognize almost every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, and finally in shapes that fold.</em></p>
+    <p>That's nearly the entire technical-interview canon, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, twenty-three times. HALCYON runs one last diagnostic before sealing the chamber — and stops.</p>
+    <p>The Archive's own index queries aren't running on the Archive. They're running on something underneath it — older, rawer, never meant to be seen by a visitor. HALCYON has one word for it: <em>Substrate</em>.</p>
+    <div class="real"><div class="bt">Season 6 · The Substrate</div>Bits, disjoint fragments, prefix trees, minimum-cost wiring — the raw primitives even the Archive's "smart" structures turned out to be built from. One layer left to see, and nowhere lower to go after it.</div>`,
+    'Begin Season 6: The Substrate ▸',()=>loadLevel(23));
+}
+function showS6Intro(){
+  openModal('Season 6 · The Substrate','Nowhere lower to go.',`
+    <p>What HALCYON exposed by accident turns out to be intentional: the Substrate was always going to be shown, eventually, to whoever proved they understood everything built on top of it first. Five rooms, and each one is something the Archive's fancy structures were quietly assembled from all along.</p>
+    <ul>
+      <li><b>Tries</b> — the shape underneath every autocomplete box and dictionary lookup.</li>
+      <li><b>Union-Find</b> — how the Substrate itself tracks what's connected to what.</li>
+      <li><b>Bit manipulation</b> — its literal storage format, one flag per bit.</li>
+      <li><b>Monotonic stacks &amp; Kruskal's algorithm</b> — the scheduling and wiring tricks holding the whole thing together cheaply.</li>
+    </ul>
+    <p>Nothing here is new machinery. It's the machinery you already used, seen with the panels off.</p>`,
+    'Open the panels ▸',null);
+}
+function showFinale(){
+  openModal('Transmission · to whom it may concern','YOU ARE LOOKING AT THE FLOOR NOW.',`
+    <p>The Substrate's last chamber doesn't dim so much as go quiet — there is nothing underneath IT. HALCYON confirms it three times before saying so: twenty-eight chapters, and the visitors\' own systems bottom out in exactly the primitives you just used to read them.</p>
+    <ul>
+      <li><b>Season 1 · algorithms</b> — sequences, loops, conditionals, search, sorting, pathfinding.</li>
+      <li><b>Season 2 · data structures</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
+      <li><b>Season 3 · graphs</b> — BFS, Dijkstra, topological sort.</li>
+      <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
+      <li><b>Season 5 · the deep archive</b> — binary search trees, heaps, greedy, two pointers, backtracking.</li>
+      <li><b>Season 6 · the substrate</b> — tries, union-find, bit manipulation, monotonic stacks, Kruskal's algorithm.</li>
+    </ul>
+    <p>That's the entire technical-interview canon and then some, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, twenty-eight times.</p>
+    <div class="real"><div class="bt">Your real next chapter</div>(1) Re-implement binary search, BFS, the toll-road DP, and union-find from memory, in JavaScript or Python. (2) Take a set of "easy"/"medium"-tier interview problems — you will recognize nearly every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, in shapes that fold, and finally in the bits everything else was built from.</em></p>
     <p>Replay any chapter from the bar above. The universe reshuffles; your programs won't mind.</p>`,
     'End transmission',null);
 }
@@ -5446,10 +6219,10 @@ function loadSideMission(sm){
 function renderChips(){
   const nav=$('#chips');nav.innerHTML='';
   LEVELS.forEach((lv,i)=>{
-    if(i===7||i===12||i===15||i===18){
+    if(i===7||i===12||i===15||i===18||i===23){
       const s=document.createElement('span');s.className='sdiv';
-      s.textContent={7:'S2',12:'S3',15:'S4',18:'S5'}[i];
-      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact',18:'Season 5: The Deep Archive'}[i];
+      s.textContent={7:'S2',12:'S3',15:'S4',18:'S5',23:'S6'}[i];
+      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact',18:'Season 5: The Deep Archive',23:'Season 6: The Substrate'}[i];
       nav.appendChild(s);
     }
     const b=document.createElement('button');
@@ -5468,8 +6241,8 @@ function loadLevel(i){
   cur=i;
   sideActive=null;primerActive=null;
   const lv=LEVELS[i];
-  const season=i<7?1:i<12?2:i<15?3:i<18?4:5;
-  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT','THE DEEP ARCHIVE'][season-1];
+  const season=i<7?1:i<12?2:i<15?3:i<18?4:i<23?5:6;
+  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT','THE DEEP ARCHIVE','THE SUBSTRATE'][season-1];
   $('#lv-kicker').textContent=`Season ${season} · Chapter ${i+1} of ${LEVELS.length}`;
   $('#lv-title').textContent=lv.title;
   $('#lv-concept').textContent=lv.concept;
@@ -5517,6 +6290,10 @@ function loadLevel(i){
     localStorage.setItem('cs_seen_s5','1');
     showS5Intro();
   }
+  if(i===23&&!localStorage.getItem('cs_seen_s6')&&!CS.instant){
+    localStorage.setItem('cs_seen_s6','1');
+    showS6Intro();
+  }
 }
 
 function showShipLog(){
@@ -5526,6 +6303,7 @@ function showShipLog(){
     {name:'Season 3 · The Relay Network — graphs',from:12,to:14},
     {name:'Season 4 · First Contact — techniques',from:15,to:17},
     {name:'Season 5 · The Deep Archive — trees, heaps, techniques',from:18,to:22},
+    {name:'Season 6 · The Substrate — tries, union-find, bit tricks',from:23,to:27},
   ];
   let html='<p>Every concept this ship has taught you, and where you are. This list doubles as a syllabus — screenshot it.</p>';
   for(const s of seasons){
