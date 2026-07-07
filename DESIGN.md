@@ -145,6 +145,32 @@ looks plausible but produces a tree with no valid ordering at all; caught by
 running the chapter's own intended solution against it in testing, not by
 inspection.
 
+## Curriculum map — Season 6: The Substrate (the primitives underneath)
+
+The Archive's own index queries turn out not to be running on the Archive —
+narratively, one layer lower than the "final" gift, and the true bottom:
+after this, there is nothing left underneath to discover. Mechanically, the
+five raw primitives that even Season 5's "smart" structures were quietly
+built from, chosen from the roadmap's own suggestion (tries, union-find,
+bit manipulation) plus two natural pairings (a monotonic stack rounds out
+the technique-family set; Kruskal's algorithm is a capstone that reuses
+chapter 25's exact union-find primitives as its cycle check).
+
+| Ch | Mission | Concept | Mechanic that forces the concept | Trials |
+|----|--------------------------|--------------------------|-----------|--------|
+| 24 | The Prefix Index | Tries | 12 call-signs over a 3-letter, 4-character alphabet (guarantees real prefix overlap by pigeonhole); 4 queries include one prefix proven not to exist via an exhaustive length-1-to-3 search over the alphabet | 3 |
+| 25 | The Wreckage Map | Union-Find | A random spanning tree (guaranteed cycle-free) plus exactly one extra edge, shuffled — the extra edge is provably the only possible redundant connection regardless of shuffle order, verified by real union-find simulation at generation time | 2 |
+| 26 | The Binary Vault | Bit manipulation — XOR | 15 fragment IDs, one unpaired; `valueAt()` is capped at exactly 15 total calls, ruling out any approach that re-reads a value (nested-loop duplicate checks, building a count table) | 2 |
+| 27 | The Watch List | Monotonic stack | 12 readings, generated with a retry loop guaranteeing at least one duplicate value (to catch a `<=`-vs-`<` off-by-one specifically); `readingAt()` throws on a second read of the same index | 2 |
+| 28 | The Minimum Spanning Relay | Kruskal's algorithm | 8 stations; generator regenerates until processing edges in original (unsorted) order strictly overpays versus the true minimum — reuses chapter 25's `parentOf`/`setParent` API verbatim | 2 |
+
+Engine note: this season's build functions lean harder on generate-and-verify
+than any prior one — every chapter's random instance is checked against a
+real reference implementation (a second, independent union-find simulation,
+a real Kruskal's run, a brute-force prefix count) before being accepted,
+after the BST lesson from Season 5 that a plausible-looking generator can
+silently produce an unsolvable or meaningless instance.
+
 ## Systems
 
 ### The interpreter
@@ -320,8 +346,8 @@ career-switcher's inner monologue, doing the conceptual connective work).
     matching reference page. Side missions and two primer lessons
     (if/else, for loops) link to their parent chapter's concept rather
     than duplicating content.
-  - A **dedicated page per concept** (23 total, one per chapter — every
-    algorithm, data structure, graph technique, and Season 5 topic in the
+  - A **dedicated page per concept** (28 total, one per chapter — every
+    algorithm, data structure, graph technique, and Season 5/6 topic in the
     curriculum), each with an explanation, a complexity table, runnable
     pseudocode, and an **interactive visualization** with Play/Step/Reset
     controls. Binary
@@ -375,6 +401,34 @@ career-switcher's inner monologue, doing the conceptual connective work).
   exponentiation as a non-grid divide-and-conquer example. Every one is a
   real simulation of the actual algorithm on fixed sample data, same as the
   first two examples — none of these are hand-authored animations.
+- **Sample code in five languages, per concept.** Each `CONCEPTS[id]`
+  gained a `code: {js, ts, python, java, csharp}` field alongside
+  `pseudocode` — every language snippet implements the same algorithm as
+  that concept's pseudocode, not an independently-reinvented approach.
+  Rendered as a language-tab strip (`.lv-lang-tab`, deliberately a distinct
+  class from the visualization's `.lv-ex-tab` so the two tab strips don't
+  collide under a shared `querySelectorAll`) above a `.lv-code` block; the
+  selected language persists across concepts via `localStorage`
+  (`cs_code_lang`), same persistence pattern as sound/step-mode/panel
+  sizes. The 140 snippets (28 concepts × 5 languages) were drafted by
+  parallel subagents fed the exact existing pseudocode as ground truth,
+  then syntax-verified (`node --check` for JS, `py_compile` for Python) and
+  scrubbed for two recurring subagent failure modes before being merged in:
+  HTML-entity-escaped output (`&lt;` instead of `<`) that would have
+  double-escaped once the render pipeline's own `escapeHtml()` ran over it,
+  and JSON responses wrapped in ```` ```json ```` fences despite
+  instructions not to.
+- **MIT 6.006 further-reading notes.** Eight concepts with strong,
+  confirmed correspondence to MIT's [6.006 Introduction to
+  Algorithms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/pages/lecture-notes/)
+  (Spring 2020) syllabus — binary search, sorting, hash maps, BSTs, heaps,
+  BFS, Dijkstra, and dynamic programming — gained a `furtherReading` field
+  rendered as a short synthesized note plus a link to that course's lecture
+  notes. Only one MIT OCW URL was ever confirmed reachable (the lecture-
+  notes index — the per-lecture pages returned 403s to automated fetches);
+  every note links to that single verified URL rather than a guessed
+  per-lecture one, and the note text paraphrases the course's known
+  content instead of quoting pages that were never actually fetched.
 - **Resizable panels:** the fixed 310px/430px mission and editor columns
   became `var(--mission-w,310px)`/`var(--game-w,430px)` grid tracks with
   a thin `.resizer` div dropped between them (and between the editor and
@@ -402,13 +456,16 @@ career-switcher's inner monologue, doing the conceptual connective work).
 
 ## Roadmap
 
-The curriculum, tooling, and reference library are all complete: five
-seasons (algorithms, data structures, graphs, techniques, and a fifth
-covering trees/heaps/greedy/two-pointers/backtracking), five practice side
-missions, a JS primer, step-through debugging, share links, and a 23-page
-visualized reference library where every concept has at least two worked
-examples and six flagship concepts have three. Remaining ideas are smaller
-polish:
+The curriculum, tooling, and reference library are all complete: six
+seasons (algorithms, data structures, graphs, techniques, a fifth covering
+trees/heaps/greedy/two-pointers/backtracking, and a sixth covering
+tries/union-find/bit-manipulation/monotonic-stacks/Kruskal's algorithm),
+five practice side missions, a JS primer, step-through debugging, share
+links, a first-visit guided tour, an accessibility-audited UI (0 axe-core
+violations), and a 28-page visualized reference library where every concept
+has at least two worked examples, six flagship concepts have three, and
+every concept now ships runnable sample code in five languages alongside
+its pseudocode. Remaining ideas are smaller polish:
 
 - Localization of story text (the level logic is already data-driven).
 - Efficiency stars, revisited only if playtesting shows the trial gates
@@ -419,6 +476,10 @@ polish:
 - A third (or further) example for the remaining concepts beyond the six
   flagship ones, if playtesting shows two worked examples per concept still
   leaves gaps for a given topic.
-- A Season 6, if the curriculum needs to grow further — tries/trie search,
-  union-find, or bit manipulation would be natural next additions on the
-  same "one chapter, one concept, randomized trials" template.
+- A light/high-contrast theme toggle, deliberately deferred during the
+  accessibility pass as a visual-identity trade-off rather than decided
+  unilaterally — worth revisiting if players actually ask for it.
+- A Season 7, if the curriculum needs to grow further — segment trees,
+  KMP/string matching, or graph coloring would extend the "one chapter, one
+  concept, randomized trials" template past the primitives Season 6 bottomed
+  out at.

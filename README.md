@@ -3,7 +3,7 @@
 A story-driven browser game that teaches **algorithms, data structures, and
 core CS techniques** by making you program a robot to save a crippled
 starship. Built for adult career-switchers: real JavaScript from chapter one,
-no drag-and-drop blocks. Five seasons, twenty-three chapters.
+no drag-and-drop blocks. Six seasons, twenty-eight chapters.
 
 **Play it:** [raja-donthireddy.github.io/Code-Story](https://raja-donthireddy.github.io/Code-Story/) —
 or just open `index.html` in any browser. No build step, no dependencies,
@@ -72,6 +72,16 @@ lists fail and only general algorithms pass — the core lesson of the game.
 | 22 | The Shortest Span | Two pointers — sliding window | Shortest sum-threshold span; the first span that works is never the shortest one |
 | 23 | The Sentry Grid | Backtracking | 5×5 N-queens, 2 damaged cells; commit, discover a dead end, undo, retry |
 
+**Season 6 — The Substrate** (the raw primitives everything above was built from):
+
+| Ch | Mission | Concept | The teeth |
+|----|--------------------------|--------------------------|-----------|
+| 24 | The Prefix Index | Tries | 12 call-signs, 4 prefix queries; count the subtree, don't just check the exact node |
+| 25 | The Wreckage Map | Union-Find | One redundant weld among nine real ones; parentOf() alone isn't find() |
+| 26 | The Binary Vault | Bit manipulation — XOR | 15 fragments, one unpaired; exactly one read per fragment, ever |
+| 27 | The Watch List | Monotonic stack | 12 posts, next-strictly-greater; one read per post forces the O(n) stack over O(n²) |
+| 28 | The Minimum Spanning Relay | Kruskal's algorithm | 8 stations; sort by cost or lock in an expensive link too early |
+
 **Side missions** — because one rep per concept is never enough. Completing a
 chapter unlocks an optional practice variant: lower-bound binary search
 (ch 5), bracket matching (ch 8), frequency counting (ch 11), flood fill
@@ -91,12 +101,23 @@ a plain-language explanation, separate from the story, plus complexity
 badges (O(log n), O(n²), …) and a link into the full **📚 LEARN** reference
 — reachable from that link, from the header anytime, or from the intro.
 
-The reference library has its own dedicated page per concept (23 total,
+The reference library has its own dedicated page per concept (28 total,
 covering every chapter — algorithms, data structures, graphs, techniques,
-and Season 5's trees/heaps/greedy/two-pointers/backtracking), each with:
+Season 5's trees/heaps/greedy/two-pointers/backtracking, and Season 6's
+tries/union-find/bit-manipulation/monotonic-stacks/Kruskal's algorithm),
+each with:
 
 - A plain-English explanation, independent of the story/robot framing.
 - Complexity badges and runnable pseudocode.
+- **Sample code in five languages** — JavaScript, TypeScript, Python, Java,
+  and C# — implementing the exact algorithm from that concept's pseudocode
+  (not a reinvented approach). Switchable via tabs; the chosen language
+  persists across concepts via `localStorage`.
+- For the concepts closest to MIT's [6.006 Introduction to
+  Algorithms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/pages/lecture-notes/)
+  (Spring 2020) syllabus — binary search, sorting, hash maps, BSTs, heaps,
+  BFS, Dijkstra, and dynamic programming — a **Further reading** note links
+  out to that course's lecture notes.
 - A **Common Mistakes** list — the specific ways people actually get each
   concept wrong (off-by-ones, unstable sorts, missing base cases, negative
   Dijkstra weights, treating a priority queue like FIFO, skipping a heap's
@@ -193,7 +214,7 @@ report the actual computed numbers rather than an assumed outcome.
 - The reference library's `VizPlayer` class is a tiny, reusable playback
   engine (goto/play/pause) over a plain `frames` array; two renderers
   (`renderCellsFrame` for array/row-style demos, `renderGridFrame` for
-  grid/pathfinding demos) cover all 23 concepts. Each concept's frames come
+  grid/pathfinding demos) cover all 28 concepts. Each concept's frames come
   from a small generator function (`genBinarySearchFrames()`, etc.) that
   runs the real algorithm on fixed sample data and pushes a frame at each
   step — the pathfinding/BFS generators reuse the actual chapter level
