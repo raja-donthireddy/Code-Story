@@ -401,6 +401,34 @@ career-switcher's inner monologue, doing the conceptual connective work).
   exponentiation as a non-grid divide-and-conquer example. Every one is a
   real simulation of the actual algorithm on fixed sample data, same as the
   first two examples — none of these are hand-authored animations.
+- **Sample code in five languages, per concept.** Each `CONCEPTS[id]`
+  gained a `code: {js, ts, python, java, csharp}` field alongside
+  `pseudocode` — every language snippet implements the same algorithm as
+  that concept's pseudocode, not an independently-reinvented approach.
+  Rendered as a language-tab strip (`.lv-lang-tab`, deliberately a distinct
+  class from the visualization's `.lv-ex-tab` so the two tab strips don't
+  collide under a shared `querySelectorAll`) above a `.lv-code` block; the
+  selected language persists across concepts via `localStorage`
+  (`cs_code_lang`), same persistence pattern as sound/step-mode/panel
+  sizes. The 140 snippets (28 concepts × 5 languages) were drafted by
+  parallel subagents fed the exact existing pseudocode as ground truth,
+  then syntax-verified (`node --check` for JS, `py_compile` for Python) and
+  scrubbed for two recurring subagent failure modes before being merged in:
+  HTML-entity-escaped output (`&lt;` instead of `<`) that would have
+  double-escaped once the render pipeline's own `escapeHtml()` ran over it,
+  and JSON responses wrapped in ```` ```json ```` fences despite
+  instructions not to.
+- **MIT 6.006 further-reading notes.** Eight concepts with strong,
+  confirmed correspondence to MIT's [6.006 Introduction to
+  Algorithms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/pages/lecture-notes/)
+  (Spring 2020) syllabus — binary search, sorting, hash maps, BSTs, heaps,
+  BFS, Dijkstra, and dynamic programming — gained a `furtherReading` field
+  rendered as a short synthesized note plus a link to that course's lecture
+  notes. Only one MIT OCW URL was ever confirmed reachable (the lecture-
+  notes index — the per-lecture pages returned 403s to automated fetches);
+  every note links to that single verified URL rather than a guessed
+  per-lecture one, and the note text paraphrases the course's known
+  content instead of quoting pages that were never actually fetched.
 - **Resizable panels:** the fixed 310px/430px mission and editor columns
   became `var(--mission-w,310px)`/`var(--game-w,430px)` grid tracks with
   a thin `.resizer` div dropped between them (and between the editor and
@@ -435,8 +463,9 @@ tries/union-find/bit-manipulation/monotonic-stacks/Kruskal's algorithm),
 five practice side missions, a JS primer, step-through debugging, share
 links, a first-visit guided tour, an accessibility-audited UI (0 axe-core
 violations), and a 28-page visualized reference library where every concept
-has at least two worked examples and six flagship concepts have three.
-Remaining ideas are smaller polish:
+has at least two worked examples, six flagship concepts have three, and
+every concept now ships runnable sample code in five languages alongside
+its pseudocode. Remaining ideas are smaller polish:
 
 - Localization of story text (the level logic is already data-driven).
 - Efficiency stars, revisited only if playtesting shows the trial gates

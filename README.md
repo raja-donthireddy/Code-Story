@@ -109,6 +109,15 @@ each with:
 
 - A plain-English explanation, independent of the story/robot framing.
 - Complexity badges and runnable pseudocode.
+- **Sample code in five languages** — JavaScript, TypeScript, Python, Java,
+  and C# — implementing the exact algorithm from that concept's pseudocode
+  (not a reinvented approach). Switchable via tabs; the chosen language
+  persists across concepts via `localStorage`.
+- For the concepts closest to MIT's [6.006 Introduction to
+  Algorithms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/pages/lecture-notes/)
+  (Spring 2020) syllabus — binary search, sorting, hash maps, BSTs, heaps,
+  BFS, Dijkstra, and dynamic programming — a **Further reading** note links
+  out to that course's lecture notes.
 - A **Common Mistakes** list — the specific ways people actually get each
   concept wrong (off-by-ones, unstable sorts, missing base cases, negative
   Dijkstra weights, treating a priority queue like FIFO, skipping a heap's
