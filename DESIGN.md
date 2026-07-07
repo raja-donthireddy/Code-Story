@@ -234,7 +234,7 @@ career-switcher's inner monologue, doing the conceptual connective work).
     rather than a hand-authored maze, so the demo world is guaranteed
     solvable by construction instead of by manual verification.
 - **Resizable panels:** the fixed 310px/430px mission and editor columns
-  became `var(--mission-w,310px)`/`var(--right-w,430px)` grid tracks with
+  became `var(--mission-w,310px)`/`var(--game-w,430px)` grid tracks with
   a thin `.resizer` div dropped between them (and between the editor and
   console, and the Reference Library's nav and detail panes) — one
   `makeResizer(handle, {axis, cssVar, min, max, def, direction})` utility
@@ -244,6 +244,19 @@ career-switcher's inner monologue, doing the conceptual connective work).
   double-click-to-reset, matching the WAI-ARIA separator pattern. No
   re-render is needed on resize — the editor overlay, gutter, and game
   grid are all pure CSS flex/grid, so they reflow for free.
+- **Layout: code center, game right.** Originally mission | game | editor.
+  Swapped to mission | editor | game purely via CSS `order` on the five
+  grid children (`#mission`,`#rzMission`,`#right`,`#rzRight`,`#viewport`)
+  — zero DOM restructuring, so every `#right`/`#viewport` reference
+  elsewhere in the script, and every resizer's drag semantics, kept
+  working unchanged; the resizer between the editor and game viewport
+  just resized whatever now sits in its fixed-width track. `order` is
+  reset back to the original mission → game → editor sequence inside the
+  narrow-viewport media query, so stacked mobile layout is unaffected.
+  Renamed `--right-w` to `--game-w` for clarity since it now sizes the
+  viewport, not the editor. Redundant `border-left`/`border-right` on the
+  panels themselves were dropped in the same pass — the resizers already
+  draw the divider line, so the old borders were a latent double-line risk.
 
 ## Roadmap
 
