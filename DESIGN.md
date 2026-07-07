@@ -178,6 +178,90 @@ career-switcher's inner monologue, doing the conceptual connective work).
 
 ## Shipped polish
 
+- **Accessibility pass:** prompted by a general "make the UI friendlier to
+  all types of users" request, audited with axe-core (automated) plus manual
+  review, then fixed everything found rather than picking a narrow slice:
+  - *Technical (axe-core, 0 violations remaining across the game view,
+    reference library, and every modal/overlay state)*: resizers now report
+    `aria-valuenow`/`min`/`max` (updated live on drag, keyboard, and
+    double-click reset); three near-miss contrast failures fixed (`--muted`
+    from 4.47:1 to 5.17:1+, the editor gutter from 2.17:1 to 4.66:1+, the
+    reference library's current-item badge from 2.91:1 to 9.75:1); the
+    reference library's section headings changed from `h3` to `h2` (they
+    sat directly under an `h1` with no `h2` between, an invalid skip); the
+    modal dialog gained `aria-labelledby` pointing at its own title.
+  - *Colorblind-safety*: every color-only pass/fail signal (tile marks,
+    reference-library "good"/"bad" cells, cabinet/crate success states)
+    now pairs its color with a shape — a ✓/✗ overlay, or a dashed vs. solid
+    border — so meaning survives red-green confusion. Caught a real,
+    unrelated bug in the process: `.vgc.bad` (the recursion "missing base
+    case" demo's failure state) had no CSS rule at all and rendered with
+    zero visual distinction; it now gets a dashed red treatment matching
+    the rest of the "bad" family.
+  - *Keyboard*: the guided tour's div-based first target (a plain `<div>`,
+    not natively focusable) gets a temporary `tabindex="0"` + `role="button"`
+    + Enter/Space handler for the duration of that step only, cleaned up on
+    advance/skip/end — a bug of the tour's own making, caught by testing
+    keyboard-only use rather than assuming a click handler was enough.
+    Escape now closes the tour from anywhere. Chapter chips gained a full
+    `aria-label` (title + concept + completion/current status) instead of
+    relying on a `title` attribute alone, which screen readers don't
+    reliably announce.
+  - *Focus containment*: opening the modal or reference library now sets
+    `inert` on `<header>`/`<main>` (removing the dimmed background from
+    both the tab order and the accessibility tree — a real behavioral
+    effect, not just visual: `inert` blocks pointer events too, which
+    surfaced a test-harness shortcut that bypassed the real close path and
+    left the background permanently uninteractive for the rest of that
+    run, since it never called the function that resets `inert`). The
+    guided tour can't use blanket `inert` the same way — its whole premise
+    is that ONE background element must stay interactive per step — so it
+    instead sweeps every other focusable element to `tabindex="-1"`
+    (recording and restoring each one's original value) and excludes only
+    the current step's target and the tour dialog's own controls.
+  - *Motion*: `prefers-reduced-motion` now also covers the tour's
+    transitions, the goal-cell pulse, the error shake, and the
+    correct/incorrect cell pop, on top of what it already handled.
+  - *Screen reader cleanup*: icon-prefixed buttons (Run, Share, Next, Tour,
+    Learn) gained an `aria-label` matching their existing tooltip text so
+    the emoji doesn't become part of the announced name; the sound and
+    step toggles gained `aria-pressed`, updated everywhere their state
+    changes (click handler, the `CS.stepMode` setter, and initial boot).
+  - *Zoom/mobile*: verified no horizontal overflow at 375px, 700px, and
+    1024px widths; chip and header-button tap targets bumped from 24px to
+    32px tall on narrow viewports.
+  - Scope note: a light/high-contrast theme toggle was considered and
+    deliberately deferred — it's a genuine visual-identity trade-off against
+    the single committed dark "terminal" theme (see Visual & narrative
+    identity, above), not a fix with no downside, so it's left as a future
+    option rather than decided unilaterally.
+- **Reference-library legend:** each visualization now shows an
+  always-visible, plain-text color key (in the style of
+  [visualgo.net](https://visualgo.net/)) listing only the states the
+  current example actually uses — computed by scanning every frame's cell/
+  grid classes up front (`collectVizClasses`), not hand-maintained per
+  concept, so it can't drift out of sync with what's actually rendered.
+- **Guided tour:** a first-visit onboarding overlay addressing blank-page
+  syndrome — four steps (Objective panel, editor, ▶ Run, console), each
+  requiring a genuine interaction with the real element (click the objective
+  box, focus the editor, click Run) rather than a passive "Next" click,
+  so the first few actions double as muscle memory instead of a slideshow.
+  Engine: a single reusable spotlight built from a fixed backdrop `<div>`
+  whose `clip-path` is recomputed every step as an evenodd polygon with a
+  "keyhole" cutout around the live target's `getBoundingClientRect()` (the
+  standard technique for a functional, not just visual, cutout — clip-path
+  affects hit-testing in modern browsers, so clicks pass through to the
+  real element everywhere the cutout is, and nowhere else) plus a
+  separately positioned glow border and tooltip card, all transitioned via
+  CSS. Each step attaches a `{once:true}` listener for its required event
+  (`click` or `focus`) directly to the real target element — the tour reacts
+  to genuine use of the UI, not a parallel simulated one — and tears the
+  listener down on Back/Skip/completion so nothing leaks. Gated by a
+  `cs_seen_tour` localStorage flag set on completion or skip, triggered
+  after the intro modal closes (from any of its three exit paths: straight
+  in, or via either JS Primer exit) and replayable anytime via a header
+  button, which is safe to fire from any chapter since none of the four
+  target elements are chapter-specific.
 - **Hint system:** two-tier HALCYON "recovered fragments" per chapter,
   transmitted automatically after 2 and 4 failed runs (strategy first, then
   near-solution); the counter resets on completion so replays stay clean.

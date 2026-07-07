@@ -116,7 +116,10 @@ and Season 5's trees/heaps/greedy/two-pointers/backtracking), each with:
   BFS, House Robber as a second DP recurrence, and fast exponentiation.
   Playback has Play/Step/Reset controls, modeled on the step-through
   presentation style of sites like
-  [algorithm-visualizer.org](https://algorithm-visualizer.org/branch-and-bound/binary-search).
+  [algorithm-visualizer.org](https://algorithm-visualizer.org/branch-and-bound/binary-search),
+  and an always-visible color legend in the style of
+  [visualgo.net](https://visualgo.net/) that adapts to whichever states the
+  current example actually uses.
 - A "Try it yourself" link that jumps straight into that concept's chapter.
 
 The visualizations are not scripted animations — each one runs an actual
@@ -130,6 +133,11 @@ report the actual computed numbers rather than an assumed outcome.
 
 ## Other tools
 
+- **Guided tour** — a first-visit, "show and do" walkthrough of the
+  workspace (Objective panel → editor → ▶ Run → the console) that spotlights
+  one real UI element at a time and requires an actual interaction with it
+  (not just clicking "Next") to advance. Replay it anytime via the 🧭 TOUR
+  header button.
 - **Step-through replay** (STEP toggle) pauses after every command and
   highlights the exact source line that fired it — a debugger, not just an
   animation.
@@ -146,6 +154,29 @@ report the actual computed numbers rather than an assumed outcome.
   center, the game viewport on the right — the editor gets the flexible
   center space since that's where you spend most of your time; the board
   is usually small enough to sit comfortably in a fixed-width side panel.
+
+## Accessibility
+
+- Every color-coded state (pass/fail tiles, right/wrong reference-library
+  cells) pairs its color with a shape — a ✓ or ✗ overlay, or a dashed vs.
+  solid border — so meaning doesn't depend on distinguishing red from green.
+- Full keyboard support: every interactive element (including the guided
+  tour's spotlighted targets) is reachable and operable from the keyboard,
+  with a visible focus ring and Escape closing the tour or a modal.
+  Background content is properly excluded from tab order and the
+  accessibility tree while a modal, the reference library, or the tour is
+  open.
+- Screen-reader friendly: resizable dividers report their current size via
+  ARIA, chapter buttons announce their full title and status (not just a
+  number), and icon-only buttons have clean accessible names separate from
+  their decorative symbols.
+- Respects `prefers-reduced-motion` (pulses, shake, and tour transitions
+  turn off) and meets WCAG AA color contrast throughout — verified with an
+  automated axe-core audit as part of the test suite, with zero violations.
+- The reference library's visualizations carry an always-visible legend
+  (in the style of [visualgo.net](https://visualgo.net/)) explaining what
+  each color/state means, so the color coding is never the only source of
+  truth.
 
 ## For developers
 
@@ -172,9 +203,10 @@ report the actual computed numbers rather than an assumed outcome.
   `loadSide(i)`, `loadPrimer(i)`, `openLearn(id)`, `instant`, `stepMode`).
   The Playwright test suite drives every chapter's, side mission's, and
   primer lesson's intended solution, asserts every failure gate fires
-  correctly, exercises step-mode pausing and share-link round-tripping, and
-  opens + scrubs every concept's visualization to confirm it renders real
-  content and never gets stuck.
+  correctly, exercises step-mode pausing and share-link round-tripping, opens
+  + scrubs every concept's visualization to confirm it renders real content
+  and never gets stuck, and runs an axe-core accessibility audit against the
+  main game view, the reference library, and every modal/overlay state.
 - Progress and per-chapter code persist in `localStorage`.
 
 See [DESIGN.md](DESIGN.md) for the full game design document, including the
