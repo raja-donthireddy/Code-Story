@@ -173,7 +173,7 @@
   .tile.mark-active{border-color:var(--accent);background:#132038}
   .tile.mark-active::before{color:var(--accent)}
   .tlabel{font-size:9px;line-height:1;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
-  .tidx{position:absolute;top:1px;left:3px;font-size:8px;line-height:1;color:#42546d;font-variant-numeric:tabular-nums}
+  .tidx{position:absolute;top:1px;left:3px;font-size:8px;line-height:1;color:#6b84a3;font-variant-numeric:tabular-nums}
   .sdiv{color:var(--muted);font-size:10px;letter-spacing:.14em;align-self:center;padding:0 4px;user-select:none}
   .revealed .tlabel{color:var(--text)}
   .tile.ping{box-shadow:0 0 0 2px var(--accent)}
@@ -429,7 +429,7 @@
 
   <div class="resizer" id="rzMission" role="separator" aria-orientation="vertical" aria-label="Resize mission panel" tabindex="0"></div>
 
-  <section id="viewport">
+  <section id="viewport" tabindex="0">
     <div id="hud"></div>
     <div id="gridwrap"><div id="grid"></div></div>
   </section>
@@ -3053,6 +3053,511 @@ for (const i of idx) {
     <p>This is the same shape as chapter 21\'s greedy scheduling: sort by the right key, then take-or-skip in one pass. The proof of correctness is the classic "cut property" — the cheapest edge crossing ANY split of the stations into two groups is always safe to include in SOME minimum spanning tree.</p>
     <div class="real"><div class="bt">In the wild</div>Network and utility infrastructure design (wiring the cheapest cable/pipe layout that reaches everyone), clustering algorithms that cut the most expensive edges of a spanning tree to find natural groups, and approximate solutions to the traveling salesman problem all build on this exact routine.</div>`},
 },
+/* ============ SEASON 7 — THE LONG REACH ============ */
+
+/* ---- 29 · segment trees ---- */
+{
+  id:'segtree',title:'The Long Manifest',concept:'Segment trees — range queries + point updates',
+  seeds:[1301,1361],
+  brief:[
+    ['HALCYON','The Long Manifest logs resource counts across all eight relay stations in this chain, engineer — and it wants range totals constantly. "How much fuel between stations 2 and 5" — over and over, while transfers keep changing individual counts.'],
+    ['BYTE','Read the manifest once. It never prints twice. Build a tree over it instead: each leaf is one station, each parent is the sum of its two children. An update touches one leaf and a chain of parents; a range query touches only a handful of pre-summed pieces.'],
+    ['YOU','So the tree remembers what I\'ve already summed. Patch a leaf and its ancestors on update; answer a query by combining a few ready-made sums instead of walking every station again.'],
+  ],
+  objective:'Read each station\'s starting count from valueAt() exactly once — the manifest never re-prints. Then process opAt() in order: apply UPDATE events to your own structure (a segment tree), and answerSum(opIndex, total) for every SUM query, reflecting any updates that already happened.',
+  api:[
+    ['count()','Number of relay stations (8).'],
+    ['valueAt(i)','Station i\'s STARTING resource count. Prints once per station, total — cache it instead of re-reading.'],
+    ['opCount()','Number of operations to process, in order.'],
+    ['opAt(i)','The next operation: {type:"sum", lo, hi} or {type:"update", idx, value}.'],
+    ['answerSum(i, total)','Report the range total for sum-query i.'],
+  ],
+  starter:`// Iterative segment tree over a sum. Build once from the starting
+// counts (the manifest never re-prints); from then on, every value
+// you have comes from an UPDATE event, not a re-read.
+
+const n = count();
+const tree = new Array(2 * n).fill(0);
+for (let i = 0; i < n; i++) tree[n + i] = valueAt(i);
+for (let i = n - 1; i > 0; i--) tree[i] = tree[2 * i] + tree[2 * i + 1];
+
+function update(i, value) {
+  let pos = i + n;
+  tree[pos] = value;
+  while (pos > 1) {
+    pos = Math.floor(pos / 2);
+    tree[pos] = tree[2 * pos] + tree[2 * pos + 1];
+  }
+}
+function rangeSum(lo, hi) { // inclusive
+  let l = lo + n, r = hi + n + 1, sum = 0;
+  while (l < r) {
+    if (l & 1) sum += tree[l++];
+    if (r & 1) sum += tree[--r];
+    l = Math.floor(l / 2);
+    r = Math.floor(r / 2);
+  }
+  return sum;
+}
+
+for (let i = 0; i < opCount(); i++) {
+  const op = opAt(i);
+  if (op.type === 'update') update(op.idx, op.value);
+  else answerSum(i, rangeSum(op.lo, op.hi));
+}
+`,
+  build(rng){
+    const n=8;
+    const vals=[];
+    for(let i=0;i<n;i++)vals.push(ri(rng,5,40));
+    const live=vals.slice();
+    const upd1=ri(rng,10,45),upd2=ri(rng,10,45);
+    const opsSpec=[
+      {type:'sum',lo:0,hi:7},
+      {type:'sum',lo:2,hi:5},
+      {type:'update',idx:3,value:upd1},
+      {type:'sum',lo:2,hi:5},
+      {type:'sum',lo:0,hi:7},
+      {type:'update',idx:6,value:upd2},
+      {type:'sum',lo:5,hi:7},
+      {type:'sum',lo:0,hi:3},
+      {type:'sum',lo:0,hi:7},
+    ];
+    const answers=[];
+    for(const op of opsSpec){
+      if(op.type==='update'){live[op.idx]=op.value;answers.push(null);}
+      else{let s=0;for(let k=op.lo;k<=op.hi;k++)s+=live[k];answers.push(s);}
+    }
+    const world=emptyWorld(n,3);
+    for(let x=0;x<n;x++){const t=world.tiles[1][x];t.type='crate';t.idx=x;t.weight=vals[x];t.label=String(vals[x]);t.revealed=true;}
+    world.meta={vals,ops:opsSpec,answers,reads:0,reports:{}};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return m.vals.length;},
+      valueAt:(i)=>{opTick(sim);checkIndex(i,m.vals.length,'valueAt');
+        if(++m.reads>m.vals.length)throw new Error(`Manifest sealed — that was read #${m.reads} of ${m.vals.length}. The starting counts print once, in full; after that you only get UPDATE events, never a re-read. Maintain your own structure (a segment tree) as you go. Trial failed.`);
+        sim.actions.push({t:'ping',x:i,y:1});
+        return m.vals[i];},
+      opCount:()=>{opTick(sim);return m.ops.length;},
+      opAt:(i)=>{opTick(sim);checkIndex(i,m.ops.length,'opAt');
+        const op=m.ops[i];
+        if(op.type==='update')sim.actions.push({t:'ping',x:op.idx,y:1});
+        else{sim.actions.push({t:'ping',x:op.lo,y:1});if(op.hi!==op.lo)sim.actions.push({t:'ping',x:op.hi,y:1});}
+        return {...op};},
+      answerSum:(i,total)=>{opTick(sim);checkIndex(i,m.ops.length,'answerSum');
+        const op=m.ops[i];
+        if(op.type!=='sum')throw new Error(`answerSum(${i}, …) — operation ${i} is an UPDATE, not a sum query.`);
+        if(i in m.reports)throw new Error(`answerSum(${i}, …) — query ${i} was already answered.`);
+        if(total!==m.answers[i])throw new Error(`answerSum(${i}, ${total}) — the true sum over ships ${op.lo}..${op.hi} is ${m.answers[i]}, not ${total}. If an update happened first, your structure must reflect it.`);
+        m.reports[i]=total;
+        sim.actions.push({t:'mark',x:op.lo,y:1,cls:'ok'});
+        const sumOpsCount=m.ops.filter(o=>o.type==='sum').length;
+        if(Object.keys(m.reports).length===sumOpsCount)maybeWin(sim);
+      },
+    };
+  },
+  win(sim){const m=sim.world.meta;const sumOpsCount=m.ops.filter(o=>o.type==='sum').length;return Object.keys(m.reports).length===sumOpsCount;},
+  success:'Every range answered from pre-summed pieces, patched in O(log n) after each update — never a full re-scan.',
+  card:{title:'Segment trees: pre-summed ranges, patched in O(log n)',body:`
+    <p>A <b>segment tree</b> is a binary tree over an array where each leaf holds one element and each internal node holds the combined result (here, a sum) of its two children\'s ranges. Building it costs O(n); after that, a point update touches one leaf plus its O(log n) ancestors, and a range query combines at most O(log n) pre-summed pieces instead of rescanning the whole range.</p>
+    <p>This is the general-purpose version of chapter 28\'s union-find trick applied to a different question: instead of "are these connected?", it\'s "what\'s the aggregate over this range?" — and it works for min, max, or any other combinable operation, not just sum. A lighter-weight cousin, the Fenwick tree (Binary Indexed Tree), trades some generality for an even smaller implementation when the aggregate is specifically a sum.</p>
+    <div class="real"><div class="bt">In the wild</div>Range-sum/min/max dashboards over time-series data, range-minimum-query preprocessing for LCA (lowest common ancestor) algorithms, and any database or analytics index that needs fast aggregate queries over a constantly-updating array.</div>`},
+},
+
+/* ---- 30 · KMP string matching ---- */
+{
+  id:'kmp',title:'The Signal Match',concept:'KMP string matching — pattern search without rereading',
+  seeds:[1409,1471],
+  brief:[
+    ['HALCYON','The visitors repeat one short beacon pattern somewhere inside this much longer transmission, over and over, buried in noise. Find every place it starts — and the signal only plays once. No rewinding.'],
+    ['BYTE','A naive scan restarts from scratch after every near-miss, replaying characters you\'ve already heard. Build a failure function for the pattern first — how much of a partial match survives a mismatch — and you\'ll never need to look backward.'],
+    ['YOU','So on a mismatch, I don\'t rewind the SIGNAL. I fall back the PATTERN, using what it already knows about its own repeated prefixes.'],
+  ],
+  objective:'Find every starting index where pattern() occurs in the signal, using KMP: build the pattern\'s failure function first, then scan the signal exactly once. charAt() may be called once per index, total — the text pointer never moves backward.',
+  api:[
+    ['textLength()','Length of the signal.'],
+    ['charAt(i)','Character i of the signal. Budgeted to exactly one read per index, total.'],
+    ['patternLength()','Length of the beacon pattern.'],
+    ['patternCharAt(j)','Character j of the pattern (free to re-read — it\'s tiny).'],
+    ['reportMatches(indices)','Report every starting index where the pattern occurs.'],
+  ],
+  starter:`// KMP: build a "failure function" for the pattern (longest proper
+// prefix that's also a suffix, for every prefix length), then walk
+// the SIGNAL once. On a mismatch, fall back the PATTERN pointer
+// using the failure function -- the text pointer never moves back.
+
+const pat = [];
+for (let j = 0; j < patternLength(); j++) pat.push(patternCharAt(j));
+const fail = new Array(pat.length).fill(0);
+let k = 0;
+for (let j = 1; j < pat.length; j++) {
+  while (k > 0 && pat[j] !== pat[k]) k = fail[k - 1];
+  if (pat[j] === pat[k]) k++;
+  fail[j] = k;
+}
+
+const matches = [];
+let j2 = 0;
+for (let i = 0; i < textLength(); i++) {
+  const c = charAt(i);
+  while (j2 > 0 && c !== pat[j2]) j2 = fail[j2 - 1];
+  if (c === pat[j2]) j2++;
+  if (j2 === pat.length) {
+    matches.push(i - pat.length + 1);
+    j2 = fail[j2 - 1];
+  }
+}
+reportMatches(matches);
+`,
+  build(rng){
+    const ALPHA='AB';
+    const PLEN=3;
+    let text=null,pattern=null,trueMatches=null;
+    for(let tries=0;tries<500&&!text;tries++){
+      let pat='';for(let i=0;i<PLEN;i++)pat+=ALPHA[Math.floor(rng()*ALPHA.length)];
+      const n=18;
+      const positions=new Set();
+      const need=ri(rng,2,3);
+      while(positions.size<need)positions.add(ri(rng,0,n-PLEN));
+      const chars=new Array(n);
+      for(const p of positions)for(let k=0;k<PLEN;k++)chars[p+k]=pat[k];
+      for(let i=0;i<n;i++)if(chars[i]===undefined)chars[i]=ALPHA[Math.floor(rng()*ALPHA.length)];
+      const txt=chars.join('');
+      const matches=[];
+      for(let i=0;i+PLEN<=n;i++)if(txt.slice(i,i+PLEN)===pat)matches.push(i);
+      if(matches.length>=2){text=txt;pattern=pat;trueMatches=matches;}
+    }
+    if(!text)throw new Error('KMP generation failed');
+    const n=text.length,W=13;
+    const world=emptyWorld(W,Math.ceil(n/W));
+    for(let i=0;i<n;i++){
+      const row=Math.floor(i/W),col=i%W;
+      const t=world.tiles[row][col];t.type='record';t.revealed=true;t.label=text[i];t.idx=i;
+    }
+    world.meta={text,pattern,matches:trueMatches,reads:0,reported:null,W};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      textLength:()=>{opTick(sim);return m.text.length;},
+      charAt:(i)=>{opTick(sim);checkIndex(i,m.text.length,'charAt');
+        if(++m.reads>m.text.length)throw new Error(`charAt(${i}) — that was read #${m.reads} of ${m.text.length}. The signal only plays once, start to finish; a mismatch must fall back the PATTERN pointer, never the text pointer. Trial failed.`);
+        sim.actions.push({t:'ping',x:i%m.W,y:Math.floor(i/m.W)});
+        return m.text[i];},
+      patternLength:()=>{opTick(sim);return m.pattern.length;},
+      patternCharAt:(j)=>{opTick(sim);checkIndex(j,m.pattern.length,'patternCharAt');return m.pattern[j];},
+      reportMatches:(arr)=>{opTick(sim);
+        if(!Array.isArray(arr))throw new Error('reportMatches() expects an array of start indices.');
+        const got=[...arr].sort((a,b)=>a-b);
+        const want=[...m.matches].sort((a,b)=>a-b);
+        if(got.length!==want.length||got.some((v,k)=>v!==want[k]))
+          throw new Error(`reportMatches([${arr.join(',')}]) — the pattern "${m.pattern}" actually starts at index${want.length===1?'':'es'} [${want.join(', ')}], not [${got.join(', ')}].`);
+        m.reported=got;
+        for(const p of want)for(let k=0;k<m.pattern.length;k++)sim.actions.push({t:'mark',x:(p+k)%m.W,y:Math.floor((p+k)/m.W),cls:'ok'});
+        maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return sim.world.meta.reported!==null;},
+  success:'Every occurrence found in one pass — the failure function meant the text pointer never had to look back.',
+  card:{title:'KMP: never re-read what you\'ve already matched',body:`
+    <p><b>Knuth-Morris-Pratt</b> finds every occurrence of a pattern inside a text in O(n + m) time, versus the O(n·m) worst case of a naive scan that restarts from scratch after every mismatch. The trick is a precomputed <b>failure function</b>: for every prefix of the pattern, how long is the longest proper prefix that is ALSO a suffix of it. That table tells the algorithm exactly how much of a partial match it can keep when a mismatch forces it to back off.</p>
+    <p>Because of that table, the TEXT pointer only ever moves forward — it is the PATTERN pointer that falls back, and only ever to a point the failure function already proved was still a valid partial match. That single property is what turns "reread everything after a near miss" into "read every character exactly once."</p>
+    <div class="real"><div class="bt">In the wild</div>Text editors\' find/replace, <code>grep</code>-family tools, network intrusion-detection signature scanning, and DNA/protein sequence matching all lean on KMP or one of its close relatives (Boyer-Moore, Z-algorithm) instead of a naive scan.</div>`},
+},
+
+/* ---- 31 · graph coloring ---- */
+{
+  id:'coloring',title:'The Frequency Map',concept:'Graph coloring — greedy interference-free assignment',
+  seeds:[1523,1583],
+  brief:[
+    ['HALCYON','Seven relay stations, engineer, some close enough to interfere if they share a frequency. Four bands to hand out — no two connected stations can share one, or their signals cancel each other out.'],
+    ['BYTE','Classic assignment problem: for each station, in order, hand it the SMALLEST frequency none of its already-assigned neighbors are using. With only four bands and no station touching more than three others, that greedy rule always finds a legal assignment.'],
+    ['YOU','So I don\'t need the globally optimal count — I need to check neighbors before I commit, every time.'],
+  ],
+  objective:'Assign every station a frequency (0 to colorCount()-1) such that no two stations connected by neighborsOf() share one. Use setColor(i, c) — it rejects a conflicting assignment immediately. Call submit() once every station is colored.',
+  api:[
+    ['nodeCount()','Number of relay stations (7).'],
+    ['colorCount()','Number of available frequencies (bands 0..3).'],
+    ['neighborsOf(i)','Array of station IDs that interfere with station i.'],
+    ['setColor(i, c)','Assign station i frequency c. Fails immediately if a neighbor already holds c.'],
+    ['submit()','Finish — requires every station to have a frequency.'],
+  ],
+  starter:`// Greedy coloring: for each station, in order, use the SMALLEST
+// frequency none of its already-colored neighbors are using. The
+// engine only remembers what YOU tell it -- track assigned colors
+// yourself so you can check a neighbor's color before committing.
+
+const n = nodeCount();
+const color = new Array(n).fill(-1);
+for (let i = 0; i < n; i++) {
+  const used = new Set();
+  for (const nb of neighborsOf(i)) {
+    if (color[nb] !== -1) used.add(color[nb]);
+  }
+  let c = 0;
+  while (used.has(c)) c++;
+  color[i] = c;
+  setColor(i, c);
+}
+submit();
+`,
+  build(rng){
+    const n=7,K=4;
+    let edges=[];
+    for(let tries=0;tries<500;tries++){
+      edges=[];
+      const degree=new Array(n).fill(0);
+      const pairs=[];
+      for(let a=0;a<n;a++)for(let b=a+1;b<n;b++)pairs.push([a,b]);
+      for(let i=pairs.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[pairs[i],pairs[j]]=[pairs[j],pairs[i]];}
+      const target=ri(rng,7,9);
+      for(const [a,b] of pairs){
+        if(edges.length>=target)break;
+        if(degree[a]>=K-1||degree[b]>=K-1)continue;
+        edges.push([a,b]);degree[a]++;degree[b]++;
+      }
+      if(edges.length>=6)break;
+    }
+    const adj=Array.from({length:n},()=>[]);
+    for(const [a,b] of edges){adj[a].push(b);adj[b].push(a);}
+    const world=emptyWorld(n,2);
+    for(let x=0;x<n;x++){const t=world.tiles[0][x];t.type='node';t.pid=x;}
+    world.meta={n,K,edges,adj,color:new Array(n).fill(-1),submitted:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      nodeCount:()=>{opTick(sim);return m.n;},
+      colorCount:()=>{opTick(sim);return m.K;},
+      neighborsOf:(i)=>{opTick(sim);checkIndex(i,m.n,'neighborsOf');sim.actions.push({t:'ping',x:i,y:0});return [...m.adj[i]];},
+      setColor:(i,c)=>{opTick(sim);checkIndex(i,m.n,'setColor');
+        if(!Number.isInteger(c)||c<0||c>=m.K)throw new Error(`setColor(${i}, ${c}) — frequencies run 0 to ${m.K-1}.`);
+        for(const nb of m.adj[i]){
+          if(m.color[nb]===c)throw new Error(`setColor(${i}, ${c}) — station ${nb} is adjacent to station ${i} and already holds frequency ${c}. Check neighborsOf() before assigning.`);
+        }
+        m.color[i]=c;
+        sim.actions.push({t:'mark',x:i,y:0,cls:'ok'});
+        bump(sim,'colored');
+      },
+      submit:()=>{opTick(sim);
+        for(let i=0;i<m.n;i++)if(m.color[i]===-1)throw new Error(`submit() — station ${i} has no frequency assigned yet.`);
+        m.submitted=true;
+        maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return sim.world.meta.submitted===true;},
+  success:'Seven stations, four bands, zero interference — every assignment checked against its neighbors before it was made.',
+  card:{title:'Graph coloring: the smallest label that still works',body:`
+    <p><b>Graph coloring</b> assigns each node a label ("color") such that no two nodes connected by an edge share one. Finding the true minimum number of colors (the chromatic number) is NP-hard in general, but a simple <b>greedy</b> rule — visit nodes in some order, and give each the smallest color not already used by an already-colored neighbor — is fast, easy to reason about, and provably never needs more than (maximum degree + 1) colors.</p>
+    <p>That bound is why this chapter\'s stations each interfere with at most three others: with four available bands, greedy-by-index coloring is GUARANTEED to succeed, no backtracking required. Denser graphs, or a tighter color budget, are where more sophisticated coloring strategies (or backtracking, chapter 23) become necessary.</p>
+    <div class="real"><div class="bt">In the wild</div>Compiler register allocation (two variables live at the same time can\'t share a CPU register — exactly a coloring conflict), exam and meeting scheduling (no two overlapping events share a room or time slot), and cellular/Wi-Fi channel assignment all reduce to this same problem.</div>`},
+},
+
+/* ---- 32 · sliding window maximum ---- */
+{
+  id:'windowmax',title:'The Live Feed',concept:'Sliding window maximum — monotonic deque',
+  seeds:[1621,1693],
+  brief:[
+    ['HALCYON','Twelve ticks of hull-stress telemetry, engineer, and I need the PEAK reading inside every four-tick window as it slides forward — nine windows total. The feed only streams once.'],
+    ['BYTE','The Watch List taught you to keep only candidates that could still matter. Same trick, but now old candidates also expire — the moment a value falls outside the window\'s left edge, drop it from the front, even if nothing ever beat it.'],
+    ['YOU','So the front of my deque is always the current window\'s max, as long as I drop expired indices from the front AND weaker values from the back on every push.'],
+  ],
+  objective:'Report the maximum reading in every window of windowSize() consecutive ticks, using a monotonic deque (indices with decreasing values, oldest expired automatically). readingAt() may be called at most once per index, total.',
+  api:[
+    ['count()','Number of telemetry ticks (12).'],
+    ['windowSize()','Width of each sliding window (4).'],
+    ['readingAt(i)','Tick i\'s reading. Budgeted to exactly one read per index, total.'],
+    ['reportMaxes(maxes)','Report the max of every window, in order — an array of count() - windowSize() + 1 values.'],
+  ],
+  starter:`// Monotonic deque: indices with DECREASING values, front-to-back.
+// Push: pop any smaller trailing values first (they can never win
+// again). Expire: if the front has fallen out of the window, drop
+// it. Whatever's left at the front is the current window's max.
+
+const n = count();
+const k = windowSize();
+let deque = []; // indices
+let maxes = [];
+for (let i = 0; i < n; i++) {
+  const v = readingAt(i);
+  while (deque.length && deque[deque.length - 1].val <= v) deque.pop();
+  deque.push({ idx: i, val: v });
+  if (deque[0].idx <= i - k) deque.shift();
+  if (i >= k - 1) maxes.push(deque[0].val);
+}
+reportMaxes(maxes);
+`,
+  build(rng){
+    const n=12,k=4;
+    const vals=[];
+    for(let i=0;i<n;i++)vals.push(ri(rng,1,50));
+    const maxes=[];
+    const dq=[];
+    for(let i=0;i<n;i++){
+      while(dq.length&&vals[dq[dq.length-1]]<=vals[i])dq.pop();
+      dq.push(i);
+      if(dq[0]<=i-k)dq.shift();
+      if(i>=k-1)maxes.push(vals[dq[0]]);
+    }
+    const world=emptyWorld(n,3);
+    for(let x=0;x<n;x++){const t=world.tiles[1][x];t.type='crate';t.idx=x;t.weight=vals[x];t.label=String(vals[x]);t.revealed=true;}
+    world.meta={vals,k,maxes,reads:new Set(),reported:false};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      count:()=>{opTick(sim);return m.vals.length;},
+      windowSize:()=>{opTick(sim);return m.k;},
+      readingAt:(i)=>{opTick(sim);checkIndex(i,m.vals.length,'readingAt');
+        if(m.reads.has(i))throw new Error(`readingAt(${i}) called a second time — the feed only streams once. Cache the value (e.g., alongside its index in your deque) instead of re-reading it. Trial failed.`);
+        m.reads.add(i);
+        sim.actions.push({t:'ping',x:i,y:1});
+        return m.vals[i];},
+      reportMaxes:(arr)=>{opTick(sim);
+        const want=m.maxes;
+        if(!Array.isArray(arr)||arr.length!==want.length)
+          throw new Error(`reportMaxes() needs an array of exactly ${want.length} window maxes.`);
+        for(let i=0;i<want.length;i++)
+          if(arr[i]!==want[i])throw new Error(`reportMaxes(): the window starting at index ${i} (ticks ${i}..${i+m.k-1}) has max ${want[i]}, not ${arr[i]}.`);
+        m.reported=true;
+        maybeWin(sim);
+      },
+    };
+  },
+  win(sim){return sim.world.meta.reported===true;},
+  success:'Nine windows, one pass, each tick pushed and popped at most once — never a full window rescan.',
+  card:{title:'Sliding window maximum: the Watch List, closing on both ends',body:`
+    <p>A <b>monotonic deque</b> generalizes chapter 27\'s monotonic stack to a window that closes on BOTH ends: as the window slides forward, new values can knock out weaker ones from the back (they can never be the max again while the new value survives), while old values fall off the front once they\'ve aged out of the window — regardless of their value.</p>
+    <p>Because every index is pushed onto the deque exactly once and removed at most once (from either end), the total work across the entire pass is O(n) — versus O(n·k) for the naive approach of rescanning every individual window from scratch.</p>
+    <div class="real"><div class="bt">In the wild</div>Real-time monitoring dashboards (rolling max/min alerts on sensor or metrics streams), video and audio frame analysis, and technical indicators in financial data (rolling high/low over a trading window) all use this exact structure.</div>`},
+},
+
+/* ---- 33 · LRU cache ---- */
+{
+  id:'lru',title:'The Memory Ration',concept:'LRU cache — hash map + recency order',
+  seeds:[1741,1801],
+  brief:[
+    ['HALCYON','Fleet memory is rationed, engineer — three slots, shared across every station in contact. Old records must go to make room for new ones, and "old" means whichever record nobody has TOUCHED in the longest time.'],
+    ['BYTE','This is chapter 10\'s chain and chapter 11\'s table, working together: fast lookup by key, plus an order that tracks who was used most recently. Touch a record — read OR write it — and it jumps back to the front of the line.'],
+    ['YOU','So eviction always takes whoever\'s been sitting untouched the longest, and every touch, not just every write, resets that clock.'],
+  ],
+  objective:'Process every operation from opAt() in order: PUT stores a value (bumping it to most-recently-used, evicting the least-recently-used record if the cache is already full and the key is new), GET returns a value AND counts as a touch. answer(opIndex, value) for every GET — report -1 on a miss.',
+  api:[
+    ['capacity()','Maximum records the cache holds at once (3).'],
+    ['opCount()','Number of operations to process, in order.'],
+    ['opAt(i)','The next operation: {type:"put", key, value} or {type:"get", key}.'],
+    ['answer(i, value)','Report the result of GET operation i. Use -1 for a miss.'],
+  ],
+  starter:`// A JS Map preserves insertion order, and re-inserting a key moves
+// it to the end -- which is exactly "most recently used." Delete
+// then re-set a key on every touch (GET *and* PUT); evict from the
+// FRONT (the map's first key) only when a NEW key would push you
+// over capacity.
+
+const cache = new Map();
+const cap = capacity();
+
+for (let i = 0; i < opCount(); i++) {
+  const op = opAt(i);
+  if (op.type === 'put') {
+    if (cache.has(op.key)) cache.delete(op.key);
+    else if (cache.size >= cap) cache.delete(cache.keys().next().value);
+    cache.set(op.key, op.value);
+  } else { // 'get'
+    if (cache.has(op.key)) {
+      const v = cache.get(op.key);
+      cache.delete(op.key);
+      cache.set(op.key, v); // touching counts as "used" too
+      answer(i, v);
+    } else {
+      answer(i, -1);
+    }
+  }
+}
+`,
+  build(rng){
+    const cap=3;
+    const KEYS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P'];
+    const shuffled=[...KEYS];
+    for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
+    const keys=shuffled.slice(0,5).map(k=>'K'+k);
+    const values=[];for(let i=0;i<5;i++)values.push(ri(rng,100,999));
+    const opsSpec=[
+      {type:'put',k:0,v:0},
+      {type:'put',k:1,v:1},
+      {type:'put',k:2,v:2},
+      {type:'get',k:0},
+      {type:'put',k:3,v:3},
+      {type:'get',k:1},
+      {type:'get',k:2},
+      {type:'put',k:4,v:4},
+      {type:'get',k:0},
+      {type:'get',k:3},
+    ];
+    const cache=new Map();
+    const answers=[];
+    for(const op of opsSpec){
+      const key=keys[op.k];
+      if(op.type==='put'){
+        const val=values[op.v];
+        if(cache.has(key))cache.delete(key);
+        else if(cache.size>=cap)cache.delete(cache.keys().next().value);
+        cache.set(key,val);
+        answers.push(null);
+      }else{
+        if(cache.has(key)){
+          const v=cache.get(key);
+          cache.delete(key);cache.set(key,v);
+          answers.push(v);
+        }else answers.push(-1);
+      }
+    }
+    const ops=opsSpec.map(op=>op.type==='put'?{type:'put',key:keys[op.k],value:values[op.v]}:{type:'get',key:keys[op.k]});
+    const world=emptyWorld(5,2);
+    const keyPos={};
+    for(let x=0;x<5;x++){const t=world.tiles[0][x];t.type='record';t.idx=x;t.label=keys[x];t.revealed=true;keyPos[keys[x]]=x;}
+    world.meta={cap,ops,answers,keyPos,reports:{}};
+    return world;
+  },
+  makeApi(sim){
+    const m=sim.world.meta;
+    return {
+      capacity:()=>{opTick(sim);return m.cap;},
+      opCount:()=>{opTick(sim);return m.ops.length;},
+      opAt:(i)=>{opTick(sim);checkIndex(i,m.ops.length,'opAt');
+        const op=m.ops[i];
+        sim.actions.push({t:'ping',x:m.keyPos[op.key],y:0});
+        return {...op};},
+      answer:(i,value)=>{opTick(sim);checkIndex(i,m.ops.length,'answer');
+        const op=m.ops[i];
+        if(op.type!=='get')throw new Error(`answer(${i}, …) — operation ${i} is a PUT, not a get.`);
+        if(i in m.reports)throw new Error(`answer(${i}, …) — operation ${i} was already answered.`);
+        if(value!==m.answers[i]){
+          const want=m.answers[i]===-1?'-1 (a miss — that key was evicted or never set)':String(m.answers[i]);
+          throw new Error(`answer(${i}, ${value}) — get("${op.key}") should return ${want}, not ${value}.`);
+        }
+        m.reports[i]=value;
+        sim.actions.push({t:'mark',x:m.keyPos[op.key],y:0,cls:value===-1?'bad':'ok'});
+        const getCount=m.ops.filter(o=>o.type==='get').length;
+        if(Object.keys(m.reports).length===getCount)maybeWin(sim);
+      },
+    };
+  },
+  win(sim){const m=sim.world.meta;const getCount=m.ops.filter(o=>o.type==='get').length;return Object.keys(m.reports).length===getCount;},
+  success:'Every get answered correctly — eviction always took whoever had gone the longest untouched, reads included.',
+  card:{title:'LRU cache: a hash map that remembers what\'s stale',body:`
+    <p>An <b>LRU (Least Recently Used) cache</b> needs O(1) for both parts of its job: look up a key instantly (a hash map, chapter 11), and instantly know — and update — which entry has gone the longest without being touched (an ordered chain, chapter 10). The textbook implementation pairs a hash map (key → node) with a doubly linked list in recency order, so both "find" and "move to the front" are O(1) pointer operations.</p>
+    <p>JavaScript\'s <code>Map</code> happens to preserve insertion order, and re-inserting an existing key moves it to the end — which means delete-then-set gets you the same "move to most-recently-used" behavior as a hand-rolled linked list, for free. Both approaches are the same algorithm; one just borrows a language guarantee instead of building it from scratch.</p>
+    <div class="real"><div class="bt">In the wild</div>CPU and OS page caches, CDN and browser HTTP caches, and database buffer pools all evict this way — keep the hot set fast, let the genuinely cold set go, under a hard memory ceiling.</div>`},
+},
 ];
 
 /* ============================================================
@@ -5048,9 +5553,230 @@ function genKruskalFrames2(){
 }
 
 /* ---------- concept data ---------- */
-const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse','bst','heap','greedy','twoptr','backtrack','trie','unionfind','bitmask','monostack','mst'];
-const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4,bst:5,heap:5,greedy:5,twoptr:5,backtrack:5,trie:6,unionfind:6,bitmask:6,monostack:6,mst:6};
-const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques',5:'Season 5 · The Deep Archive',6:'Season 6 · The Substrate'};
+const CONCEPT_ORDER=['seq','loop','cond','lsearch','bsearch','sort','maze','stack','queue','list','map','pq','bfs','dijkstra','topo','quad','dp','parse','bst','heap','greedy','twoptr','backtrack','trie','unionfind','bitmask','monostack','mst','segtree','kmp','coloring','windowmax','lru'];
+const SEASON_OF_CONCEPT={seq:1,loop:1,cond:1,lsearch:1,bsearch:1,sort:1,maze:1,stack:2,queue:2,list:2,map:2,pq:2,bfs:3,dijkstra:3,topo:3,quad:4,dp:4,parse:4,bst:5,heap:5,greedy:5,twoptr:5,backtrack:5,trie:6,unionfind:6,bitmask:6,monostack:6,mst:6,segtree:7,kmp:7,coloring:7,windowmax:7,lru:7};
+const SEASON_NAMES={1:'Season 1 · Algorithms',2:'Season 2 · Data Structures',3:'Season 3 · Graphs',4:'Season 4 · Techniques',5:'Season 5 · The Deep Archive',6:'Season 6 · The Substrate',7:'Season 7 · The Long Reach'};
+function genSegTreeFrames(){
+  const vals=[3,5,2,8,1,6];
+  const n=vals.length;
+  const tree=new Array(2*n).fill(0);
+  const snap=(caption,activeIdx)=>({rows:[
+    {label:'array',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===activeIdx?'active':''}))},
+    {label:'tree nodes',cells:tree.slice(1).map((v,k)=>({text:String(v),sub:'n'+(k+1)}))},
+  ],caption});
+  const frames=[snap('Build the tree bottom-up: each leaf is one array slot; each parent is the sum of its two children.',null)];
+  for(let i=0;i<n;i++)tree[n+i]=vals[i];
+  for(let i=n-1;i>0;i--)tree[i]=tree[2*i]+tree[2*i+1];
+  frames.push(snap('Tree built once: the root now holds the sum of the whole array, for free.',null));
+  const rangeSum=(lo,hi)=>{let l=lo+n,r=hi+n+1,s=0;while(l<r){if(l&1)s+=tree[l++];if(r&1)s+=tree[--r];l=Math.floor(l/2);r=Math.floor(r/2);}return s;};
+  frames.push(snap(`Range query [1,4]: combine O(log n) pre-summed pieces — result ${rangeSum(1,4)} — without touching index 0 or 5.`,null));
+  const idx=3,newVal=9;
+  tree[n+idx]=newVal;let p=Math.floor((n+idx)/2);while(p>=1){tree[p]=tree[2*p]+tree[2*p+1];p=Math.floor(p/2);}
+  vals[idx]=newVal;
+  frames.push(snap(`Update index ${idx} to ${newVal}: patch the leaf, then walk up — only O(log n) ancestors change.`,idx));
+  frames.push(snap(`Query [1,4] again: now ${rangeSum(1,4)}, correctly reflecting the update — no re-scan needed.`,null));
+  return frames;
+}
+function genSegTreeFrames2(){
+  const vals=[4,2,7,1,5];
+  let cachedTotal=vals.reduce((a,b)=>a+b,0);
+  const frames=[{rows:[{label:'array',cells:vals.map((v,k)=>({text:String(v),sub:String(k)}))},{label:'cached total',cells:[{text:String(cachedTotal)}]}],caption:'A tempting shortcut: cache ONE running total instead of a tree, and answer full-array queries from it.'}];
+  vals[2]=20;
+  frames.push({rows:[{label:'array (after update)',cells:vals.map((v,k)=>({text:String(v),sub:String(k),cls:k===2?'active':''}))},{label:'cached total (stale)',cells:[{text:String(cachedTotal),cls:'bad'}]}],caption:'Index 2 updates to 20 — but the cached total was never touched. It\'s now silently wrong.'});
+  const trueTotal=vals.reduce((a,b)=>a+b,0);
+  frames.push({rows:[{label:'true total',cells:[{text:String(trueTotal),cls:'good'}]},{label:'stale cache',cells:[{text:String(cachedTotal),cls:'bad'}]}],caption:'A single cached total only works if EVERY update remembers to patch it — and it still can\'t answer a partial-range query at all. A segment tree fixes both: every affected node updates automatically, and any range is just a few pre-summed pieces.'});
+  return frames;
+}
+function genKmpFrames(){
+  const pat='ABAB';
+  const text='ABABABCABAB';
+  const m=pat.length;
+  const fail=new Array(m).fill(0);
+  const snapFail=(j,caption)=>({rows:[{label:'pattern',cells:pat.split('').map((c,i)=>({text:c,sub:String(i),cls:i===j?'active':''}))},{label:'fail[]',cells:fail.map((v,i)=>({text:String(v),sub:String(i)}))}],caption});
+  const frames=[snapFail(0,'Build the failure function: fail[j] = the longest proper prefix of pattern[0..j] that is also a suffix.')];
+  let k=0;
+  for(let j=1;j<m;j++){
+    while(k>0&&pat[j]!==pat[k])k=fail[k-1];
+    if(pat[j]===pat[k])k++;
+    fail[j]=k;
+    frames.push(snapFail(j,`fail[${j}] = ${k} — pattern[0..${k-1}] is the longest prefix that's also a suffix of pattern[0..${j}].`));
+  }
+  const n=text.length;
+  const matches=[];
+  let j2=0;
+  const snapScan=(i,caption,cls)=>({rows:[{label:'signal',cells:text.split('').map((c,idx)=>({text:c,sub:String(idx),cls:matches.some(mm=>idx>=mm&&idx<mm+m)?'good':(idx===i?(cls||'active'):'')}))}],caption});
+  frames.push(snapScan(-1,'Scan the signal ONCE. On a mismatch, fall back the PATTERN pointer using fail[] — the text pointer never moves backward.'));
+  for(let i=0;i<n;i++){
+    const c=text[i];
+    while(j2>0&&c!==pat[j2])j2=fail[j2-1];
+    if(c===pat[j2])j2++;
+    if(j2===m){matches.push(i-m+1);frames.push(snapScan(i,`Match! "${pat}" found starting at index ${i-m+1}.`,'good'));j2=fail[j2-1];}
+    else frames.push(snapScan(i,`Signal[${i}] = "${c}" — pattern pointer now at ${j2}.`));
+  }
+  frames.push(snapScan(-1,`Done: ${matches.length} match${matches.length===1?'':'es'} found, one pass, no re-reads.`));
+  return frames;
+}
+function genKmpFrames2(){
+  const pat='AAB';
+  const text='AAAAB';
+  const n=text.length,m=pat.length;
+  let naiveReads=0;
+  const frames=[{rows:[{label:'signal',cells:text.split('').map((c,i)=>({text:c,sub:String(i)}))}],caption:'Naive approach: on any mismatch, restart the comparison from the NEXT text position — re-reading characters already seen.'}];
+  for(let i=0;i+m<=n;i++){
+    let ok=true;
+    for(let k=0;k<m;k++){
+      naiveReads++;
+      if(text[i+k]!==pat[k]){
+        ok=false;
+        frames.push({rows:[{label:'signal',cells:text.split('').map((c,idx)=>({text:c,sub:String(idx),cls:idx>=i&&idx<=i+k?'bad':''}))}],caption:`Start ${i}: mismatch at offset ${k} — restart entirely from start ${i+1}, re-reading positions already checked.`});
+        break;
+      }
+    }
+    if(ok)frames.push({rows:[{label:'signal',cells:text.split('').map((c,idx)=>({text:c,sub:String(idx),cls:idx>=i&&idx<i+m?'good':''}))}],caption:`Match at ${i}.`});
+  }
+  frames.push({rows:[{label:'comparisons made',cells:[{text:String(naiveReads),cls:'bad'}]},{label:'signal length',cells:[{text:String(n)}]}],caption:`Naive restarts cost ${naiveReads} character comparisons on a signal of length ${n} — more than one pass. KMP's failure function guarantees at most ${n} total, however pathological the pattern.`});
+  return frames;
+}
+const COLORING_DEMO_EDGES=[[0,1],[0,2],[1,2],[1,3],[2,4],[3,4]];
+function genColoringFrames(){
+  const n=5;
+  const adj=Array.from({length:n},()=>[]);
+  for(const [a,b] of COLORING_DEMO_EDGES){adj[a].push(b);adj[b].push(a);}
+  const color=new Array(n).fill(-1);
+  const snap=(cur,caption)=>({rows:[{label:'stations',cells:color.map((c,i)=>({text:c===-1?'?':String(c),sub:String(i),cls:i===cur?'active':(c!==-1?'good':'')}))}],caption});
+  const frames=[snap(null,'Five stations, some interfering (edges). Assign each the smallest frequency none of its already-colored neighbors uses.')];
+  for(let i=0;i<n;i++){
+    const used=new Set(adj[i].filter(nb=>color[nb]!==-1).map(nb=>color[nb]));
+    let c=0;while(used.has(c))c++;
+    color[i]=c;
+    frames.push(snap(i,`Station ${i}: neighbors ${adj[i].join(', ')||'none'} use {${[...used].join(', ')}} — smallest free frequency is ${c}.`));
+  }
+  frames.push(snap(null,`All ${n} stations colored with ${Math.max(...color)+1} frequencies — no two connected stations share one.`));
+  return frames;
+}
+function genColoringFrames2(){
+  const color=[0,1,0,0,1];
+  const frames=[{rows:[{label:'stations',cells:color.map((c,i)=>({text:String(c),sub:String(i)}))}],caption:'A tempting shortcut: cycle frequencies 0,1,0,1,... by position, ignoring who actually interferes with whom.'}];
+  let conflict=null;
+  for(const [a,b] of COLORING_DEMO_EDGES)if(color[a]===color[b]){conflict=[a,b];break;}
+  frames.push({rows:[{label:'stations',cells:color.map((c,i)=>({text:String(c),sub:String(i),cls:conflict&&(i===conflict[0]||i===conflict[1])?'bad':''}))}],caption:conflict?`Stations ${conflict[0]} and ${conflict[1]} are adjacent and BOTH hold frequency ${color[conflict[0]]} — their signals cancel out. Position-based cycling never checked the actual graph.`:'No conflict this time — but nothing here checked the graph, so it was luck.'});
+  return frames;
+}
+function genWindowMaxFrames(){
+  const vals=[1,3,-1,-3,5,3,6,7];
+  const k=3;
+  const n=vals.length;
+  const dq=[];
+  const maxes=[];
+  const snap=(i,caption)=>({rows:[
+    {label:'readings',cells:vals.map((v,idx)=>({text:String(v),sub:String(idx),cls:idx===i?'active':''}))},
+    {label:'deque (idx)',cells:dq.length?dq.map(d=>({text:String(d)})):[{text:'empty',cls:'dim'}]},
+  ],caption});
+  const frames=[snap(-1,`Find the max of every window of ${k} consecutive readings, in one pass.`)];
+  for(let i=0;i<n;i++){
+    while(dq.length&&vals[dq[dq.length-1]]<=vals[i])dq.pop();
+    dq.push(i);
+    if(dq[0]<=i-k)dq.shift();
+    frames.push(snap(i,`Index ${i} (value ${vals[i]}): pop any smaller trailing values, push, then drop the front if it's expired.`));
+    if(i>=k-1){maxes.push(vals[dq[0]]);frames.push(snap(i,`Window [${i-k+1},${i}] max = ${vals[dq[0]]} (front of the deque).`));}
+  }
+  frames.push({rows:[{label:'window maxes',cells:maxes.map((v,idx)=>({text:String(v),sub:String(idx),cls:'good'}))}],caption:'Every window answered in one O(n) pass — each index entered and left the deque at most once.'});
+  return frames;
+}
+function genWindowMaxFrames2(){
+  const vals=[9,3,3,3,3];
+  const k=3;
+  const n=vals.length;
+  const dqWrong=[];
+  const wrongMaxes=[];
+  for(let i=0;i<n;i++){
+    while(dqWrong.length&&vals[dqWrong[dqWrong.length-1]]<=vals[i])dqWrong.pop();
+    dqWrong.push(i);
+    if(i>=k-1)wrongMaxes.push(vals[dqWrong[0]]);
+  }
+  const dq=[];
+  const trueMaxes=[];
+  for(let i=0;i<n;i++){
+    while(dq.length&&vals[dq[dq.length-1]]<=vals[i])dq.pop();
+    dq.push(i);
+    if(dq[0]<=i-k)dq.shift();
+    if(i>=k-1)trueMaxes.push(vals[dq[0]]);
+  }
+  const frames=[{rows:[{label:'readings',cells:vals.map((v,idx)=>({text:String(v),sub:String(idx)}))}],caption:'Readings: one big value at index 0, then a plateau. Without expiring the front, index 0 keeps "winning" long after it left the window.'}];
+  frames.push({rows:[
+    {label:'wrong (no expiry)',cells:wrongMaxes.map((v,idx)=>({text:String(v),sub:String(idx),cls:v!==trueMaxes[idx]?'bad':''}))},
+    {label:'correct',cells:trueMaxes.map((v,idx)=>({text:String(v),sub:String(idx),cls:'good'}))},
+  ],caption:'The buggy version never drops an expired front, so it keeps reporting 9 long after index 0 left every window — always check whether the FRONT of the deque has expired before reading it as the answer.'});
+  return frames;
+}
+function genLruFrames(){
+  const cap=2;
+  const ops=[
+    {type:'put',key:'A',value:1},
+    {type:'put',key:'B',value:2},
+    {type:'get',key:'A'},
+    {type:'put',key:'C',value:3},
+    {type:'get',key:'B'},
+    {type:'get',key:'C'},
+  ];
+  const cache=new Map();
+  const snap=(caption,hi)=>({rows:[{label:`cache (LRU→MRU, cap ${cap})`,cells:[...cache.entries()].map(([k,v])=>({text:`${k}:${v}`,cls:k===hi?'active':''}))}],caption});
+  const frames=[snap(`Capacity ${cap}. PUT and GET both count as "using" a key — bumping it to most-recently-used.`,null)];
+  for(const op of ops){
+    if(op.type==='put'){
+      if(cache.has(op.key))cache.delete(op.key);
+      else if(cache.size>=cap){const evict=cache.keys().next().value;cache.delete(evict);frames.push(snap(`Cache full — evict "${evict}" (least-recently-used) to make room for "${op.key}".`,evict));}
+      cache.set(op.key,op.value);
+      frames.push(snap(`put("${op.key}", ${op.value}) — now most-recently-used.`,op.key));
+    }else{
+      if(cache.has(op.key)){
+        const v=cache.get(op.key);cache.delete(op.key);cache.set(op.key,v);
+        frames.push(snap(`get("${op.key}") → ${v}. Touching it moves it to most-recently-used too.`,op.key));
+      }else{
+        frames.push(snap(`get("${op.key}") → -1 (miss — it was evicted).`,null));
+      }
+    }
+  }
+  return frames;
+}
+function genLruFrames2(){
+  const cap=2;
+  const ops=[
+    {type:'put',key:'A',value:1},
+    {type:'put',key:'B',value:2},
+    {type:'get',key:'A'},
+    {type:'put',key:'C',value:3},
+  ];
+  const wrong=new Map();
+  const frames=[{rows:[{label:'ops',cells:ops.map((o,i)=>({text:o.type==='put'?`put ${o.key}`:`get ${o.key}`,sub:String(i)}))}],caption:'put A, put B, get A, put C — A was just touched, so evicting it next would be wrong.'}];
+  for(const op of ops){
+    if(op.type==='put'){
+      if(!wrong.has(op.key)&&wrong.size>=cap){
+        const evict=wrong.keys().next().value;
+        wrong.delete(evict);
+        frames.push({rows:[{label:'wrong cache',cells:[...wrong.entries()].map(([k,v])=>({text:`${k}:${v}`}))}],caption:`put("${op.key}") evicts "${evict}" — but it was just read! Without bumping on GET, the wrong key looks least-recently-used.`});
+      }
+      wrong.set(op.key,op.value);
+    }
+    // BUG: a GET here never bumps the key's position (missing delete+reinsert).
+  }
+  const correct=new Map();
+  for(const op of ops){
+    if(op.type==='put'){
+      if(correct.has(op.key))correct.delete(op.key);
+      else if(correct.size>=cap)correct.delete(correct.keys().next().value);
+      correct.set(op.key,op.value);
+    }else if(correct.has(op.key)){
+      const v=correct.get(op.key);correct.delete(op.key);correct.set(op.key,v);
+    }
+  }
+  frames.push({rows:[
+    {label:'wrong (GET doesn\'t bump)',cells:[...wrong.entries()].map(([k,v])=>({text:`${k}:${v}`,cls:'bad'}))},
+    {label:'correct (GET bumps too)',cells:[...correct.entries()].map(([k,v])=>({text:`${k}:${v}`,cls:'good'}))},
+  ],caption:'The buggy version evicts A (recently read) and keeps B; the correct version, which also bumps recency on GET, evicts B instead — A survives because it was actually used more recently.'});
+  return frames;
+}
+
 const CONCEPTS={
   seq:{title:'Sequences',
     examples:[{label:'A working sequence',demoType:'cells',frames:genSeqFrames},{label:'Same steps, reordered',demoType:'grid',frames:genSeqFrames2}],
@@ -5323,6 +6049,91 @@ const CONCEPTS={
     mistakes:['Connecting edges in their original (or any non-cost) order — a moment\'s convenience that can lock in an expensive edge before a cheaper alternative is considered.','Checking parentOf() instead of find() before connecting — the same shallow-check mistake as plain union-find, just easier to miss under a graph\'s extra complexity.','Forgetting to union the two groups immediately after connecting an edge — the next edge\'s cycle check will be based on stale information.'],
     complexity:[{label:'Time',val:'O(E log E)'},{label:'Dominated by',val:'sorting the edges'}],
     pseudocode:'sort edges by cost\nfor (a, b, cost) in sorted edges:\n  if find(a) !== find(b):\n    connect(a, b)\n    union(a, b)',code:{js:'function find(parent, x) {\n  while (parent[x] !== x) x = parent[x];\n  return x;\n}\n\nfunction union(parent, a, b) {\n  parent[find(parent, a)] = find(parent, b);\n}\n\nfunction buildMST(edges, parent) {\n  edges.sort((e1, e2) => e1.cost - e2.cost);\n  const mst = [];\n  for (const { a, b, cost } of edges) {\n    if (find(parent, a) !== find(parent, b)) {\n      mst.push({ a, b, cost });\n      union(parent, a, b);\n    }\n  }\n  return mst;\n}',ts:'interface Edge {\n  a: number;\n  b: number;\n  cost: number;\n}\n\nfunction find(parent: number[], x: number): number {\n  while (parent[x] !== x) x = parent[x];\n  return x;\n}\n\nfunction union(parent: number[], a: number, b: number): void {\n  parent[find(parent, a)] = find(parent, b);\n}\n\nfunction buildMST(edges: Edge[], parent: number[]): Edge[] {\n  edges.sort((e1, e2) => e1.cost - e2.cost);\n  const mst: Edge[] = [];\n  for (const { a, b, cost } of edges) {\n    if (find(parent, a) !== find(parent, b)) {\n      mst.push({ a, b, cost });\n      union(parent, a, b);\n    }\n  }\n  return mst;\n}',python:'def find(parent, x):\n    while parent[x] != x:\n        x = parent[x]\n    return x\n\n\ndef union(parent, a, b):\n    parent[find(parent, a)] = find(parent, b)\n\n\ndef build_mst(edges, parent):\n    edges = sorted(edges, key=lambda e: e[2])\n    mst = []\n    for a, b, cost in edges:\n        if find(parent, a) != find(parent, b):\n            mst.append((a, b, cost))\n            union(parent, a, b)\n    return mst',java:'static int find(int[] parent, int x) {\n    while (parent[x] != x) x = parent[x];\n    return x;\n}\n\nstatic void union(int[] parent, int a, int b) {\n    parent[find(parent, a)] = find(parent, b);\n}\n\nstatic List<int[]> buildMst(List<int[]> edges, int[] parent) {\n    edges.sort((e1, e2) -> Integer.compare(e1[2], e2[2]));\n    List<int[]> mst = new ArrayList<>();\n    for (int[] edge : edges) {\n        int a = edge[0], b = edge[1], cost = edge[2];\n        if (find(parent, a) != find(parent, b)) {\n            mst.add(edge);\n            union(parent, a, b);\n        }\n    }\n    return mst;\n}',csharp:'static int Find(int[] parent, int x) {\n    while (parent[x] != x) x = parent[x];\n    return x;\n}\n\nstatic void Union(int[] parent, int a, int b) {\n    parent[Find(parent, a)] = Find(parent, b);\n}\n\nstatic List<(int a, int b, int cost)> BuildMst(List<(int a, int b, int cost)> edges, int[] parent) {\n    edges.Sort((e1, e2) => e1.cost.CompareTo(e2.cost));\n    var mst = new List<(int a, int b, int cost)>();\n    foreach (var edge in edges) {\n        if (Find(parent, edge.a) != Find(parent, edge.b)) {\n            mst.Add(edge);\n            Union(parent, edge.a, edge.b);\n        }\n    }\n    return mst;\n}'}},
+  segtree:{title:'Segment Trees',
+    examples:[{label:'Build, query, update, query again',demoType:'cells',frames:genSegTreeFrames},{label:'A single cached total goes stale',demoType:'cells',frames:genSegTreeFrames2}],
+    oneLiner:'A tree of pre-summed ranges: an update patches O(log n) ancestors, and a query combines a handful of ready-made pieces instead of rescanning.',
+    explanation:[
+      'A segment tree is a binary tree built over an array where each leaf holds one element and every internal node holds the combined result (here, a sum) of its two children\'s ranges. Building it costs O(n): fill the leaves, then compute each parent from its children, working up from the bottom.',
+      'A point update touches one leaf and then walks up through its O(log n) ancestors, recomputing each from its two children. A range query decomposes the requested range into at most O(log n) pre-built pieces and combines them — never touching an element outside the range, and never rebuilding what hasn\'t changed.',
+      'The same shape works for any combinable operation — min, max, GCD, or sum — just by changing how a parent combines its children. That\'s different from a single running total, which can answer one whole-array question in O(1) but can\'t answer a PARTIAL range at all, and silently goes stale the moment anyone forgets to update it.'],
+    mistakes:['Re-reading the original array to answer a range query instead of using the tree — throws away the whole point of building it.','Updating a leaf but forgetting to walk up and patch its ancestors — the tree becomes internally inconsistent.','Reaching for one cached running total when queries need arbitrary RANGES, not just the whole array — a single number can\'t answer "sum from index 2 to 5."'],
+    complexity:[{label:'Build',val:'O(n)'},{label:'Query / Update',val:'O(log n)'},{label:'Naive per-query',val:'O(n)'}],
+    pseudocode:'build tree: leaves = values; each parent = sum of its two children\nupdate(i, v): leaf[i] = v; walk parents upward, recomputing each sum\nquery(lo, hi): combine O(log n) precomputed range pieces',
+    code:{
+      js:'function buildSegTree(vals) {\n  const n = vals.length;\n  const tree = new Array(2 * n).fill(0);\n  for (let i = 0; i < n; i++) tree[n + i] = vals[i];\n  for (let i = n - 1; i > 0; i--) tree[i] = tree[2 * i] + tree[2 * i + 1];\n  return { tree, n };\n}\n\nfunction update(seg, i, value) {\n  let pos = i + seg.n;\n  seg.tree[pos] = value;\n  while (pos > 1) {\n    pos = Math.floor(pos / 2);\n    seg.tree[pos] = seg.tree[2 * pos] + seg.tree[2 * pos + 1];\n  }\n}\n\nfunction rangeSum(seg, lo, hi) {\n  let l = lo + seg.n, r = hi + seg.n + 1, sum = 0;\n  while (l < r) {\n    if (l & 1) sum += seg.tree[l++];\n    if (r & 1) sum += seg.tree[--r];\n    l = Math.floor(l / 2);\n    r = Math.floor(r / 2);\n  }\n  return sum;\n}',
+      ts:'interface SegTree {\n  tree: number[];\n  n: number;\n}\n\nfunction buildSegTree(vals: number[]): SegTree {\n  const n = vals.length;\n  const tree: number[] = new Array(2 * n).fill(0);\n  for (let i = 0; i < n; i++) tree[n + i] = vals[i];\n  for (let i = n - 1; i > 0; i--) tree[i] = tree[2 * i] + tree[2 * i + 1];\n  return { tree, n };\n}\n\nfunction update(seg: SegTree, i: number, value: number): void {\n  let pos = i + seg.n;\n  seg.tree[pos] = value;\n  while (pos > 1) {\n    pos = Math.floor(pos / 2);\n    seg.tree[pos] = seg.tree[2 * pos] + seg.tree[2 * pos + 1];\n  }\n}\n\nfunction rangeSum(seg: SegTree, lo: number, hi: number): number {\n  let l = lo + seg.n, r = hi + seg.n + 1, sum = 0;\n  while (l < r) {\n    if (l & 1) sum += seg.tree[l++];\n    if (r & 1) sum += seg.tree[--r];\n    l = Math.floor(l / 2);\n    r = Math.floor(r / 2);\n  }\n  return sum;\n}',
+      python:'def build_seg_tree(vals):\n    n = len(vals)\n    tree = [0] * (2 * n)\n    for i in range(n):\n        tree[n + i] = vals[i]\n    for i in range(n - 1, 0, -1):\n        tree[i] = tree[2 * i] + tree[2 * i + 1]\n    return tree, n\n\n\ndef update(tree, n, i, value):\n    pos = i + n\n    tree[pos] = value\n    while pos > 1:\n        pos //= 2\n        tree[pos] = tree[2 * pos] + tree[2 * pos + 1]\n\n\ndef range_sum(tree, n, lo, hi):\n    l, r, total = lo + n, hi + n + 1, 0\n    while l < r:\n        if l % 2 == 1:\n            total += tree[l]\n            l += 1\n        if r % 2 == 1:\n            r -= 1\n            total += tree[r]\n        l //= 2\n        r //= 2\n    return total',
+      java:'static int[] buildSegTree(int[] vals) {\n    int n = vals.length;\n    int[] tree = new int[2 * n];\n    for (int i = 0; i < n; i++) tree[n + i] = vals[i];\n    for (int i = n - 1; i > 0; i--) tree[i] = tree[2 * i] + tree[2 * i + 1];\n    return tree;\n}\n\nstatic void update(int[] tree, int n, int i, int value) {\n    int pos = i + n;\n    tree[pos] = value;\n    while (pos > 1) {\n        pos /= 2;\n        tree[pos] = tree[2 * pos] + tree[2 * pos + 1];\n    }\n}\n\nstatic int rangeSum(int[] tree, int n, int lo, int hi) {\n    int l = lo + n, r = hi + n + 1, sum = 0;\n    while (l < r) {\n        if ((l & 1) == 1) sum += tree[l++];\n        if ((r & 1) == 1) sum += tree[--r];\n        l /= 2;\n        r /= 2;\n    }\n    return sum;\n}',
+      csharp:'static int[] BuildSegTree(int[] vals) {\n    int n = vals.Length;\n    var tree = new int[2 * n];\n    for (int i = 0; i < n; i++) tree[n + i] = vals[i];\n    for (int i = n - 1; i > 0; i--) tree[i] = tree[2 * i] + tree[2 * i + 1];\n    return tree;\n}\n\nstatic void Update(int[] tree, int n, int i, int value) {\n    int pos = i + n;\n    tree[pos] = value;\n    while (pos > 1) {\n        pos /= 2;\n        tree[pos] = tree[2 * pos] + tree[2 * pos + 1];\n    }\n}\n\nstatic int RangeSum(int[] tree, int n, int lo, int hi) {\n    int l = lo + n, r = hi + n + 1, sum = 0;\n    while (l < r) {\n        if ((l & 1) == 1) sum += tree[l++];\n        if ((r & 1) == 1) sum += tree[--r];\n        l /= 2;\n        r /= 2;\n    }\n    return sum;\n}'
+    }},
+  kmp:{title:'KMP String Matching',
+    examples:[{label:'Failure function + one-pass scan',demoType:'cells',frames:genKmpFrames},{label:'Naive restart re-reads characters',demoType:'cells',frames:genKmpFrames2}],
+    oneLiner:'Precompute how much of the pattern repeats itself, so a mismatch falls back the PATTERN pointer instead of rewinding the text.',
+    explanation:[
+      'Knuth-Morris-Pratt finds every occurrence of a pattern inside a text in O(n + m) time. It starts by building a failure function over the pattern: for every prefix length, how long is the longest proper prefix that is ALSO a suffix of that same prefix.',
+      'That table is exactly what a mismatch needs: instead of restarting the whole comparison from the next text position (and re-checking characters already confirmed to match), the pattern pointer falls back to the longest prefix the failure function proves is still valid — and the text pointer never moves backward.',
+      'The result is a guarantee a naive scan can\'t make: total work is bounded by O(n + m) no matter how repetitive or adversarial the pattern is, versus a naive worst case of O(n · m) when the text and pattern share long repeated substrings.'],
+    mistakes:['Resetting the pattern pointer to 0 on every mismatch instead of falling back via fail[] — that\'s just a naive scan wearing a failure-function costume.','Using "if" instead of "while" when falling back — a single fallback step isn\'t always enough; keep falling back until the characters match or the pointer hits 0.','Off-by-one building the failure table — fail[0] is always 0 (a single character has no proper prefix), and the loop starts comparing from index 1.'],
+    complexity:[{label:'Time',val:'O(n + m)'},{label:'Naive worst case',val:'O(n · m)'}],
+    pseudocode:'build fail[] for pattern (longest prefix that is also a suffix, per position)\ni = 0; j = 0\nwhile i < text.length:\n  if text[i] === pattern[j]: i++; j++\n  else if j > 0: j = fail[j-1]\n  else: i++\n  if j === pattern.length: report match at i - j; j = fail[j-1]',
+    code:{
+      js:'function buildFailureFunction(pattern) {\n  const fail = new Array(pattern.length).fill(0);\n  let k = 0;\n  for (let j = 1; j < pattern.length; j++) {\n    while (k > 0 && pattern[j] !== pattern[k]) k = fail[k - 1];\n    if (pattern[j] === pattern[k]) k++;\n    fail[j] = k;\n  }\n  return fail;\n}\n\nfunction kmpSearch(text, pattern) {\n  const fail = buildFailureFunction(pattern);\n  const matches = [];\n  let j = 0;\n  for (let i = 0; i < text.length; i++) {\n    while (j > 0 && text[i] !== pattern[j]) j = fail[j - 1];\n    if (text[i] === pattern[j]) j++;\n    if (j === pattern.length) {\n      matches.push(i - j + 1);\n      j = fail[j - 1];\n    }\n  }\n  return matches;\n}',
+      ts:'function buildFailureFunction(pattern: string): number[] {\n  const fail: number[] = new Array(pattern.length).fill(0);\n  let k = 0;\n  for (let j = 1; j < pattern.length; j++) {\n    while (k > 0 && pattern[j] !== pattern[k]) k = fail[k - 1];\n    if (pattern[j] === pattern[k]) k++;\n    fail[j] = k;\n  }\n  return fail;\n}\n\nfunction kmpSearch(text: string, pattern: string): number[] {\n  const fail = buildFailureFunction(pattern);\n  const matches: number[] = [];\n  let j = 0;\n  for (let i = 0; i < text.length; i++) {\n    while (j > 0 && text[i] !== pattern[j]) j = fail[j - 1];\n    if (text[i] === pattern[j]) j++;\n    if (j === pattern.length) {\n      matches.push(i - j + 1);\n      j = fail[j - 1];\n    }\n  }\n  return matches;\n}',
+      python:'def build_failure_function(pattern):\n    fail = [0] * len(pattern)\n    k = 0\n    for j in range(1, len(pattern)):\n        while k > 0 and pattern[j] != pattern[k]:\n            k = fail[k - 1]\n        if pattern[j] == pattern[k]:\n            k += 1\n        fail[j] = k\n    return fail\n\n\ndef kmp_search(text, pattern):\n    fail = build_failure_function(pattern)\n    matches = []\n    j = 0\n    for i in range(len(text)):\n        while j > 0 and text[i] != pattern[j]:\n            j = fail[j - 1]\n        if text[i] == pattern[j]:\n            j += 1\n        if j == len(pattern):\n            matches.append(i - j + 1)\n            j = fail[j - 1]\n    return matches',
+      java:'static int[] buildFailureFunction(String pattern) {\n    int[] fail = new int[pattern.length()];\n    int k = 0;\n    for (int j = 1; j < pattern.length(); j++) {\n        while (k > 0 && pattern.charAt(j) != pattern.charAt(k)) k = fail[k - 1];\n        if (pattern.charAt(j) == pattern.charAt(k)) k++;\n        fail[j] = k;\n    }\n    return fail;\n}\n\nstatic List<Integer> kmpSearch(String text, String pattern) {\n    int[] fail = buildFailureFunction(pattern);\n    List<Integer> matches = new ArrayList<>();\n    int j = 0;\n    for (int i = 0; i < text.length(); i++) {\n        while (j > 0 && text.charAt(i) != pattern.charAt(j)) j = fail[j - 1];\n        if (text.charAt(i) == pattern.charAt(j)) j++;\n        if (j == pattern.length()) {\n            matches.add(i - j + 1);\n            j = fail[j - 1];\n        }\n    }\n    return matches;\n}',
+      csharp:'static int[] BuildFailureFunction(string pattern) {\n    var fail = new int[pattern.Length];\n    int k = 0;\n    for (int j = 1; j < pattern.Length; j++) {\n        while (k > 0 && pattern[j] != pattern[k]) k = fail[k - 1];\n        if (pattern[j] == pattern[k]) k++;\n        fail[j] = k;\n    }\n    return fail;\n}\n\nstatic List<int> KmpSearch(string text, string pattern) {\n    var fail = BuildFailureFunction(pattern);\n    var matches = new List<int>();\n    int j = 0;\n    for (int i = 0; i < text.Length; i++) {\n        while (j > 0 && text[i] != pattern[j]) j = fail[j - 1];\n        if (text[i] == pattern[j]) j++;\n        if (j == pattern.Length) {\n            matches.Add(i - j + 1);\n            j = fail[j - 1];\n        }\n    }\n    return matches;\n}'
+    }},
+  coloring:{title:'Graph Coloring',
+    examples:[{label:'Greedy smallest-available color',demoType:'cells',frames:genColoringFrames},{label:'Position-based cycling ignores the graph',demoType:'cells',frames:genColoringFrames2}],
+    oneLiner:'Visit nodes in order and give each the smallest color none of its already-colored neighbors are using — never more than (max degree + 1) colors.',
+    explanation:[
+      'Graph coloring assigns each node a label such that no two nodes connected by an edge share one. Finding the true minimum number of colors (the chromatic number) is NP-hard in general, but a simple greedy rule is fast and easy to reason about: visit nodes in some order, and for each one, use the smallest color not already used by an already-colored neighbor.',
+      'That greedy rule comes with a guarantee: it never needs more than (maximum node degree + 1) colors, because a node with degree d has at most d colors to avoid, so at least one of the first d+1 colors is always free.',
+      'The result depends on visiting order and isn\'t always the true minimum, but for many practical graphs — especially sparse ones, like a set of stations where each only interferes with a few others — it finds a valid coloring instantly, with no backtracking required.'],
+    mistakes:['Assigning colors without checking neighbors at all (e.g. cycling through colors by position) — the graph structure is the entire problem; ignoring it produces conflicts.','Checking only SOME of a node\'s neighbors, or checking neighbors\' colors before they\'ve been assigned — a node not yet colored can\'t rule anything out.','Assuming greedy-by-index finds the true minimum chromatic number — it only guarantees at most (max degree + 1) colors, which can be more than strictly necessary.'],
+    complexity:[{label:'Greedy time',val:'O(V + E)'},{label:'True minimum (any order)',val:'NP-hard'}],
+    pseudocode:'for each node in order:\n  used = colors of already-colored neighbors\n  color[node] = smallest non-negative integer not in used',
+    code:{
+      js:'function greedyColor(adjacency) {\n  const n = adjacency.length;\n  const color = new Array(n).fill(-1);\n  for (let i = 0; i < n; i++) {\n    const used = new Set();\n    for (const nb of adjacency[i]) {\n      if (color[nb] !== -1) used.add(color[nb]);\n    }\n    let c = 0;\n    while (used.has(c)) c++;\n    color[i] = c;\n  }\n  return color;\n}',
+      ts:'function greedyColor(adjacency: number[][]): number[] {\n  const n = adjacency.length;\n  const color: number[] = new Array(n).fill(-1);\n  for (let i = 0; i < n; i++) {\n    const used = new Set<number>();\n    for (const nb of adjacency[i]) {\n      if (color[nb] !== -1) used.add(color[nb]);\n    }\n    let c = 0;\n    while (used.has(c)) c++;\n    color[i] = c;\n  }\n  return color;\n}',
+      python:'def greedy_color(adjacency):\n    n = len(adjacency)\n    color = [-1] * n\n    for i in range(n):\n        used = {color[nb] for nb in adjacency[i] if color[nb] != -1}\n        c = 0\n        while c in used:\n            c += 1\n        color[i] = c\n    return color',
+      java:'static int[] greedyColor(List<List<Integer>> adjacency) {\n    int n = adjacency.size();\n    int[] color = new int[n];\n    Arrays.fill(color, -1);\n    for (int i = 0; i < n; i++) {\n        Set<Integer> used = new HashSet<>();\n        for (int nb : adjacency.get(i)) {\n            if (color[nb] != -1) used.add(color[nb]);\n        }\n        int c = 0;\n        while (used.contains(c)) c++;\n        color[i] = c;\n    }\n    return color;\n}',
+      csharp:'static int[] GreedyColor(List<List<int>> adjacency) {\n    int n = adjacency.Count;\n    var color = new int[n];\n    Array.Fill(color, -1);\n    for (int i = 0; i < n; i++) {\n        var used = new HashSet<int>();\n        foreach (var nb in adjacency[i]) {\n            if (color[nb] != -1) used.Add(color[nb]);\n        }\n        int c = 0;\n        while (used.Contains(c)) c++;\n        color[i] = c;\n    }\n    return color;\n}'
+    }},
+  windowmax:{title:'Sliding Window Maximum',
+    examples:[{label:'Monotonic deque, one pass',demoType:'cells',frames:genWindowMaxFrames},{label:'Forgetting to expire the front',demoType:'cells',frames:genWindowMaxFrames2}],
+    oneLiner:'A monotonic stack that can also lose entries from the front: push knocks out weaker trailing values, and the window\'s left edge expires the front.',
+    explanation:[
+      'A monotonic deque generalizes the monotonic stack (chapter 27) to a window that closes on both ends. As the window slides forward, a new value pops any smaller values off the back of the deque — they can never be the max again while the new value survives inside the window.',
+      'The other end matters too: once the index at the FRONT of the deque falls outside the current window, it must be dropped, regardless of its value — being the biggest value doesn\'t help once it has aged out.',
+      'Because every index is pushed exactly once and removed from the deque at most once (from either end), the total work across the whole scan is O(n) — dramatically cheaper than recomputing the max of every individual window from scratch, which costs O(n · k).'],
+    mistakes:['Only handling the "pop smaller values from the back" half and forgetting to expire the front — old, stale winners keep reporting long after they\'ve left the window.','Popping on <= vs < inconsistently — using <= when pushing (so equal values are treated as no longer useful) is correct here, since an equal LATER value will outlast an earlier one anyway.','Re-reading a value from the source after caching it on the deque, when the budget only allows one look per index.'],
+    complexity:[{label:'Time',val:'O(n)'},{label:'Naive per-window rescan',val:'O(n · k)'}],
+    pseudocode:'deque = []  // indices, decreasing values\nfor i in 0..n-1:\n  while deque not empty and value[back] <= value[i]: deque.popBack()\n  deque.pushBack(i)\n  if deque.front <= i - k: deque.popFront()\n  if i >= k-1: report value[deque.front] as this window\'s max',
+    code:{
+      js:'function slidingWindowMax(values, k) {\n  const deque = []; // indices, decreasing values\n  const maxes = [];\n  for (let i = 0; i < values.length; i++) {\n    while (deque.length && values[deque[deque.length - 1]] <= values[i]) deque.pop();\n    deque.push(i);\n    if (deque[0] <= i - k) deque.shift();\n    if (i >= k - 1) maxes.push(values[deque[0]]);\n  }\n  return maxes;\n}',
+      ts:'function slidingWindowMax(values: number[], k: number): number[] {\n  const deque: number[] = []; // indices, decreasing values\n  const maxes: number[] = [];\n  for (let i = 0; i < values.length; i++) {\n    while (deque.length && values[deque[deque.length - 1]] <= values[i]) deque.pop();\n    deque.push(i);\n    if (deque[0] <= i - k) deque.shift();\n    if (i >= k - 1) maxes.push(values[deque[0]]);\n  }\n  return maxes;\n}',
+      python:'from collections import deque as Deque\n\n\ndef sliding_window_max(values, k):\n    dq = Deque()  # indices, decreasing values\n    maxes = []\n    for i, v in enumerate(values):\n        while dq and values[dq[-1]] <= v:\n            dq.pop()\n        dq.append(i)\n        if dq[0] <= i - k:\n            dq.popleft()\n        if i >= k - 1:\n            maxes.append(values[dq[0]])\n    return maxes',
+      java:'static List<Integer> slidingWindowMax(int[] values, int k) {\n    Deque<Integer> deque = new ArrayDeque<>(); // indices, decreasing values\n    List<Integer> maxes = new ArrayList<>();\n    for (int i = 0; i < values.length; i++) {\n        while (!deque.isEmpty() && values[deque.peekLast()] <= values[i]) deque.pollLast();\n        deque.addLast(i);\n        if (deque.peekFirst() <= i - k) deque.pollFirst();\n        if (i >= k - 1) maxes.add(values[deque.peekFirst()]);\n    }\n    return maxes;\n}',
+      csharp:'static List<int> SlidingWindowMax(int[] values, int k) {\n    var deque = new LinkedList<int>(); // indices, decreasing values\n    var maxes = new List<int>();\n    for (int i = 0; i < values.Length; i++) {\n        while (deque.Count > 0 && values[deque.Last.Value] <= values[i]) deque.RemoveLast();\n        deque.AddLast(i);\n        if (deque.First.Value <= i - k) deque.RemoveFirst();\n        if (i >= k - 1) maxes.Add(values[deque.First.Value]);\n    }\n    return maxes;\n}'
+    }},
+  lru:{title:'LRU Cache',
+    examples:[{label:'Eviction + recency on touch',demoType:'cells',frames:genLruFrames},{label:'Forgetting GET counts as a touch',demoType:'cells',frames:genLruFrames2}],
+    oneLiner:'A hash map for O(1) lookup, paired with a recency order that both GET and PUT bump — eviction always takes whoever\'s gone longest untouched.',
+    explanation:[
+      'An LRU (Least Recently Used) cache needs two things to be O(1): finding a key instantly, and knowing — and updating — which entry has gone the longest without being touched. The textbook structure pairs a hash map (key to node) with a doubly linked list in recency order, so both operations are O(1) pointer moves.',
+      'The subtle rule that\'s easy to miss: a GET counts as a touch, exactly like a PUT. Reading a value doesn\'t just return it — it also proves that value is still wanted, so it has to move to the most-recently-used end just like a fresh write would.',
+      'Many languages\' native ordered map/dictionary types (JavaScript\'s Map, Python\'s OrderedDict, Java\'s LinkedHashMap in access-order mode) already preserve insertion order and let you move a key to the end in O(1) — which means an LRU cache can often be built by using that guarantee directly, instead of hand-rolling node pointers.'],
+    mistakes:['Only bumping recency on PUT, not on GET — the most common bug, and it evicts recently-read entries that are actually still "hot."','Evicting on every PUT instead of only when a genuinely NEW key would push the cache over capacity — updating an existing key\'s value shouldn\'t trigger an eviction.','Off-by-one at exactly full capacity — a cache at capacity should evict when inserting a NEW key, not when updating an existing one that\'s already counted.'],
+    complexity:[{label:'Get / Put',val:'O(1)'},{label:'Space',val:'O(capacity)'}],
+    pseudocode:'cache = ordered map (insertion order = recency)\non touch(key): if present, delete then re-set it (moves it to most-recent)\non put(key, value): touch-or-insert; if now over capacity, delete the FIRST (least-recent) entry',
+    code:{
+      js:'class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    this.cache = new Map(); // insertion order = recency order\n  }\n\n  get(key) {\n    if (!this.cache.has(key)) return -1;\n    const value = this.cache.get(key);\n    this.cache.delete(key);\n    this.cache.set(key, value); // move to most-recently-used\n    return value;\n  }\n\n  put(key, value) {\n    if (this.cache.has(key)) this.cache.delete(key);\n    else if (this.cache.size >= this.capacity) this.cache.delete(this.cache.keys().next().value);\n    this.cache.set(key, value);\n  }\n}',
+      ts:'class LRUCache {\n  private capacity: number;\n  private cache: Map<number, number>;\n\n  constructor(capacity: number) {\n    this.capacity = capacity;\n    this.cache = new Map();\n  }\n\n  get(key: number): number {\n    if (!this.cache.has(key)) return -1;\n    const value = this.cache.get(key) as number;\n    this.cache.delete(key);\n    this.cache.set(key, value);\n    return value;\n  }\n\n  put(key: number, value: number): void {\n    if (this.cache.has(key)) this.cache.delete(key);\n    else if (this.cache.size >= this.capacity) this.cache.delete(this.cache.keys().next().value as number);\n    this.cache.set(key, value);\n  }\n}',
+      python:'from collections import OrderedDict\n\n\nclass LRUCache:\n    def __init__(self, capacity):\n        self.capacity = capacity\n        self.cache = OrderedDict()  # insertion order = recency order\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        elif len(self.cache) >= self.capacity:\n            self.cache.popitem(last=False)\n        self.cache[key] = value',
+      java:'class LRUCache {\n    private final int capacity;\n    private final LinkedHashMap<Integer, Integer> cache;\n\n    LRUCache(int capacity) {\n        this.capacity = capacity;\n        this.cache = new LinkedHashMap<>(16, 0.75f, true);\n    }\n\n    int get(int key) {\n        return cache.getOrDefault(key, -1);\n    }\n\n    void put(int key, int value) {\n        if (cache.size() >= capacity && !cache.containsKey(key)) {\n            int oldest = cache.keySet().iterator().next();\n            cache.remove(oldest);\n        }\n        cache.put(key, value);\n    }\n}',
+      csharp:'class LRUCache {\n    private readonly int capacity;\n    private readonly Dictionary<int, LinkedListNode<(int key, int value)>> map = new();\n    private readonly LinkedList<(int key, int value)> order = new();\n\n    public LRUCache(int capacity) {\n        this.capacity = capacity;\n    }\n\n    public int Get(int key) {\n        if (!map.TryGetValue(key, out var node)) return -1;\n        order.Remove(node);\n        order.AddFirst(node);\n        return node.Value.value;\n    }\n\n    public void Put(int key, int value) {\n        if (map.TryGetValue(key, out var node)) {\n            order.Remove(node);\n        } else if (map.Count >= capacity) {\n            var lru = order.Last;\n            map.Remove(lru.Value.key);\n            order.RemoveLast();\n        }\n        var newNode = new LinkedListNode<(int, int)>((key, value));\n        order.AddFirst(newNode);\n        map[key] = newNode;\n    }\n}'
+    }},
 };
 
 /* ---------- viz player: generic playback + two renderers ---------- */
@@ -5836,6 +6647,7 @@ function showCard(level){
     if(cur===14){btn='End of Season 3 ▸';next=showS3End;}
     if(cur===17){btn='End of Season 4 ▸';next=showS4End;}
     if(cur===22){btn='End of Season 5 ▸';next=showS5End;}
+    if(cur===27){btn='End of Season 6 ▸';next=showS6End;}
     if(cur===LEVELS.length-1){btn='Roll credits';next=showFinale;}
   }
   openModal('Concept unlocked · '+level.concept,level.card.title,level.card.body,btn,next);
@@ -5942,7 +6754,7 @@ function showS6Intro(){
     <p>Nothing here is new machinery. It's the machinery you already used, seen with the panels off.</p>`,
     'Open the panels ▸',null);
 }
-function showFinale(){
+function showS6End(){
   openModal('Transmission · to whom it may concern','YOU ARE LOOKING AT THE FLOOR NOW.',`
     <p>The Substrate's last chamber doesn't dim so much as go quiet — there is nothing underneath IT. HALCYON confirms it three times before saying so: twenty-eight chapters, and the visitors\' own systems bottom out in exactly the primitives you just used to read them.</p>
     <ul>
@@ -5953,8 +6765,38 @@ function showFinale(){
       <li><b>Season 5 · the deep archive</b> — binary search trees, heaps, greedy, two pointers, backtracking.</li>
       <li><b>Season 6 · the substrate</b> — tries, union-find, bit manipulation, monotonic stacks, Kruskal's algorithm.</li>
     </ul>
-    <p>That's the entire technical-interview canon and then some, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, twenty-eight times.</p>
-    <div class="real"><div class="bt">Your real next chapter</div>(1) Re-implement binary search, BFS, the toll-road DP, and union-find from memory, in JavaScript or Python. (2) Take a set of "easy"/"medium"-tier interview problems — you will recognize nearly every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, in shapes that fold, and finally in the bits everything else was built from.</em></p>
+    <p>That's the entire technical-interview canon and then some, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, twenty-eight times. HALCYON's last diagnostic on the Substrate itself doesn't go quiet for long, though — the chamber's floor panel isn't blank. It's a MAP.</p>
+    <p>Dozens of other transmission sources, scattered across the sector, all running the same silence the Meridian broadcast during the storm. Other ships. Still out there, still cold, still waiting on an engineer who happens to already own everything needed to reach them — just not yet combined at the scale a whole fleet needs.</p>
+    <div class="real"><div class="bt">Season 7 · The Long Reach</div>Depth had a floor. Reach doesn't: range queries over many ships at once, a repeating signal found inside a wall of noise without ever re-reading a byte, interference-free frequencies across a whole relay mesh, a live feed watched without looking twice, and a shared memory budget across every station in contact. Nothing new underneath — just what the primitives look like, combined, at scale.</div>`,
+    'Begin Season 7: The Long Reach ▸',()=>loadLevel(28));
+}
+function showS7Intro(){
+  openModal('Season 7 · The Long Reach','Depth had a floor. Reach doesn\'t.',`
+    <p>The map resolves to coordinates, one by one, and HALCYON plots a course to the first: a sister freighter, silent since the storm, its systems intact but its resources — and its patience for a partial fix — stretched thin across many more moving parts than the Meridian ever had alone.</p>
+    <ul>
+      <li><b>Segment trees</b> — a range question about many stations at once, answered without rescanning them.</li>
+      <li><b>KMP string matching</b> — a repeating signal found inside far more noise, without a single re-read.</li>
+      <li><b>Graph coloring</b> — interference-free frequencies assigned across a whole relay mesh.</li>
+      <li><b>Sliding window maximum</b> — the Watch List's trick, generalized to a window that closes on both ends.</li>
+      <li><b>LRU cache</b> — chapters 10 and 11, combined, under a hard memory limit.</li>
+    </ul>
+    <p>Nothing here is a new primitive. It's what the primitives look like, put to work together.</p>`,
+    'Widen the search ▸',null);
+}
+function showFinale(){
+  openModal('Transmission · to whom it may concern','THE WHOLE SECTOR IS LISTENING NOW.',`
+    <p>The last sister ship answers on the first try — not because the fix was small, but because by now it never is. Thirty-three chapters, a maintenance robot, and a career-switcher who has, without ever meaning to, assembled the entire practical toolkit of a working software engineer:</p>
+    <ul>
+      <li><b>Season 1 · algorithms</b> — sequences, loops, conditionals, search, sorting, pathfinding.</li>
+      <li><b>Season 2 · data structures</b> — stacks, queues, linked lists, hash maps, priority queues.</li>
+      <li><b>Season 3 · graphs</b> — BFS, Dijkstra, topological sort.</li>
+      <li><b>Season 4 · techniques</b> — recursion &amp; divide-and-conquer, dynamic programming, parsing.</li>
+      <li><b>Season 5 · the deep archive</b> — binary search trees, heaps, greedy, two pointers, backtracking.</li>
+      <li><b>Season 6 · the substrate</b> — tries, union-find, bit manipulation, monotonic stacks, Kruskal's algorithm.</li>
+      <li><b>Season 7 · the long reach</b> — segment trees, KMP string matching, graph coloring, sliding window maximum, LRU caches.</li>
+    </ul>
+    <p>That's the entire technical-interview canon and then some, and you didn't read about any of it. You <em>shipped</em> it, against randomized trials, thirty-three times.</p>
+    <div class="real"><div class="bt">Your real next chapter</div>(1) Re-implement binary search, BFS, the toll-road DP, union-find, and an LRU cache from memory, in JavaScript or Python. (2) Take a set of "easy"/"medium"-tier interview problems — you will recognize nearly every single one. (3) Build one small real thing end to end and put it somewhere public. HALCYON's last words: <em>you were never learning to program a robot. The robot was how you learned to think — in steps, in structures, in graphs, in shapes that fold, in the bits everything else was built from, and finally in how those pieces combine at a scale no single ship could reach alone.</em></p>
     <p>Replay any chapter from the bar above. The universe reshuffles; your programs won't mind.</p>`,
     'End transmission',null);
 }
@@ -6243,10 +7085,10 @@ function loadSideMission(sm){
 function renderChips(){
   const nav=$('#chips');nav.innerHTML='';
   LEVELS.forEach((lv,i)=>{
-    if(i===7||i===12||i===15||i===18||i===23){
+    if(i===7||i===12||i===15||i===18||i===23||i===28){
       const s=document.createElement('span');s.className='sdiv';
-      s.textContent={7:'S2',12:'S3',15:'S4',18:'S5',23:'S6'}[i];
-      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact',18:'Season 5: The Deep Archive',23:'Season 6: The Substrate'}[i];
+      s.textContent={7:'S2',12:'S3',15:'S4',18:'S5',23:'S6',28:'S7'}[i];
+      s.title={7:'Season 2: Cold Storage',12:'Season 3: The Relay Network',15:'Season 4: First Contact',18:'Season 5: The Deep Archive',23:'Season 6: The Substrate',28:'Season 7: The Long Reach'}[i];
       nav.appendChild(s);
     }
     const b=document.createElement('button');
@@ -6265,8 +7107,8 @@ function loadLevel(i){
   cur=i;
   sideActive=null;primerActive=null;
   const lv=LEVELS[i];
-  const season=i<7?1:i<12?2:i<15?3:i<18?4:i<23?5:6;
-  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT','THE DEEP ARCHIVE','THE SUBSTRATE'][season-1];
+  const season=i<7?1:i<12?2:i<15?3:i<18?4:i<23?5:i<28?6:7;
+  document.querySelector('.brand .sub').textContent=['SIGNAL LOST','COLD STORAGE','THE RELAY NETWORK','FIRST CONTACT','THE DEEP ARCHIVE','THE SUBSTRATE','THE LONG REACH'][season-1];
   $('#lv-kicker').textContent=`Season ${season} · Chapter ${i+1} of ${LEVELS.length}`;
   $('#lv-title').textContent=lv.title;
   $('#lv-concept').textContent=lv.concept;
@@ -6318,6 +7160,10 @@ function loadLevel(i){
     localStorage.setItem('cs_seen_s6','1');
     showS6Intro();
   }
+  if(i===28&&!localStorage.getItem('cs_seen_s7')&&!CS.instant){
+    localStorage.setItem('cs_seen_s7','1');
+    showS7Intro();
+  }
 }
 
 function showShipLog(){
@@ -6328,6 +7174,7 @@ function showShipLog(){
     {name:'Season 4 · First Contact — techniques',from:15,to:17},
     {name:'Season 5 · The Deep Archive — trees, heaps, techniques',from:18,to:22},
     {name:'Season 6 · The Substrate — tries, union-find, bit tricks',from:23,to:27},
+    {name:'Season 7 · The Long Reach — segment trees, KMP, coloring, sliding window, LRU',from:28,to:32},
   ];
   let html='<p>Every concept this ship has taught you, and where you are. This list doubles as a syllabus — screenshot it.</p>';
   for(const s of seasons){
@@ -6341,7 +7188,7 @@ function showShipLog(){
   }
   const doneCount=Math.min(unlocked,LEVELS.length);
   html+=`<div class="real"><div class="bt">Status</div>${doneCount} of ${LEVELS.length} chapters complete.`+
-    (doneCount===LEVELS.length?' Curriculum clear — your real Season 5 runs outside this game.':' The layouts reshuffle on every run; your programs won\'t mind.')+'</div>';
+    (doneCount===LEVELS.length?' Curriculum clear — your real next chapter runs outside this game.':' The layouts reshuffle on every run; your programs won\'t mind.')+'</div>';
   openModal('Ship log · Meridian','What you\'ve learned so far',html,'Close',null);
 }
 

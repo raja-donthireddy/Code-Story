@@ -3,7 +3,7 @@
 A story-driven browser game that teaches **algorithms, data structures, and
 core CS techniques** by making you program a robot to save a crippled
 starship. Built for adult career-switchers: real JavaScript from chapter one,
-no drag-and-drop blocks. Six seasons, twenty-eight chapters.
+no drag-and-drop blocks. Seven seasons, thirty-three chapters.
 
 **Play it:** [raja-donthireddy.github.io/Code-Story](https://raja-donthireddy.github.io/Code-Story/) —
 or just open `index.html` in any browser. No build step, no dependencies,
@@ -82,6 +82,16 @@ lists fail and only general algorithms pass — the core lesson of the game.
 | 27 | The Watch List | Monotonic stack | 12 posts, next-strictly-greater; one read per post forces the O(n) stack over O(n²) |
 | 28 | The Minimum Spanning Relay | Kruskal's algorithm | 8 stations; sort by cost or lock in an expensive link too early |
 
+**Season 7 — The Long Reach** (the primitives, combined, at fleet scale):
+
+| Ch | Mission | Concept | The teeth |
+|----|--------------------------|--------------------------|-----------|
+| 29 | The Long Manifest | Segment trees | 8 stations, range sums + point updates; the manifest never re-prints, so re-summing from scratch is impossible |
+| 30 | The Signal Match | KMP string matching | Pattern hidden in an 18-character signal; one read per character forces a real failure-function fallback |
+| 31 | The Frequency Map | Graph coloring | 7 interfering stations, 4 bands; setColor() rejects a conflict immediately |
+| 32 | The Live Feed | Sliding window maximum | 12 ticks, 4-wide window; one read per tick forces a monotonic deque over rescanning every window |
+| 33 | The Memory Ration | LRU cache | Capacity-3 cache, 10 ops; forgetting that GET counts as a touch evicts the wrong record |
+
 **Side missions** — because one rep per concept is never enough. Completing a
 chapter unlocks an optional practice variant: lower-bound binary search
 (ch 5), bracket matching (ch 8), frequency counting (ch 11), flood fill
@@ -101,11 +111,12 @@ a plain-language explanation, separate from the story, plus complexity
 badges (O(log n), O(n²), …) and a link into the full **📚 LEARN** reference
 — reachable from that link, from the header anytime, or from the intro.
 
-The reference library has its own dedicated page per concept (28 total,
+The reference library has its own dedicated page per concept (33 total,
 covering every chapter — algorithms, data structures, graphs, techniques,
-Season 5's trees/heaps/greedy/two-pointers/backtracking, and Season 6's
-tries/union-find/bit-manipulation/monotonic-stacks/Kruskal's algorithm),
-each with:
+Season 5's trees/heaps/greedy/two-pointers/backtracking, Season 6's
+tries/union-find/bit-manipulation/monotonic-stacks/Kruskal's algorithm, and
+Season 7's segment trees/KMP/graph coloring/sliding window maximum/LRU
+caches), each with:
 
 - A plain-English explanation, independent of the story/robot framing.
 - Complexity badges and runnable pseudocode.
@@ -214,7 +225,7 @@ report the actual computed numbers rather than an assumed outcome.
 - The reference library's `VizPlayer` class is a tiny, reusable playback
   engine (goto/play/pause) over a plain `frames` array; two renderers
   (`renderCellsFrame` for array/row-style demos, `renderGridFrame` for
-  grid/pathfinding demos) cover all 28 concepts. Each concept's frames come
+  grid/pathfinding demos) cover all 33 concepts. Each concept's frames come
   from a small generator function (`genBinarySearchFrames()`, etc.) that
   runs the real algorithm on fixed sample data and pushes a frame at each
   step — the pathfinding/BFS generators reuse the actual chapter level
